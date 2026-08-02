@@ -1,4 +1,3 @@
-// probity.config.ts
 import { defineConfig, enforceTdd } from '@nizos/probity'
 
 export default defineConfig({
