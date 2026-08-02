@@ -9,6 +9,7 @@ export default defineConfig({
     'no-debugger': 'error',
     'func-style': ['error', 'expression'],
     'prefer-arrow-callback': 'error',
+    'typescript/consistent-type-definitions': ['error', 'type'],
   },
   ignorePatterns: ['node_modules/**', 'dist/**'],
 })
