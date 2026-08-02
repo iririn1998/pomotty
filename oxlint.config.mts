@@ -7,6 +7,8 @@ export default defineConfig({
   plugins: ['typescript'],
   rules: {
     'no-debugger': 'error',
+    'func-style': ['error', 'expression'],
+    'prefer-arrow-callback': 'error',
   },
   ignorePatterns: ['node_modules/**', 'dist/**'],
 })
