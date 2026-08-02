@@ -16,5 +16,8 @@
       "onFail": "download"
     }
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@nizos/probity": "^1.10.0"
+  }
 }
