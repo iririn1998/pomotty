@@ -2,22 +2,28 @@
   "name": "pomotty",
   "version": "1.0.0",
   "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "type": "module",
   "main": "index.js",
   "scripts": {
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt --write",
+    "format:check": "oxfmt --check",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "devDependencies": {
+    "@nizos/probity": "^1.10.0",
+    "oxfmt": "^0.61.0",
+    "oxlint": "^1.76.0"
+  },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
       "version": "^11.2.2",
       "onFail": "download"
     }
-  },
-  "type": "module",
-  "devDependencies": {
-    "@nizos/probity": "^1.10.0"
   }
 }

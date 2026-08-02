@@ -6,12 +6,12 @@
 
 ### 設計方針
 
-| 方針 | 理由 |
-|---|---|
-| ランタイム依存パッケージゼロ | `npx` の初回起動を最速にする。`postinstall` やネイティブバイナリのDLを回避 |
+| 方針                            | 理由                                                                       |
+| ------------------------------- | -------------------------------------------------------------------------- |
+| ランタイム依存パッケージゼロ    | `npx` の初回起動を最速にする。`postinstall` やネイティブバイナリのDLを回避 |
 | 実行コードを1ファイルにバンドル | 実行時のモジュール解決を単純化する。tsdownでビルドし、別途wav音源2個を同梱 |
-| フォアグラウンド動作 | デーモン・ソケット・PIDファイル・バージョン不一致の問題を全て回避 |
-| 絶対時刻ベースのタイマー | スリープ復帰・イベントループ遅延後も、現在フェーズの終了を正しく検知する |
+| フォアグラウンド動作            | デーモン・ソケット・PIDファイル・バージョン不一致の問題を全て回避          |
+| 絶対時刻ベースのタイマー        | スリープ復帰・イベントループ遅延後も、現在フェーズの終了を正しく検知する   |
 
 ### 動作環境
 
@@ -22,11 +22,11 @@ Node.js 18と20はリリース時点でEOLのため対象外とする。Node.js 
 
 ### 機能対応表
 
-| 機能 | macOS | Linux | Windows |
-|---|---|---|---|
-| タイマー・キー操作 | 対応 | 対応 | 対応 |
-| 通知音 | 対応 | 対応 | 対応 |
-| デスクトップ通知 | 対応 | 対応（`notify-send` が利用可能な場合） | **非対応（音のみ）** |
+| 機能               | macOS | Linux                                  | Windows              |
+| ------------------ | ----- | -------------------------------------- | -------------------- |
+| タイマー・キー操作 | 対応  | 対応                                   | 対応                 |
+| 通知音             | 対応  | 対応                                   | 対応                 |
+| デスクトップ通知   | 対応  | 対応（`notify-send` が利用可能な場合） | **非対応（音のみ）** |
 
 通知用コマンドが存在しない、権限がない、または実行に失敗した場合もタイマーは継続する。デスクトップ通知は補助機能であり、タイマー本体の動作保証には含めない。
 
@@ -42,20 +42,20 @@ npx pomotty [options]
 
 ### オプション
 
-| オプション | 既定値 | 説明 |
-|---|---|---|
-| `--work <min>` | `25` | 作業時間（分）。1〜1440の整数 |
-| `--break <min>` | `5` | 短い休憩時間（分）。1〜1440の整数 |
-| `--long-break <min>` | `15` | 長い休憩時間（分）。1〜1440の整数 |
-| `--cycles <n>` | `4` | 長い休憩に入るまでに自然終了させる作業セット数。1〜100の整数 |
-| `--task <name>` | なし | タスク名。画面と、対応OSではデスクトップ通知に表示 |
-| `--no-sound` | — | 音を無効化 |
-| `--no-notify` | — | デスクトップ通知を無効化（macOS / Linuxのみ。Windowsでは受理するが動作に影響しない） |
-| `--sound-work <path>` | 同梱音源 | 作業終了音の差し替え。読み取り可能なwavファイル |
-| `--sound-break <path>` | 同梱音源 | 休憩終了音の差し替え。読み取り可能なwavファイル |
-| `--volume <0-1>` | `0.6` | 0〜1の有限小数。音量（macOSの`afplay`とLinuxの`paplay`で有効。`aplay`とWindowsでは無視） |
-| `--help` / `-h` | — | ヘルプ表示 |
-| `--version` / `-v` | — | バージョン表示 |
+| オプション             | 既定値   | 説明                                                                                     |
+| ---------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `--work <min>`         | `25`     | 作業時間（分）。1〜1440の整数                                                            |
+| `--break <min>`        | `5`      | 短い休憩時間（分）。1〜1440の整数                                                        |
+| `--long-break <min>`   | `15`     | 長い休憩時間（分）。1〜1440の整数                                                        |
+| `--cycles <n>`         | `4`      | 長い休憩に入るまでに自然終了させる作業セット数。1〜100の整数                             |
+| `--task <name>`        | なし     | タスク名。画面と、対応OSではデスクトップ通知に表示                                       |
+| `--no-sound`           | —        | 音を無効化                                                                               |
+| `--no-notify`          | —        | デスクトップ通知を無効化（macOS / Linuxのみ。Windowsでは受理するが動作に影響しない）     |
+| `--sound-work <path>`  | 同梱音源 | 作業終了音の差し替え。読み取り可能なwavファイル                                          |
+| `--sound-break <path>` | 同梱音源 | 休憩終了音の差し替え。読み取り可能なwavファイル                                          |
+| `--volume <0-1>`       | `0.6`    | 0〜1の有限小数。音量（macOSの`afplay`とLinuxの`paplay`で有効。`aplay`とWindowsでは無視） |
+| `--help` / `-h`        | —        | ヘルプ表示                                                                               |
+| `--version` / `-v`     | —        | バージョン表示                                                                           |
 
 ### 使用例
 
@@ -128,13 +128,13 @@ help / versionの先行判定では、argv要素全体が`--help`または`-h`�
 
 値の受理可否は実装差を生まないよう、正規表現で厳密に定義する。`--task`を除く各オプションは、前後の空白を含めた文字列をそのまま照合し、暗黙のtrimは行わない。`--task`だけは「ユーザー入力の安全な取り扱い」の正規化規則に従い、正規化の一部として前後の空白を除去する。
 
-| 対象 | 受理する形式 | 追加の範囲条件 |
-|---|---|---|
-| `--work` / `--break` / `--long-break` | `/^[1-9][0-9]{0,3}$/` | 1〜1440 |
-| `--cycles` | `/^[1-9][0-9]{0,2}$/` | 1〜100 |
-| `--volume` | `/^(?:0\|1\|0\.[0-9]{1,6}\|1\.0{1,6})$/` | 0〜1（両端を含む） |
-| `--sound-work` / `--sound-break` | 空文字ではない任意の文字列 | 解決後のパスが、存在する読み取り可能な通常ファイルで、拡張子が`.wav`（大文字小文字を区別しない） |
-| `--task` | 任意の文字列 | 正規化規則に従って処理する。長さによる拒否は行わない |
+| 対象                                  | 受理する形式                             | 追加の範囲条件                                                                                   |
+| ------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `--work` / `--break` / `--long-break` | `/^[1-9][0-9]{0,3}$/`                    | 1〜1440                                                                                          |
+| `--cycles`                            | `/^[1-9][0-9]{0,2}$/`                    | 1〜100                                                                                           |
+| `--volume`                            | `/^(?:0\|1\|0\.[0-9]{1,6}\|1\.0{1,6})$/` | 0〜1（両端を含む）                                                                               |
+| `--sound-work` / `--sound-break`      | 空文字ではない任意の文字列               | 解決後のパスが、存在する読み取り可能な通常ファイルで、拡張子が`.wav`（大文字小文字を区別しない） |
+| `--task`                              | 任意の文字列                             | 正規化規則に従って処理する。長さによる拒否は行わない                                             |
 
 上記の正規表現により、先行`+`と`-`、先行ゼロ（`025`）、前後の空白、指数表記（`1e0`）、小数点のみの表記（`.5`、`1.`）、`NaN`、`Infinity`、`0x`表記、全角数字はすべて拒否される。時間系オプションの最小値は`1`なので、先頭桁を`[1-9]`に固定することで`0`と先行ゼロを正規表現の段階で除ける。数値オプションの小数は`--volume`以外では受理しない。`--volume`の小数点以下は6桁までとし、7桁以上は拒否する（音量に必要な精度をはるかに超えるため）。範囲条件は正規表現の照合後に整数値・実数値として判定する。
 
@@ -179,16 +179,16 @@ stderrの`error`リスナーは最初の診断書き込みより前に登録す�
   5. 切り捨て後の末尾に空白が残った場合は、もう一度前後の空白を除去する
 - 除去対象は次のとおりとする
 
-| 範囲 | 内容 | 理由 |
-|---|---|---|
-| U+0000–U+001F | C0制御文字（ESC、CR、LF、TABを含む） | エスケープシーケンス注入 |
-| U+007F–U+009F | DELとC1制御文字 | 同上 |
-| U+061C | ALM | 双方向表示の反転 |
-| U+200B | ZWSP | 不可視の幅ゼロ文字 |
-| U+200E / U+200F | LRM / RLM | 双方向表示の反転 |
-| U+2028–U+202E | LS、PS、双方向埋め込み・上書き | 改行と双方向表示の反転 |
-| U+2066–U+206F | 双方向分離子と非推奨の方向書式制御 | 双方向表示の反転 |
-| U+FEFF | ZWNBSP / BOM | 不可視の幅ゼロ文字 |
+| 範囲            | 内容                                 | 理由                     |
+| --------------- | ------------------------------------ | ------------------------ |
+| U+0000–U+001F   | C0制御文字（ESC、CR、LF、TABを含む） | エスケープシーケンス注入 |
+| U+007F–U+009F   | DELとC1制御文字                      | 同上                     |
+| U+061C          | ALM                                  | 双方向表示の反転         |
+| U+200B          | ZWSP                                 | 不可視の幅ゼロ文字       |
+| U+200E / U+200F | LRM / RLM                            | 双方向表示の反転         |
+| U+2028–U+202E   | LS、PS、双方向埋め込み・上書き       | 改行と双方向表示の反転   |
+| U+2066–U+206F   | 双方向分離子と非推奨の方向書式制御   | 双方向表示の反転         |
+| U+FEFF          | ZWNBSP / BOM                         | 不可視の幅ゼロ文字       |
 
 - 書記素分割にはUnicode 15.1.0へ固定したデータを使用し、OS、ロケール、実行時ICUバージョンによって結果を変えない。`Intl.Segmenter`を実行環境のデータのまま使用してはならない
 - NFC、NFD、NFKC、NFKDなどのUnicode正規化は行わず、well-formed化、除去対象文字の置換、trim、上限処理以外ではユーザーのコードポイント列を変更しない。U+FFFDは1コードポイント・1セルとして扱う
@@ -271,27 +271,27 @@ LONG_BREAK ──自然終了 / skip──> completedInBlock を 0 にして WOR
 
 ### 遷移時の挙動
 
-| イベント | カウンター | 音・通知 | 遷移後 |
-|---|---|---|---|
-| WORKの自然終了 | `completedPomodoros`と`completedInBlock`を+1 | 作業終了音。macOS / Linuxでは「お疲れさま。N分休憩」も通知 | `completedInBlock === cycles`ならLONG_BREAK、それ以外はBREAK |
-| WORKのskip | 変更なし | なし | BREAK |
-| BREAKの自然終了 | 変更なし | 休憩終了音。macOS / Linuxでは「休憩終了。作業に戻りましょう」も通知 | WORK |
-| BREAKのskip | 変更なし | なし | WORK |
-| LONG_BREAKの自然終了 | `completedInBlock`を0にする | 休憩終了音。macOS / Linuxでは「休憩終了。作業に戻りましょう」も通知 | WORK |
-| LONG_BREAKのskip | `completedInBlock`を0にする | なし | WORK |
+| イベント             | カウンター                                   | 音・通知                                                            | 遷移後                                                       |
+| -------------------- | -------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------ |
+| WORKの自然終了       | `completedPomodoros`と`completedInBlock`を+1 | 作業終了音。macOS / Linuxでは「お疲れさま。N分休憩」も通知          | `completedInBlock === cycles`ならLONG_BREAK、それ以外はBREAK |
+| WORKのskip           | 変更なし                                     | なし                                                                | BREAK                                                        |
+| BREAKの自然終了      | 変更なし                                     | 休憩終了音。macOS / Linuxでは「休憩終了。作業に戻りましょう」も通知 | WORK                                                         |
+| BREAKのskip          | 変更なし                                     | なし                                                                | WORK                                                         |
+| LONG_BREAKの自然終了 | `completedInBlock`を0にする                  | 休憩終了音。macOS / Linuxでは「休憩終了。作業に戻りましょう」も通知 | WORK                                                         |
+| LONG_BREAKのskip     | `completedInBlock`を0にする                  | なし                                                                | WORK                                                         |
 
 音と通知は自然終了時だけ発生させ、手動skipでは発生させない。Windowsでは自然終了時の通知手段を音だけとし、手動skipでは音も発生させない。遷移先フェーズは常に実行状態で、所定の時間を全量設定して開始する。
 
 ### 保持する状態
 
-| フィールド | 型 | 説明 |
-|---|---|---|
-| `phase` | `'work' \| 'break' \| 'long_break'` | 現在のフェーズ |
-| `paused` | `boolean` | 一時停止中か |
-| `endsAt` | `number \| null` | 実行中の終了予定時刻（Unix ms）。一時停止中は`null` |
-| `remainingMs` | `number \| null` | 一時停止時の残り時間。実行中は`null` |
-| `completedInBlock` | `number` | 現在ブロック内で自然終了した作業数 |
-| `completedPomodoros` | `number` | 起動以降に自然終了した作業セット総数 |
+| フィールド           | 型                                  | 説明                                                |
+| -------------------- | ----------------------------------- | --------------------------------------------------- |
+| `phase`              | `'work' \| 'break' \| 'long_break'` | 現在のフェーズ                                      |
+| `paused`             | `boolean`                           | 一時停止中か                                        |
+| `endsAt`             | `number \| null`                    | 実行中の終了予定時刻（Unix ms）。一時停止中は`null` |
+| `remainingMs`        | `number \| null`                    | 一時停止時の残り時間。実行中は`null`                |
+| `completedInBlock`   | `number`                            | 現在ブロック内で自然終了した作業数                  |
+| `completedPomodoros` | `number`                            | 起動以降に自然終了した作業セット総数                |
 
 引数検証、外部コマンド解決、表示モードの初期化に成功した後、初回表示の直前に`startNow = Date.now()`を1回取得する。初期状態は`phase = 'work'`、`paused = false`、`endsAt = startNow + workDurationMs`、`remainingMs = null`、`completedInBlock = 0`、`completedPomodoros = 0`とする。起動自体では音・通知を発生させず、初回フレームまたは起動ログを1回だけ出力する。
 
@@ -407,9 +407,7 @@ skipは自然終了とは別の`transitionFromSkip(now)`として処理する。
 
 ```ts
 const interactive =
-  process.stdin.isTTY === true &&
-  process.stdout.isTTY === true &&
-  process.env.TERM !== 'dumb'
+  process.stdin.isTTY === true && process.stdout.isTTY === true && process.env.TERM !== 'dumb'
 ```
 
 - `interactive === true`: インライン描画とraw modeによるキー操作を有効にする
@@ -426,10 +424,10 @@ const interactive =
 
 まず**表示秒**を`displaySeconds = Math.ceil(visibleRemainingMs / 1000)`で求め、形式の判定も整形も残りミリ秒ではなく`displaySeconds`に対して行う。判定と表示で異なる量を使うと、`3599.5`秒のときに「1時間未満」と判定されながら`60:00`と表示される矛盾が生じる。
 
-| `displaySeconds` | 形式 | 例 |
-|---|---|---|
-| 3599以下 | `M:SS`（分は0埋めしない、秒は必ず2桁） | `5:00`、`14:30`、`0:07`、`59:59` |
-| 3600以上 | `H:MM:SS`（時は0埋めしない、分秒は必ず2桁） | `1:00:00`、`24:00:00` |
+| `displaySeconds` | 形式                                        | 例                               |
+| ---------------- | ------------------------------------------- | -------------------------------- |
+| 3599以下         | `M:SS`（分は0埋めしない、秒は必ず2桁）      | `5:00`、`14:30`、`0:07`、`59:59` |
+| 3600以上         | `H:MM:SS`（時は0埋めしない、分秒は必ず2桁） | `1:00:00`、`24:00:00`            |
 
 - 残り1msでも`displaySeconds`は`1`となり`0:01`と表示する。`0:00`は`visibleRemainingMs === 0`のときだけ現れる
 - 形式は動的に決まる。90分の作業は`1:30:00`で始まり、`displaySeconds`が3599へ落ちた時点で`59:59`へ切り替わる
@@ -464,11 +462,11 @@ const interactive =
 
 端末幅に応じて次のレイアウトへ切り替える。
 
-| 利用可能列数 | レイアウト |
-|---|---|
-| 60以上 | 標準。ヘッダ、時刻、バー、キーガイド、タスク名 |
-| 30〜59 | コンパクト。`WORK 2/4`、時刻、パーセント、短縮キーガイド。バーとタスク名は省略 |
-| 29以下 | 最小。`WORK 14:30 2/4`の1行だけ。収まらない場合は右端を省略 |
+| 利用可能列数 | レイアウト                                                                     |
+| ------------ | ------------------------------------------------------------------------------ |
+| 60以上       | 標準。ヘッダ、時刻、バー、キーガイド、タスク名                                 |
+| 30〜59       | コンパクト。`WORK 2/4`、時刻、パーセント、短縮キーガイド。バーとタスク名は省略 |
+| 29以下       | 最小。`WORK 14:30 2/4`の1行だけ。収まらない場合は右端を省略                    |
 
 ANSI装飾を付ける前の論理フレームは、次のテンプレートで構築する。`${phaseStatus}`は通常時の`WORK` / `BREAK` / `LONG_BREAK`である。一時停止中は標準・コンパクトで`${phase} PAUSED`、最小で`PAUSED`とする。`${cycle}`はそのレイアウトの規則で整形したサイクル進捗、`${taskPart}`はタスクがある場合だけ`   ${task}`、`${pauseAction}`は実行中なら`pause`、一時停止中なら`resume`である。
 
@@ -583,12 +581,12 @@ ${phaseStatus} ${time} ${cycle}
 
 `keyDecoder`は内部で`data`リスナーを追加してstdinをflowingへ変える可能性があるため、これをraw modeより前に**接続**してはならず、その変化も`stdinResumedByApp`の判定へ含める。cleanupでは`keypress`ハンドラと復号器が追加した全リスナーを`keyDecoder.dispose()`で解除し、`stdinResumedByApp === true`の場合だけ`pause()`する。途中で初期化に失敗した場合も、既に変更した端末状態を復元して終了コード`1`とする。
 
-| キー | 動作 |
-|---|---|
-| `space` | 一時停止 / 再開 |
+| キー      | 動作                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------ |
+| `space`   | 一時停止 / 再開                                                                                  |
 | `s` / `S` | §4の期限精算後の現フェーズをskipして次へ。skip自体は作業完了数に加算せず、音・通知も発生させない |
-| `q` / `Q` | 終了 |
-| `Ctrl+C` | 終了 |
+| `q` / `Q` | 終了                                                                                             |
+| `Ctrl+C`  | 終了                                                                                             |
 
 操作判定には復号済みキーイベントの`name`、`ctrl`、`meta`、`shift`だけを使用する。raw文字列や`sequence`の末尾に`s`または`q`が含まれるかを検索してはならない。
 
@@ -630,11 +628,11 @@ keyDecoder.on('keypress', (_text, key) => {
 
 raw modeに起因する次の入力も明示的に規定する。
 
-| 入力 | raw modeでの挙動 | 本アプリの扱い |
-|---|---|---|
-| `Ctrl+D`（`\x04`） | EOFにならず生バイトとして届く | 未定義キーとして無視する。終了はしない |
+| 入力               | raw modeでの挙動                                      | 本アプリの扱い                               |
+| ------------------ | ----------------------------------------------------- | -------------------------------------------- |
+| `Ctrl+D`（`\x04`） | EOFにならず生バイトとして届く                         | 未定義キーとして無視する。終了はしない       |
 | `Ctrl+Z`（`\x1a`） | ISIGが無効なためSIGTSTPは発生せず、生バイトとして届く | 未定義キーとして無視する。サスペンドはしない |
-| `Ctrl+\`（`\x1c`） | 同様にSIGQUITは発生しない | 未定義キーとして無視する |
+| `Ctrl+\`（`\x1c`） | 同様にSIGQUITは発生しない                             | 未定義キーとして無視する                     |
 
 stdinの`end`イベントは`interactive === true`では通常発生しないが、発生した場合は期限精算をせず`requestShutdown('stdin-end', 0, true)`へ集約する。行単位ログモードではstdinへリスナーを登録しない。
 
@@ -691,20 +689,20 @@ shutdown開始時に、全再生・通知操作を先にキャンセルしてか
 
 POSIXの`kill()`は対象プロセスへsignalを送るだけで子孫プロセスまでは終了しない。Windowsの`child.kill()`も`taskkill /T`相当のプロセスツリー終了ではない。OSまたは対象プロセスが終了要求を受け付けない場合、2秒後も子プロセスがOS上に残る可能性を明示的に許容する。その場合でも、イベントループが応答する限り親プロセスは期限時に終了する。
 
-| 終了経路 | 終了コード | サマリ |
-|---|---:|---|
-| `q` | 0 | 出力する |
-| raw mode中のCtrl+C / `SIGINT` | 130 | 出力する |
-| `SIGTERM`（対応OSのみ） | 143 | 出力する |
-| `SIGHUP`（対応OSのみ） | 129 | stdoutが利用可能なら出力する |
-| `SIGQUIT`（POSIXのみ） | 131 | stdoutが利用可能なら出力する |
-| `SIGBREAK`（Windowsのみ） | 149 | stdoutが利用可能なら出力する |
-| stdinの`end` | 0 | 出力する |
-| stdoutの`EPIPE` | 0 | 出力しない |
-| その他のstdin / stdoutエラー | 1 | 出力しない |
-| `uncaughtException` / `unhandledRejection` | 1 | サマリは出力せず、端末復元後に診断をstderrへ出す |
-| 引数エラー | 2 | ターミナル初期化前なので出力しない |
-| `--help` / `--version` | 0 | 出力しない |
+| 終了経路                                   | 終了コード | サマリ                                           |
+| ------------------------------------------ | ---------: | ------------------------------------------------ |
+| `q`                                        |          0 | 出力する                                         |
+| raw mode中のCtrl+C / `SIGINT`              |        130 | 出力する                                         |
+| `SIGTERM`（対応OSのみ）                    |        143 | 出力する                                         |
+| `SIGHUP`（対応OSのみ）                     |        129 | stdoutが利用可能なら出力する                     |
+| `SIGQUIT`（POSIXのみ）                     |        131 | stdoutが利用可能なら出力する                     |
+| `SIGBREAK`（Windowsのみ）                  |        149 | stdoutが利用可能なら出力する                     |
+| stdinの`end`                               |          0 | 出力する                                         |
+| stdoutの`EPIPE`                            |          0 | 出力しない                                       |
+| その他のstdin / stdoutエラー               |          1 | 出力しない                                       |
+| `uncaughtException` / `unhandledRejection` |          1 | サマリは出力せず、端末復元後に診断をstderrへ出す |
+| 引数エラー                                 |          2 | ターミナル初期化前なので出力しない               |
+| `--help` / `--version`                     |          0 | 出力しない                                       |
 
 シグナルハンドラは、そのOSでNode.jsがイベント名をサポートする場合だけ登録し、未対応シグナルの登録で起動を失敗させない。POSIXでは`SIGINT`、`SIGTERM`、`SIGHUP`、`SIGQUIT`、Windowsでは`SIGINT`、`SIGHUP`、`SIGBREAK`を対象とする。raw mode中に押された`Ctrl+\`は§6のとおりキーイベントとして無視し、OSから配送された`SIGQUIT`だけを終了理由として扱う。Windowsのシグナル配送は端末ホストに依存するため、ハンドラ呼び出し自体は注入テストし、実機スモークでは配送された経路だけを確認する。
 
@@ -738,12 +736,12 @@ shutdown中に解除するのはUI、tick、キー復号器、resizeなど通常
 
 `completedPomodoros * workDurationMs`は常に分単位の整数になるため（`--work`は整数分のみ受理する）、秒は表示しない。書式は次のとおり。
 
-| 総分数 | 書式 | 例 |
-|---|---|---|
-| 0 | `0分` | `🍅 完了: 0 ポモドーロ / タイマー完了換算時間: 0分` |
-| 1〜59 | `M分` | `25分` |
-| 60以上かつ分が0 | `H時間` | `2時間` |
-| 60以上かつ分が0以外 | `H時間M分` | `1時間15分` |
+| 総分数              | 書式       | 例                                                  |
+| ------------------- | ---------- | --------------------------------------------------- |
+| 0                   | `0分`      | `🍅 完了: 0 ポモドーロ / タイマー完了換算時間: 0分` |
+| 1〜59               | `M分`      | `25分`                                              |
+| 60以上かつ分が0     | `H時間`    | `2時間`                                             |
+| 60以上かつ分が0以外 | `H時間M分` | `1時間15分`                                         |
 
 時の桁は上限を設けない（`--work 1440`で100ポモドーロ完了すれば`2400時間`となる）。1ポモドーロも完了していない場合もサマリは出力し、`0 ポモドーロ / タイマー完了換算時間: 0分`とする。
 
@@ -777,11 +775,11 @@ shutdown中に解除するのはUI、tick、キー復号器、resizeなど通常
 
 ランタイム依存パッケージを追加せず、前項で解決したOSコマンドを直接`spawn`する。再生は状態遷移を待たせないが、すべての子プロセスを`activeChildren`集合で追跡する。通常動作中は`detached`と`unref()`を使用せず、shutdown時の切り離しだけは§7に従う。
 
-| OS | コマンド | `--volume` |
-|---|---|---|
-| macOS | `/usr/bin/afplay -v <volume> <file>` | 対応。値をそのまま渡す |
-| Linux | `<paplayPath> --volume=<0-65536> <file>`（失敗時は`<aplayPath> <file>`） | `paplay`のみ対応 |
-| Windows | `<powershellPath> -NoProfile -NonInteractive -Command <固定スクリプト>`（音源パスは環境変数で渡す） | 非対応 |
+| OS      | コマンド                                                                                            | `--volume`             |
+| ------- | --------------------------------------------------------------------------------------------------- | ---------------------- |
+| macOS   | `/usr/bin/afplay -v <volume> <file>`                                                                | 対応。値をそのまま渡す |
+| Linux   | `<paplayPath> --volume=<0-65536> <file>`（失敗時は`<aplayPath> <file>`）                            | `paplay`のみ対応       |
+| Windows | `<powershellPath> -NoProfile -NonInteractive -Command <固定スクリプト>`（音源パスは環境変数で渡す） | 非対応                 |
 
 `paplay`の`--volume`はPulseAudioの線形ボリューム値で、`65536`が100%にあたる。`Math.round(volume * 65536)`を10進整数として渡す。`aplay`は再生時の音量指定手段を持たないため、`aplay`へフォールバックした場合は`--volume`を無視する。この非一貫性はヘルプとREADMEに明記する。
 
@@ -821,14 +819,14 @@ const result = await runPlayer(
 
 Windows の `System.Media.SoundPlayer` は**非圧縮 PCM の RIFF WAVE しか再生できない**。ADPCM、IEEE float、`WAVE_FORMAT_EXTENSIBLE` は例外になる。したがって同梱音源と、ユーザーが `--sound-work` / `--sound-break` で差し替える音源の双方に次の制約がある。
 
-| 項目 | 同梱音源の仕様 | ユーザー音源に必要な条件 |
-|---|---|---|
-| コンテナ | RIFF WAVE | RIFF WAVE |
-| コーデック | PCM（`audioFormat = 1`） | PCM（`audioFormat = 1`） |
-| ビット深度 | 16bit | 8bit または 16bit |
-| サンプリング周波数 | 44100Hz | 任意 |
-| チャンネル | モノラル | 任意 |
-| 長さ | 0.5〜1.5秒 | 任意（10秒のタイムアウトに収まること） |
+| 項目               | 同梱音源の仕様           | ユーザー音源に必要な条件               |
+| ------------------ | ------------------------ | -------------------------------------- |
+| コンテナ           | RIFF WAVE                | RIFF WAVE                              |
+| コーデック         | PCM（`audioFormat = 1`） | PCM（`audioFormat = 1`）               |
+| ビット深度         | 16bit                    | 8bit または 16bit                      |
+| サンプリング周波数 | 44100Hz                  | 任意                                   |
+| チャンネル         | モノラル                 | 任意                                   |
+| 長さ               | 0.5〜1.5秒               | 任意（10秒のタイムアウトに収まること） |
 
 `--sound-work` / `--sound-break` の検証は拡張子`.wav`の確認までとし、**中身のフォーマット検証は行わない**。非PCMのwavを指定した場合、macOSとLinuxでは再生できてもWindowsでは失敗しベルへフォールバックする。この制約はREADMEの`--sound-*`の説明に明記する。
 
@@ -857,10 +855,10 @@ Windows の `System.Media.SoundPlayer` は**非圧縮 PCM の RIFF WAVE しか�
 
 #### フォールバック
 
-| OS | 試行順序 |
-|---|---|
-| macOS | `afplay` → ターミナルベル |
-| Linux | `paplay` → `aplay` → ターミナルベル |
+| OS      | 試行順序                                  |
+| ------- | ----------------------------------------- |
+| macOS   | `afplay` → ターミナルベル                 |
+| Linux   | `paplay` → `aplay` → ターミナルベル       |
 | Windows | PowerShell `SoundPlayer` → ターミナルベル |
 
 コマンドが存在しない場合だけでなく、同期的な`spawn`例外、子プロセスの`error`、シグナル終了、非ゼロ終了コード、10秒のタイムアウトを失敗として扱う。`error`後に`close`も発生し得るため、各試行はonceガードで1回だけ成功・失敗を確定する。
@@ -871,8 +869,7 @@ Linuxでは`paplay`がどの理由で失敗しても`aplay`を1回試す。両�
 
 ```ts
 type SpawnTrackedResult =
-  | { result: 'success'; child: ChildProcess }
-  | { result: 'failure' | 'cancelled' }
+  { result: 'success'; child: ChildProcess } | { result: 'failure' | 'cancelled' }
 
 type StdioProfile = 'ignore' | 'stdin-pipe'
 type SpawnTrackedOptions = {
@@ -969,11 +966,11 @@ macOSとLinuxで同一の論理タイトル・本文を使用する。正規化�
 
 titleとbodyはそれぞれ独立したargv要素として渡し、AppleScriptコードまたはシェル文字列へ補間しない。
 
-| OS | コマンド |
-|---|---|
-| macOS | `/usr/bin/osascript - <title> <body>` にスクリプトをstdinから流し込む |
-| Linux | `<notifySendPath> -- <title> <body>`（それぞれ独立した引数として渡す） |
-| Windows | **非対応（音のみ）。通知コマンドは起動しない** |
+| OS      | コマンド                                                               |
+| ------- | ---------------------------------------------------------------------- |
+| macOS   | `/usr/bin/osascript - <title> <body>` にスクリプトをstdinから流し込む  |
+| Linux   | `<notifySendPath> -- <title> <body>`（それぞれ独立した引数として渡す） |
+| Windows | **非対応（音のみ）。通知コマンドは起動しない**                         |
 
 通知も音と同様、失敗してもタイマーを継続する。通知子プロセスも`activeChildren`で追跡し、5秒で終了しなければ`kill()`して失敗として確定する。その後1秒以内に`close`しなければ`kill('SIGKILL')`を1回試す。強制終了要求後も`close`しない子は追跡を打ち切らず、shutdown時に§7の対象とする。補助timerはshutdownで解除する。通知には代替コマンドやターミナルベルのフォールバックを設けない。
 
@@ -997,12 +994,9 @@ end run
 という2点の不確実性がある。`-` を使えばスクリプト本文とユーザー由来引数が入力チャネルごと分離され、`--` に依存せずに `argv` の先頭がタイトルになる。
 
 ```ts
-const spawned = spawnTracked(
-  operation,
-  osascriptPath,
-  ['-', title, body],
-  { stdioProfile: 'stdin-pipe' },
-)
+const spawned = spawnTracked(operation, osascriptPath, ['-', title, body], {
+  stdioProfile: 'stdin-pipe',
+})
 
 if (spawned.result !== 'success') {
   finish(spawned.result)
@@ -1198,12 +1192,8 @@ TypeScriptはNode.js ESMとNode.jsの型削除実行の両方で同じimportを�
 ```ts
 import { fileURLToPath } from 'node:url'
 
-const workSound = fileURLToPath(
-  new URL('../assets/work-end.wav', import.meta.url),
-)
-const breakSound = fileURLToPath(
-  new URL('../assets/break-end.wav', import.meta.url),
-)
+const workSound = fileURLToPath(new URL('../assets/work-end.wav', import.meta.url))
+const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.url))
 ```
 
 ### npm公開物の受け入れ条件
@@ -1314,41 +1304,41 @@ const breakSound = fileURLToPath(
 
 単体テストでは待ち時間を実際に消費しない。壁時計、単調時計、timer、子プロセス生成、`process.exit`、TTY属性、端末幅、stdin / stdout / stderrを注入可能にし、擬似時計とフェイクで決定的に検証する。実時間を使うのは§9のtarballスモークに設けた短い起動確認だけとする。
 
-| 分類 | 必須の検証 |
-|---|---|
-| 引数パーサ | 既定値、境界値、`--key=value`、ハイフン開始値は`=`形式だけで受理、`--task=-h`と`--task -h`の区別、単独`--`の拒否、重複、未知、値不足、位置引数、help / versionの完全トークン優先順位、音源パス検証、厳密なhelp・version文字列 |
-| 引数の受理形式 | `+25` / `025` / `" 25"` / `1e0` / `.5` / `1.` / `0x19` / 全角数字の拒否、`--volume`の`0` / `1` / `0.6` / `1.0`の受理と`1.1`の拒否、絶対パスの`path.resolve()`適用 |
-| 診断 | C0 / C1、ANSI、改行、双方向制御、引用符、バックスラッシュ、対応しないサロゲートのエスケープ、160コードポイント上限、ユーザー入力を含む例外メッセージ |
-| タスク名の正規化 | well-formed化と対応しないサロゲート、`置換 → trim → 書記素境界を守った120コードポイント上限 → trim`、ASCII 121文字、119文字後のZWJ絵文字、上限境界の結合文字、bidi制御文字とZWSP / BOMの除去、ZWNJ / ZWJの保持、Unicode 15.1固定 |
-| 状態機械 | 全自然終了・skip遷移、`cycles = 1`、長い休憩後のリセット、一時停止中のskip、カウンター不変条件 |
-| 時間 | 通常終了、tick遅延、スリープ相当、未来・過去への壁時計変更、`now === endsAt`でのspace / skip / quit、tickとキーの配送順反転、多重遷移防止、catch-upしないこと、`transitioning`の例外解除 |
-| 時間の書式 | 実行中と一時停止中の`visibleRemainingMs`算出、`displaySeconds`が3599 / 3600での形式切り替え、`visibleRemainingMs = 3599500`が`59:59`ではなく`1:00:00`になること、残り1msの`0:01`表示、サマリの各時間書式 |
-| 描画 | 3レイアウトの規範テンプレート、`LONG_BREAK 24:00:00 100/100` = 27セル、時計巻き戻しによる長い時表記、Unicode 15.1固定幅、CJK・結合文字・RGI絵文字・VS15 / VS16・Ambiguous文字、書記素単位省略、最終行を含む末尾改行、`renderedRows`、resize時に上移動せず旧フレームを保持して新フレームだけを追跡すること、通常再描画時の旧行消去、`NO_COLOR`、`TERM=dumb` |
-| キー入力 | `S` / `Q`、`Ctrl+C`、`Ctrl+S`の無視、F2 / F4、`Alt+q`、CSI / SS3を各バイト位置で分割した入力、同一チャンクの`ss`が2回作用すること、`sq`と`qs`、shutdown後のイベント無視、stdinの`end` |
-| 非TTY | 起動と遷移時だけの行ログ、ANSI・ベル・raw modeなし、パイプ入力の`q`と`\x03`を消費しないこと、シグナル終了、通常時とshutdown中の`EPIPE` |
-| コマンド解決 | macOS / Windowsの固定絶対パス、Windows候補のrealpath、Linuxの絶対PATH探索、空・相対・cwd配下・`node_modules/.bin`・symlink迂回の拒否、起動後に再解決しないこと、`shell`を上書きできないこと、信頼する環境変数とTOCTOUの非保証 |
-| 音・通知 | OS別の引数配列、`spawnTracked`判別共用体とstdioプロファイル、厳密なtitle / body、`osascript`本体とstdinのエラー、`error` / `close`競合、非ゼロ終了、5秒 / 10秒timeoutと1秒後の強制終了要求、Linuxの試行順、volume換算、DISPLAY / WAYLAND_DISPLAYの未定義・空文字列、1バイトのTTYベル、Windows通知なし、macOS表示のbest effort、再生の並行、shutdown時cancel Promiseの即時完了とフォールバック禁止 |
-| 終了処理 | 全終了コードとSIGQUIT / SIGBREAK方針、サマリ有無とタイマー完了換算時間、cleanupと同一Promiseの冪等性、単調時計による500 / 1500 / 2000ms絶対期限、変更した端末状態だけの同期復元、shutdown専用stdout / stderrリスナー、後続signal、子の段階終了、kill不能な子の切り離し、2000ms強制終了、shutdown後のspawn禁止 |
-| 同梱wav | RIFF / WAVE、little-endianサイズ、chunk境界とpadding、PCM format 1、mono、44100Hz、16bit、blockAlign 2、byteRate 88200、data非空、0.5〜1.5秒、非無音、2音源差、再生成とのバイト一致。RIFFサイズ不一致、8バイト未満header、宣言サイズ超過、奇数chunkのpadding欠落、重複`fmt `、空`data`、audioFormat 3を拒否 |
-| packライフサイクル | `prepack`が`check`だけを呼び、packageテスト・`npm pack`を呼ばないこと。`verify:package`からのpackが再帰せず1回で完了すること |
-| tarball | `npm pack --json`の一覧が厳密に6通常ファイルであること、PAX解決後のpath traversal・重複・link・特殊file拒否、シェバン、外部runtime importなし、metadata / LICENSE、通常インストール、runtime依存ゼロ、インストール後wav検証、異なるcwd |
-| tarballスモーク | npm execによるbin shimのhelp / version / 不正引数、異なるcwd、直接Nodeでの非TTY起動ログ、ANSIなし、起動後1秒の生存、POSIXのSIGTERM終了、Windowsの直接子cleanup、処理別timeout |
-| 公開artifact | pack、各OSスモーク、publishが同一SHA-256のtgzを使うこと。publishが`npm pack`を実行せず、明示したtgzへ`npm publish --ignore-scripts`を実行すること |
+| 分類               | 必須の検証                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 引数パーサ         | 既定値、境界値、`--key=value`、ハイフン開始値は`=`形式だけで受理、`--task=-h`と`--task -h`の区別、単独`--`の拒否、重複、未知、値不足、位置引数、help / versionの完全トークン優先順位、音源パス検証、厳密なhelp・version文字列                                                                                                                                                                     |
+| 引数の受理形式     | `+25` / `025` / `" 25"` / `1e0` / `.5` / `1.` / `0x19` / 全角数字の拒否、`--volume`の`0` / `1` / `0.6` / `1.0`の受理と`1.1`の拒否、絶対パスの`path.resolve()`適用                                                                                                                                                                                                                                 |
+| 診断               | C0 / C1、ANSI、改行、双方向制御、引用符、バックスラッシュ、対応しないサロゲートのエスケープ、160コードポイント上限、ユーザー入力を含む例外メッセージ                                                                                                                                                                                                                                              |
+| タスク名の正規化   | well-formed化と対応しないサロゲート、`置換 → trim → 書記素境界を守った120コードポイント上限 → trim`、ASCII 121文字、119文字後のZWJ絵文字、上限境界の結合文字、bidi制御文字とZWSP / BOMの除去、ZWNJ / ZWJの保持、Unicode 15.1固定                                                                                                                                                                  |
+| 状態機械           | 全自然終了・skip遷移、`cycles = 1`、長い休憩後のリセット、一時停止中のskip、カウンター不変条件                                                                                                                                                                                                                                                                                                    |
+| 時間               | 通常終了、tick遅延、スリープ相当、未来・過去への壁時計変更、`now === endsAt`でのspace / skip / quit、tickとキーの配送順反転、多重遷移防止、catch-upしないこと、`transitioning`の例外解除                                                                                                                                                                                                          |
+| 時間の書式         | 実行中と一時停止中の`visibleRemainingMs`算出、`displaySeconds`が3599 / 3600での形式切り替え、`visibleRemainingMs = 3599500`が`59:59`ではなく`1:00:00`になること、残り1msの`0:01`表示、サマリの各時間書式                                                                                                                                                                                          |
+| 描画               | 3レイアウトの規範テンプレート、`LONG_BREAK 24:00:00 100/100` = 27セル、時計巻き戻しによる長い時表記、Unicode 15.1固定幅、CJK・結合文字・RGI絵文字・VS15 / VS16・Ambiguous文字、書記素単位省略、最終行を含む末尾改行、`renderedRows`、resize時に上移動せず旧フレームを保持して新フレームだけを追跡すること、通常再描画時の旧行消去、`NO_COLOR`、`TERM=dumb`                                        |
+| キー入力           | `S` / `Q`、`Ctrl+C`、`Ctrl+S`の無視、F2 / F4、`Alt+q`、CSI / SS3を各バイト位置で分割した入力、同一チャンクの`ss`が2回作用すること、`sq`と`qs`、shutdown後のイベント無視、stdinの`end`                                                                                                                                                                                                             |
+| 非TTY              | 起動と遷移時だけの行ログ、ANSI・ベル・raw modeなし、パイプ入力の`q`と`\x03`を消費しないこと、シグナル終了、通常時とshutdown中の`EPIPE`                                                                                                                                                                                                                                                            |
+| コマンド解決       | macOS / Windowsの固定絶対パス、Windows候補のrealpath、Linuxの絶対PATH探索、空・相対・cwd配下・`node_modules/.bin`・symlink迂回の拒否、起動後に再解決しないこと、`shell`を上書きできないこと、信頼する環境変数とTOCTOUの非保証                                                                                                                                                                     |
+| 音・通知           | OS別の引数配列、`spawnTracked`判別共用体とstdioプロファイル、厳密なtitle / body、`osascript`本体とstdinのエラー、`error` / `close`競合、非ゼロ終了、5秒 / 10秒timeoutと1秒後の強制終了要求、Linuxの試行順、volume換算、DISPLAY / WAYLAND_DISPLAYの未定義・空文字列、1バイトのTTYベル、Windows通知なし、macOS表示のbest effort、再生の並行、shutdown時cancel Promiseの即時完了とフォールバック禁止 |
+| 終了処理           | 全終了コードとSIGQUIT / SIGBREAK方針、サマリ有無とタイマー完了換算時間、cleanupと同一Promiseの冪等性、単調時計による500 / 1500 / 2000ms絶対期限、変更した端末状態だけの同期復元、shutdown専用stdout / stderrリスナー、後続signal、子の段階終了、kill不能な子の切り離し、2000ms強制終了、shutdown後のspawn禁止                                                                                     |
+| 同梱wav            | RIFF / WAVE、little-endianサイズ、chunk境界とpadding、PCM format 1、mono、44100Hz、16bit、blockAlign 2、byteRate 88200、data非空、0.5〜1.5秒、非無音、2音源差、再生成とのバイト一致。RIFFサイズ不一致、8バイト未満header、宣言サイズ超過、奇数chunkのpadding欠落、重複`fmt `、空`data`、audioFormat 3を拒否                                                                                       |
+| packライフサイクル | `prepack`が`check`だけを呼び、packageテスト・`npm pack`を呼ばないこと。`verify:package`からのpackが再帰せず1回で完了すること                                                                                                                                                                                                                                                                      |
+| tarball            | `npm pack --json`の一覧が厳密に6通常ファイルであること、PAX解決後のpath traversal・重複・link・特殊file拒否、シェバン、外部runtime importなし、metadata / LICENSE、通常インストール、runtime依存ゼロ、インストール後wav検証、異なるcwd                                                                                                                                                            |
+| tarballスモーク    | npm execによるbin shimのhelp / version / 不正引数、異なるcwd、直接Nodeでの非TTY起動ログ、ANSIなし、起動後1秒の生存、POSIXのSIGTERM終了、Windowsの直接子cleanup、処理別timeout                                                                                                                                                                                                                     |
+| 公開artifact       | pack、各OSスモーク、publishが同一SHA-256のtgzを使うこと。publishが`npm pack`を実行せず、明示したtgzへ`npm publish --ignore-scripts`を実行すること                                                                                                                                                                                                                                                 |
 
 CIはソース品質、tgz生成、tgzスモーク、公開を別ジョブに分ける。
 
-| ジョブ | ランナー | Node.js | 実行内容 |
-|---|---|---|---|
-| quality-boundary | macOS / Ubuntu / Windows | `22.18.x` | `npm ci` → `npm run check` |
-| quality-boundary | macOS / Ubuntu / Windows | 厳密な`24.11.x` | `npm ci` → `npm run check` |
-| quality-latest24 | Ubuntu | 最新24系 | `npm ci` → `npm run check` |
-| quality-current | Ubuntu | 現行の最新安定版 | `npm ci` → `npm run check` |
-| pack | Ubuntu | `22.18.x` | `npm ci` → `npm run verify:package -- --output-dir release --tag <dist-tag>` → tgz・manifestをartifactとして保存 |
-| smoke-tgz-boundary | macOS / Ubuntu / Windows | `22.18.x` | 同一commitをcheckout → artifact取得 → commit / SHA-256照合 → `npm run smoke:package -- <tgz>` |
-| smoke-tgz-boundary | macOS / Ubuntu / Windows | 厳密な`24.11.x` | 同上 |
-| smoke-latest24 | Ubuntu | 最新24系 | 同上 |
-| smoke-current | Ubuntu | 現行の最新安定版 | 同上 |
-| publish | Ubuntu | `22.18.x` | リリースタグ時のみ。全quality / smoke完了後、artifactとSHA-256を照合し、検証済みtgzを明示して`npm publish --ignore-scripts --access public --tag <distTag> <verified-tarball.tgz>` |
+| ジョブ             | ランナー                 | Node.js          | 実行内容                                                                                                                                                                           |
+| ------------------ | ------------------------ | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| quality-boundary   | macOS / Ubuntu / Windows | `22.18.x`        | `npm ci` → `npm run check`                                                                                                                                                         |
+| quality-boundary   | macOS / Ubuntu / Windows | 厳密な`24.11.x`  | `npm ci` → `npm run check`                                                                                                                                                         |
+| quality-latest24   | Ubuntu                   | 最新24系         | `npm ci` → `npm run check`                                                                                                                                                         |
+| quality-current    | Ubuntu                   | 現行の最新安定版 | `npm ci` → `npm run check`                                                                                                                                                         |
+| pack               | Ubuntu                   | `22.18.x`        | `npm ci` → `npm run verify:package -- --output-dir release --tag <dist-tag>` → tgz・manifestをartifactとして保存                                                                   |
+| smoke-tgz-boundary | macOS / Ubuntu / Windows | `22.18.x`        | 同一commitをcheckout → artifact取得 → commit / SHA-256照合 → `npm run smoke:package -- <tgz>`                                                                                      |
+| smoke-tgz-boundary | macOS / Ubuntu / Windows | 厳密な`24.11.x`  | 同上                                                                                                                                                                               |
+| smoke-latest24     | Ubuntu                   | 最新24系         | 同上                                                                                                                                                                               |
+| smoke-current      | Ubuntu                   | 現行の最新安定版 | 同上                                                                                                                                                                               |
+| publish            | Ubuntu                   | `22.18.x`        | リリースタグ時のみ。全quality / smoke完了後、artifactとSHA-256を照合し、検証済みtgzを明示して`npm publish --ignore-scripts --access public --tag <distTag> <verified-tarball.tgz>` |
 
 Node.js 22.0系のジョブは設けず、実行・開発要件の下限である22.18.xへ統一する。23.xと24.0〜24.10は`engines`の範囲外なのでCIへ含めない。
 
