@@ -8,8 +8,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "lint": "oxlint",
-    "lint:fix": "oxlint --fix",
+    "lint": "oxlint . --deny-warnings --report-unused-disable-directives-severity=error",
+    "lint:fix": "oxlint . --fix --deny-warnings --report-unused-disable-directives-severity=error",
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
     "test": "echo \"Error: no test specified\" && exit 1"
