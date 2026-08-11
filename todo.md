@@ -17,9 +17,9 @@
 
 ## 1. プロジェクト基盤
 
-- [ ] パッケージ管理を仕様どおりnpmへ統一する
-  - [ ] `pnpm-lock.yaml` から `package-lock.json` へ移行し、CIとリリースで `npm ci` を使う
-  - [ ] 既存のlint・format・Probity設定を、npmスクリプトから実行できる状態にする
+- [x] パッケージ管理を仕様どおりnpmへ統一する
+  - [x] `pnpm-lock.yaml` から `package-lock.json` へ移行し、CIとリリースで `npm ci` を使う
+  - [x] 既存のlint・format・Probity設定を、npmスクリプトから実行できる状態にする
 - [ ] `package.json` を公開仕様へ更新する
   - [ ] `description`、`keywords`、`bin`、`files`、`engines`、`publishConfig`を設定する
   - [ ] Node.js要件を `^22.18.0 || >=24.11.0` に統一する
