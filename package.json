@@ -12,6 +12,7 @@
     "lint:fix": "oxlint . --fix --deny-warnings --report-unused-disable-directives-severity=error",
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
+    "probity": "probity",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
@@ -21,9 +22,8 @@
   },
   "devEngines": {
     "packageManager": {
-      "name": "pnpm",
-      "version": "^11.2.2",
-      "onFail": "download"
+      "name": "npm",
+      "onFail": "error"
     }
   }
 }

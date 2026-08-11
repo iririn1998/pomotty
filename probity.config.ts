@@ -31,16 +31,16 @@ export default defineConfig({
     }),
     forbidCommandPattern({
       match:
-        /\b(?:npm\s+(?:install|i|ci|add|update|up|uninstall|un|remove|rm)\b|yarn\b|bun\s+(?:install|add)\b)/u,
+        /\b(?:pnpm\s+(?:install|i|add|update|up|uninstall|un|remove|rm)\b|yarn\b|bun\s+(?:install|add)\b)/u,
       reason:
-        'このリポジトリのパッケージマネージャはpnpmです。pnpm install / pnpm add -D を使用してください。',
+        'このリポジトリのパッケージマネージャはnpmです。npm install / npm install --save-dev を使用してください。',
     }),
     requireCommand({
       after: { kind: 'write' },
       before: { kind: 'command', match: /git\s+commit\b/u },
-      command: /\bpnpm\s+(?:run\s+)?(?:check|lint|test)\b/u,
+      command: /\bnpm\s+(?:run\s+)?(?:check|lint|test)\b/u,
       reason:
-        'コミット前にpnpm check（未整備の間はpnpm lint / pnpm test）を実行してください。直近のチェック以降にファイルを変更した場合は再実行が必要です。',
+        'コミット前にnpm run check（未整備の間はnpm run lint / npm test）を実行してください。直近のチェック以降にファイルを変更した場合は再実行が必要です。',
     }),
     {
       files: CODE_FILES,
