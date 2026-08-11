@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx @nizos/probity --agent codex"
+            "command": "npm run probity -- --agent codex"
           }
         ]
       }
