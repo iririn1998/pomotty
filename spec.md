@@ -205,26 +205,26 @@ stderrの`error`リスナーは最初の診断書き込みより前に登録す�
 
 ```ts
 const CONTROL_CHARS =
-  /[\u0000-\u001f\u007f-\u009f\u061c\u200b\u200e\u200f\u2028-\u202e\u2066-\u206f\ufeff]/gu
+  /[\u0000-\u001f\u007f-\u009f\u061c\u200b\u200e\u200f\u2028-\u202e\u2066-\u206f\ufeff]/gu;
 
 const truncateAtGraphemeBoundary = (value: string, limit: number) => {
-  let usedCodePoints = 0
-  const accepted: string[] = []
+  let usedCodePoints = 0;
+  const accepted: string[] = [];
 
   for (const grapheme of segmentGraphemesUnicode15_1(value)) {
-    const size = Array.from(grapheme).length
-    if (usedCodePoints + size > limit) break
-    accepted.push(grapheme)
-    usedCodePoints += size
+    const size = Array.from(grapheme).length;
+    if (usedCodePoints + size > limit) break;
+    accepted.push(grapheme);
+    usedCodePoints += size;
   }
 
-  return accepted.join('')
-}
+  return accepted.join('');
+};
 
 const sanitizeTask = (value: string) => {
-  const replaced = value.toWellFormed().replace(CONTROL_CHARS, ' ').trim()
-  return truncateAtGraphemeBoundary(replaced, 120).trim()
-}
+  const replaced = value.toWellFormed().replace(CONTROL_CHARS, ' ').trim();
+  return truncateAtGraphemeBoundary(replaced, 120).trim();
+};
 ```
 
 診断へユーザー由来のargv、パス、またはそれらを含む例外メッセージを埋め込む場合は、次の`escapeDiagnostic()`相当の処理を必ず通す。
@@ -323,7 +323,7 @@ LONG_BREAK ──自然終了 / skip──> completedInBlock を 0 にして WOR
 `setInterval` でカウンタをデクリメントする方式は採用しない。スリープ復帰やイベントループ遅延でズレるため、**終了予定時刻を絶対値で保持し、毎フレーム現在時刻と比較する**。`setInterval` は更新のきっかけとしてのみ使用し、経過時間の情報源にはしない。
 
 ```ts
-let transitioning = false
+let transitioning = false;
 
 const settleExpiredPhase = (now: number): boolean => {
   if (
@@ -333,21 +333,21 @@ const settleExpiredPhase = (now: number): boolean => {
     state.endsAt === null ||
     now < state.endsAt
   ) {
-    return false
+    return false;
   }
 
-  transitionFromTimeout(now)
-  return true
-}
+  transitionFromTimeout(now);
+  return true;
+};
 
 const tickTimer = setInterval(() => {
-  if (state.paused || state.endsAt === null) return
+  if (state.paused || state.endsAt === null) return;
 
-  const now = Date.now()
-  if (settleExpiredPhase(now)) return
+  const now = Date.now();
+  if (settleExpiredPhase(now)) return;
 
-  render(Math.max(0, state.endsAt - now))
-}, 250)
+  render(Math.max(0, state.endsAt - now));
+}, 250);
 ```
 
 更新間隔は**250ms**とする。イベントループが継続して実行可能な通常時のポーリング量子を細かくするためであり、OSスケジューリングや同期処理による遅延上限は保証しない。絶対期限との比較により、遅延が250msを超えても経過時間自体に累積誤差は生じない。
@@ -407,7 +407,7 @@ skipは自然終了とは別の`transitionFromSkip(now)`として処理する。
 
 ```ts
 const interactive =
-  process.stdin.isTTY === true && process.stdout.isTTY === true && process.env.TERM !== 'dumb'
+  process.stdin.isTTY === true && process.stdout.isTTY === true && process.env.TERM !== 'dumb';
 ```
 
 - `interactive === true`: インライン描画とraw modeによるキー操作を有効にする
@@ -609,19 +609,19 @@ raw modeではCtrl+CがSIGINTとして配送されずキーイベントになる
 
 ```ts
 keyDecoder.on('keypress', (_text, key) => {
-  if (shuttingDown || key === undefined) return
+  if (shuttingDown || key === undefined) return;
 
   if (key.ctrl === true && key.meta !== true && key.name === 'c') {
-    handleManualAction('ctrl-c')
-    return
+    handleManualAction('ctrl-c');
+    return;
   }
 
-  if (key.ctrl === true || key.meta === true) return
+  if (key.ctrl === true || key.meta === true) return;
 
-  if (key.name === 'space') handleManualAction('toggle-pause')
-  else if (key.name === 's') handleManualAction('skip')
-  else if (key.name === 'q') handleManualAction('quit')
-})
+  if (key.name === 'space') handleManualAction('toggle-pause');
+  else if (key.name === 's') handleManualAction('skip');
+  else if (key.name === 'q') handleManualAction('quit');
+});
 ```
 
 `handleManualAction()`は各イベントにつき`Date.now()`を1回だけ取得し、§4の`settleExpiredPhase(now)`を呼んでから操作を適用する。stdinの`error`は期限精算をせず`requestShutdown('stdin-error', 1, false)`へ集約する。
@@ -795,7 +795,7 @@ Windows では音源パスを PowerShell コードへ文字列補間しない。
 const script = [
   '$player = [System.Media.SoundPlayer]::new($env:POMOTTY_SOUND_FILE)',
   '$player.PlaySync()',
-].join('; ')
+].join('; ');
 
 const result = await runPlayer(
   operation,
@@ -804,7 +804,7 @@ const result = await runPlayer(
   {
     env: { ...process.env, POMOTTY_SOUND_FILE: file },
   },
-)
+);
 ```
 
 この`await`は音操作の非同期候補チェーン内だけで行い、フェーズ遷移側は候補チェーン全体を待たない。`result === 'failure'`の場合だけベルへ進み、`cancelled`では何も開始しない。
@@ -869,20 +869,20 @@ Linuxでは`paplay`がどの理由で失敗しても`aplay`を1回試す。両�
 
 ```ts
 type SpawnTrackedResult =
-  { result: 'success'; child: ChildProcess } | { result: 'failure' | 'cancelled' }
+  { result: 'success'; child: ChildProcess } | { result: 'failure' | 'cancelled' };
 
-type StdioProfile = 'ignore' | 'stdin-pipe'
+type StdioProfile = 'ignore' | 'stdin-pipe';
 type SpawnTrackedOptions = {
-  env?: NodeJS.ProcessEnv
-  stdioProfile: StdioProfile
-}
+  env?: NodeJS.ProcessEnv;
+  stdioProfile: StdioProfile;
+};
 ```
 
 同関数は起動直前にcancel状態を再確認し、保持済み絶対パスだけを受理して、`windowsHide: true`と`shell: false`を内部で固定する。`ignore`はstdin / stdout / stderrをすべて`ignore`、`stdin-pipe`はstdinだけ`pipe`でstdout / stderrを`ignore`とする内部定数へ対応させる。spawn成功直後に子を`activeChildren`へ加え、`close`による集合削除リスナーと、`close`まで有効な内部`error`安全リスナーを登録する。その後でcancel状態を再確認し、cancel済みなら直ちにkillして`{ result: 'cancelled' }`を返す。利用不能またはspawn失敗は`{ result: 'failure' }`、成功だけが子を含む判別共用体を返す。
 
 ```ts
-type OperationResult = 'success' | 'failure' | 'cancelled'
-type PlayerOptions = { env?: NodeJS.ProcessEnv }
+type OperationResult = 'success' | 'failure' | 'cancelled';
+type PlayerOptions = { env?: NodeJS.ProcessEnv };
 
 const runPlayer = (
   operation: Operation,
@@ -892,55 +892,55 @@ const runPlayer = (
 ) =>
   new Promise<OperationResult>((resolve) => {
     if (shuttingDown || operation.cancelled) {
-      resolve('cancelled')
-      return
+      resolve('cancelled');
+      return;
     }
 
-    let settled = false
-    let child
-    let timeout: NodeJS.Timeout | undefined
-    let removeCancelListener = () => {}
+    let settled = false;
+    let child;
+    let timeout: NodeJS.Timeout | undefined;
+    let removeCancelListener = () => {};
 
     const finish = (result: OperationResult) => {
-      if (settled) return
-      settled = true
-      if (timeout) clearTimeout(timeout)
-      removeCancelListener()
-      resolve(shuttingDown || operation.cancelled ? 'cancelled' : result)
-    }
+      if (settled) return;
+      settled = true;
+      if (timeout) clearTimeout(timeout);
+      removeCancelListener();
+      resolve(shuttingDown || operation.cancelled ? 'cancelled' : result);
+    };
 
-    removeCancelListener = operation.onCancel(() => finish('cancelled'))
+    removeCancelListener = operation.onCancel(() => finish('cancelled'));
     if (settled) {
-      removeCancelListener()
-      return
+      removeCancelListener();
+      return;
     }
 
     try {
       const spawned = spawnTracked(operation, commandPath, args, {
         env: options.env,
         stdioProfile: 'ignore',
-      })
+      });
 
       if (spawned.result !== 'success') {
-        finish(spawned.result)
-        return
+        finish(spawned.result);
+        return;
       }
 
-      child = spawned.child
-      child.once('error', () => finish('failure'))
+      child = spawned.child;
+      child.once('error', () => finish('failure'));
       child.once('close', (code, signal) => {
-        finish(code === 0 && signal === null ? 'success' : 'failure')
-      })
+        finish(code === 0 && signal === null ? 'success' : 'failure');
+      });
     } catch {
-      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure')
-      return
+      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure');
+      return;
     }
 
     timeout = setTimeout(() => {
-      child?.kill()
-      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure')
-    }, 10_000)
-  })
+      child?.kill();
+      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure');
+    }, 10_000);
+  });
 ```
 
 `PlayerOptions`は`env`だけを許可し、`shell`、`stdio`、`windowsHide`を呼び出し側から上書きできない型にする。通知用の呼び出しを含め、`spawnTracked()`の公開型から生の`stdio`と`shell`を除外する。shutdownによるcancel callbackは子の`close`を待たずPromiseを確定し、子の終了自体は`activeChildren`と§7へ委ねる。
@@ -996,32 +996,32 @@ end run
 ```ts
 const spawned = spawnTracked(operation, osascriptPath, ['-', title, body], {
   stdioProfile: 'stdin-pipe',
-})
+});
 
 if (spawned.result !== 'success') {
-  finish(spawned.result)
+  finish(spawned.result);
 } else {
-  const child = spawned.child
-  child.once('error', () => finish('failure'))
+  const child = spawned.child;
+  child.once('error', () => finish('failure'));
   child.once('close', (code, signal) => {
-    finish(code === 0 && signal === null ? 'success' : 'failure')
-  })
+    finish(code === 0 && signal === null ? 'success' : 'failure');
+  });
 
-  const input = child.stdin
+  const input = child.stdin;
   if (input === null) {
-    child.kill()
-    finish('failure')
+    child.kill();
+    finish('failure');
   } else {
     input.once('error', () => {
-      child.kill()
-      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure')
-    })
+      child.kill();
+      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure');
+    });
 
     try {
-      input.end(APPLESCRIPT)
+      input.end(APPLESCRIPT);
     } catch {
-      child.kill()
-      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure')
+      child.kill();
+      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure');
     }
   }
 }
@@ -1147,7 +1147,7 @@ tsdownで実行コードを`dist/cli.js`の1ファイルにバンドルし、先
 
 ```ts
 // tsdown.config.ts
-import { defineConfig } from 'tsdown'
+import { defineConfig } from 'tsdown';
 
 export default defineConfig({
   entry: ['src/cli.ts'],
@@ -1161,7 +1161,7 @@ export default defineConfig({
   dts: false,
   sourcemap: false,
   banner: '#!/usr/bin/env node',
-})
+});
 ```
 
 シェバンは`banner`だけで付与する。`src/cli.ts`の先頭には**シェバンを書かない**。両方にあるとバンドル出力の1行目と2行目に二重に現れ、2行目がJavaScriptの構文エラーになる。
@@ -1190,10 +1190,10 @@ TypeScriptはNode.js ESMとNode.jsの型削除実行の両方で同じimportを�
 同梱音源は実行時のcwdやnpmキャッシュの位置に依存させず、常にバンドルからの相対URLで解決する。
 
 ```ts
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath } from 'node:url';
 
-const workSound = fileURLToPath(new URL('../assets/work-end.wav', import.meta.url))
-const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.url))
+const workSound = fileURLToPath(new URL('../assets/work-end.wav', import.meta.url));
+const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.url));
 ```
 
 ### npm公開物の受け入れ条件
