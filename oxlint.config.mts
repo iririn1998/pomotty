@@ -20,7 +20,7 @@ export default defineConfig({
   },
   overrides: [
     {
-      files: ['*.config.mts', '*.config.ts'],
+      files: ['*.config.mjs', '*.config.mts', '*.config.ts'],
       rules: {
         'import/no-default-export': 'off',
       },
