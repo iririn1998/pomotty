@@ -1,20 +1,18 @@
 import { expect, test } from 'vitest';
 import { LOGO } from './constants/logo.ts';
+import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { promisify } from 'node:util';
 
-const EXIT_CODE_SUCCESS = 0,
-  cliPath = fileURLToPath(new URL('cli.ts', import.meta.url));
+const cliPath = fileURLToPath(new URL('cli.ts', import.meta.url)),
+  execFileAsync = promisify(execFile);
 
-test('CLI起動時にロゴを標準出力へ表示する', () => {
-  // oxlint-disable-next-line node/no-sync
-  const result = spawnSync(process.execPath, [cliPath], {
-    encoding: 'utf8',
-  });
-
-  expect(result.error).toBeUndefined();
-  expect(result.status).toBe(EXIT_CODE_SUCCESS);
-  expect(result.signal).toBeNull();
-  expect(result.stderr).toBe('');
-  expect(result.stdout).toBe(`${LOGO}\n`);
-});
+test('CLI起動時にロゴを標準出力へ表示する', () =>
+  expect(
+    execFileAsync(process.execPath, [cliPath], {
+      encoding: 'utf8',
+    }),
+  ).resolves.toStrictEqual({
+    stderr: '',
+    stdout: `${LOGO}\n`,
+  }));
