@@ -20,7 +20,7 @@ const CLI_ARGUMENTS_START_INDEX = 2,
   EXPECTED_ARGUMENT_COUNT = 0,
   FIRST_ARGUMENT_INDEX = 0,
   PHASE_ICONS = { break: '☕', work: '🍅' } as const,
-  PHASE_NAMES = { break: '休憩', work: '作業' } as const,
+  PHASE_NAMES = { break: 'Break', work: 'Work' } as const,
   runCli = async ({
     arguments_ = process.argv.slice(CLI_ARGUMENTS_START_INDEX),
     confirmStart = confirmWorkStart,
@@ -43,25 +43,25 @@ const CLI_ARGUMENTS_START_INDEX = 2,
     }
 
     if (!(await confirmStart())) {
-      writeOutput('⏹️ 作業を開始しませんでした。\n');
+      writeOutput('⏹️ Work was not started.\n');
       return;
     }
 
     await runPomodoroCycle({
       onPhaseCompleted: (phase) => {
-        writeOutput(`✅ ${PHASE_NAMES[phase]}が完了しました。\n`);
+        writeOutput(`✅ ${PHASE_NAMES[phase]} complete.\n`);
         playSound(phase);
       },
       onPhaseStarted: (phase, durationMs) => {
         const durationMinutes = durationMs / MILLISECONDS_PER_MINUTE;
         writeOutput(
-          `${PHASE_ICONS[phase]} ${PHASE_NAMES[phase]}を開始します（${durationMinutes}分）\n`,
+          `${PHASE_ICONS[phase]} ${PHASE_NAMES[phase]} started (${durationMinutes} min)\n`,
         );
       },
       wait,
     });
 
-    writeOutput('🎉 1セット完了しました。\n');
+    writeOutput('🎉 Pomodoro complete.\n');
   };
 
 export { runCli };

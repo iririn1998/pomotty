@@ -25,7 +25,7 @@ const CHOICES = ['OK', 'NG'] as const,
   MOVE_KEY_NAMES = new Set(['down', 'up']),
   NEXT_INDEX_OFFSET = 1,
   REDRAW_SEQUENCE = `\r\u001B[${CHOICES.length}A\u001B[J`,
-  SELECTION_QUESTION = '作業を開始しますか？（↑↓で選択、Enterで決定）',
+  SELECTION_QUESTION = 'Start working? (Use ↑/↓ to select, Enter to confirm)',
   keyFrom = (value: unknown): SelectionKey => {
     let key = {},
       normalizedName = '';

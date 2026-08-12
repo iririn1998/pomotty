@@ -9,12 +9,16 @@ type ConfirmationResult = {
 };
 
 const COUNT_INCREMENT = 1,
-  MENU_WITH_NG_SELECTED = ['作業を開始しますか？（↑↓で選択、Enterで決定）', '  OK', '❯ NG'].join(
-    '\n',
-  ),
-  MENU_WITH_OK_SELECTED = ['作業を開始しますか？（↑↓で選択、Enterで決定）', '❯ OK', '  NG'].join(
-    '\n',
-  ),
+  MENU_WITH_NG_SELECTED = [
+    'Start working? (Use ↑/↓ to select, Enter to confirm)',
+    '  OK',
+    '❯ NG',
+  ].join('\n'),
+  MENU_WITH_OK_SELECTED = [
+    'Start working? (Use ↑/↓ to select, Enter to confirm)',
+    '❯ OK',
+    '  NG',
+  ].join('\n'),
   REDRAW_SEQUENCE = '\r\u001B[2A\u001B[J',
   key = (name: string, ctrl = false): SelectionKey => ({ ctrl, name }),
   confirmFor = (keys: readonly SelectionKey[]): Promise<ConfirmationResult> => {

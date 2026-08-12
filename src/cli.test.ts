@@ -47,11 +47,11 @@ test('オプションなしで25分の作業と5分の休憩を1回実行する'
     durations: [DEFAULT_WORK_DURATION_MS, DEFAULT_BREAK_DURATION_MS],
     output: [
       `${LOGO}\n`,
-      '🍅 作業を開始します（25分）\n',
-      '✅ 作業が完了しました。\n',
-      '☕ 休憩を開始します（5分）\n',
-      '✅ 休憩が完了しました。\n',
-      '🎉 1セット完了しました。\n',
+      '🍅 Work started (25 min)\n',
+      '✅ Work complete.\n',
+      '☕ Break started (5 min)\n',
+      '✅ Break complete.\n',
+      '🎉 Pomodoro complete.\n',
     ].join(''),
     sounds: ['work', 'break'],
   });
@@ -85,7 +85,7 @@ test('NGを選択するとタイマーを開始しない', async () => {
   expect(result).toEqual({
     confirmationCount: 1,
     durations: [],
-    output: `${LOGO}\n⏹️ 作業を開始しませんでした。\n`,
+    output: `${LOGO}\n⏹️ Work was not started.\n`,
     sounds: [],
   });
 });
