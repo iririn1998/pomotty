@@ -5,20 +5,27 @@ import type { TimerPhase } from './timer.ts';
 import { runCli } from './cli/run.ts';
 
 type CliResult = {
+  readonly confirmationCount: number;
   readonly durations: readonly number[];
   readonly output: string;
   readonly sounds: readonly TimerPhase[];
 };
 
-const help =
+const COUNT_INCREMENT = 1,
+  help =
     'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  -h, --help\n          Print help\n',
-  runCliFor = (arguments_: readonly string[] = []): Promise<CliResult> => {
+  runCliFor = (arguments_: readonly string[] = [], confirmed = true): Promise<CliResult> => {
     const durations: number[] = [],
       sounds: TimerPhase[] = [];
-    let output = '';
+    let confirmationCount = 0,
+      output = '';
 
     return runCli({
       arguments_,
+      confirmStart: () => {
+        confirmationCount += COUNT_INCREMENT;
+        return Promise.resolve(confirmed);
+      },
       playSound: (phase) => {
         sounds.push(phase);
       },
@@ -29,13 +36,14 @@ const help =
       writeOutput: (value) => {
         output += value;
       },
-    }).then(() => ({ durations, output, sounds }));
+    }).then(() => ({ confirmationCount, durations, output, sounds }));
   };
 
 test('オプションなしで25分の作業と5分の休憩を1回実行する', async () => {
   const result = await runCliFor();
 
   expect(result).toEqual({
+    confirmationCount: 1,
     durations: [DEFAULT_WORK_DURATION_MS, DEFAULT_BREAK_DURATION_MS],
     output: [
       `${LOGO}\n`,
@@ -52,15 +60,32 @@ test('オプションなしで25分の作業と5分の休憩を1回実行する'
 test.each(['--help', '-h'])('%sでヘルプを表示してタイマーを開始しない', async (option) => {
   const result = await runCliFor([option]);
 
-  expect(result).toEqual({ durations: [], output: help, sounds: [] });
+  expect(result).toEqual({
+    confirmationCount: 0,
+    durations: [],
+    output: help,
+    sounds: [],
+  });
 });
 
 test('未対応のオプションではタイマーを開始しない', async () => {
   const result = await runCliFor(['--unknown']);
 
   expect(result).toEqual({
+    confirmationCount: 0,
     durations: [],
     output: `${LOGO}\n`,
+    sounds: [],
+  });
+});
+
+test('NGを選択するとタイマーを開始しない', async () => {
+  const result = await runCliFor([], false);
+
+  expect(result).toEqual({
+    confirmationCount: 1,
+    durations: [],
+    output: `${LOGO}\n⏹️ 作業を開始しませんでした。\n`,
     sounds: [],
   });
 });

@@ -74,10 +74,22 @@ export default defineConfig({
       },
     },
     {
-      files: ['src/cli/run.ts', 'src/cli.test.ts'],
+      files: [
+        'src/cli/confirm-start.ts',
+        'src/cli/confirm-start.test.ts',
+        'src/cli/run.ts',
+        'src/cli.test.ts',
+      ],
       rules: {
         'no-duplicate-imports': 'off',
         'oxc/no-async-await': 'off',
+      },
+    },
+    {
+      files: ['src/cli/confirm-start.ts'],
+      rules: {
+        'no-await-in-loop': 'off',
+        'sort-vars': 'off',
       },
     },
   ],
