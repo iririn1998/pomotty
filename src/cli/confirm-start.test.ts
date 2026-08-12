@@ -1,72 +1,77 @@
-import { expect, test } from 'vitest';
-import type { AnswerPrompt } from './confirm-start.ts';
 import { confirmWorkStart } from './confirm-start.ts';
+import type { SelectionKey, SelectionTerminal } from './confirm-start.ts';
+import { expect, test } from 'vitest';
 
 type ConfirmationResult = {
-  readonly closeCount: number;
   readonly confirmed: boolean;
-  readonly messages: readonly string[];
-  readonly questions: readonly string[];
+  readonly restoreCount: number;
+  readonly writes: readonly string[];
 };
 
 const COUNT_INCREMENT = 1,
-  QUESTION = '作業を開始しますか？ (OK/NG): ',
-  confirmFor = (answers: readonly string[]): Promise<ConfirmationResult> => {
-    const messages: string[] = [],
-      questions: string[] = [],
-      remainingAnswers = [...answers];
-    let closeCount = 0;
+  MENU_WITH_NG_SELECTED = ['作業を開始しますか？（↑↓で選択、Enterで決定）', '  OK', '❯ NG'].join(
+    '\n',
+  ),
+  MENU_WITH_OK_SELECTED = ['作業を開始しますか？（↑↓で選択、Enterで決定）', '❯ OK', '  NG'].join(
+    '\n',
+  ),
+  REDRAW_SEQUENCE = '\r\u001B[2A\u001B[J',
+  key = (name: string, ctrl = false): SelectionKey => ({ ctrl, name }),
+  confirmFor = (keys: readonly SelectionKey[]): Promise<ConfirmationResult> => {
+    const remainingKeys = [...keys],
+      writes: string[] = [];
+    let restoreCount = 0;
 
     return confirmWorkStart({
-      createPrompt: (): AnswerPrompt => ({
-        ask: (question) => {
-          questions.push(question);
-          return Promise.resolve(remainingAnswers.shift() ?? 'NG');
+      createTerminal: (): SelectionTerminal => ({
+        nextKey: () => Promise.resolve(remainingKeys.shift() ?? key('return')),
+        restore: () => {
+          restoreCount += COUNT_INCREMENT;
+          return Promise.resolve();
         },
-        close: () => {
-          closeCount += COUNT_INCREMENT;
+        write: (output) => {
+          writes.push(output);
         },
       }),
-      writeOutput: (output) => {
-        messages.push(output);
-      },
-    }).then((confirmed) => ({
-      closeCount,
-      confirmed,
-      messages,
-      questions,
-    }));
+    }).then((confirmed) => ({ confirmed, restoreCount, writes }));
   };
 
-test('OKを選択すると作業開始を承認する', async () => {
-  const result = await confirmFor([' ok ']);
+test('初期選択のOKをEnterで決定できる', async () => {
+  const result = await confirmFor([key('return')]);
 
   expect(result).toEqual({
-    closeCount: 1,
     confirmed: true,
-    messages: [],
-    questions: [QUESTION],
+    restoreCount: 1,
+    writes: [MENU_WITH_OK_SELECTED, '\n'],
   });
 });
 
-test('NGを選択すると作業開始を拒否する', async () => {
-  const result = await confirmFor(['NG']);
+test('上下キーでNGへ移動してEnterで決定できる', async () => {
+  const result = await confirmFor([key('down'), key('return')]);
 
   expect(result).toEqual({
-    closeCount: 1,
     confirmed: false,
-    messages: [],
-    questions: [QUESTION],
+    restoreCount: 1,
+    writes: [MENU_WITH_OK_SELECTED, `${REDRAW_SEQUENCE}${MENU_WITH_NG_SELECTED}`, '\n'],
   });
 });
 
-test('OKまたはNG以外では再入力を求める', async () => {
-  const result = await confirmFor(['yes', 'OK']);
+test('選択に使わないキーは無視する', async () => {
+  const result = await confirmFor([key('a'), key('return')]);
 
   expect(result).toEqual({
-    closeCount: 1,
     confirmed: true,
-    messages: ['OKまたはNGを入力してください。\n'],
-    questions: [QUESTION, QUESTION],
+    restoreCount: 1,
+    writes: [MENU_WITH_OK_SELECTED, '\n'],
+  });
+});
+
+test('Ctrl+Cでは作業を開始せず端末状態を復元する', async () => {
+  const result = await confirmFor([key('c', true)]);
+
+  expect(result).toEqual({
+    confirmed: false,
+    restoreCount: 1,
+    writes: [MENU_WITH_OK_SELECTED, '\n'],
   });
 });

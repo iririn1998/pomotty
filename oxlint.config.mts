@@ -88,8 +88,23 @@ export default defineConfig({
     {
       files: ['src/cli/confirm-start.ts'],
       rules: {
+        'max-lines-per-function': 'off',
+        'max-statements': 'off',
         'no-await-in-loop': 'off',
         'sort-vars': 'off',
+      },
+    },
+    {
+      files: ['src/cli/confirm-start.test.ts'],
+      rules: {
+        'sort-imports': 'off',
+        'sort-vars': 'off',
+      },
+    },
+    {
+      files: ['src/cli/confirm-start.ts'],
+      rules: {
+        'sort-imports': 'off',
       },
     },
   ],
