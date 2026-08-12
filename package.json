@@ -1,14 +1,37 @@
 {
   "name": "pomotty",
-  "version": "1.0.0",
-  "description": "",
-  "keywords": [],
-  "license": "ISC",
-  "author": "",
+  "version": "0.0.1",
+  "description": "A Pomodoro timer for your terminal",
+  "keywords": [
+    "cli",
+    "pomodoro",
+    "terminal",
+    "timer"
+  ],
+  "homepage": "https://github.com/iririn1998/pomotty#readme",
+  "bugs": "https://github.com/iririn1998/pomotty/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iririn1998/pomotty.git"
+  },
+  "license": "MIT",
+  "author": "iririn1998",
   "type": "module",
-  "main": "index.js",
+  "bin": {
+    "pomotty": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": "^22.18.0 || >=24.11.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "rolldown -c rolldown.config.mjs",
+    "prepublishOnly": "pnpm build",
     "start": "pnpm build && node dist/cli.js",
     "lint": "oxlint . --deny-warnings --report-unused-disable-directives-severity=error",
     "lint:fix": "oxlint . --fix --deny-warnings --report-unused-disable-directives-severity=error",
