@@ -5,6 +5,9 @@ import type { OptionDefinition } from '@/types/options.ts';
 type CreateCliOutputParameters = {
   /** CLIで利用できるオプションの定義一覧。 */
   readonly options: readonly OptionDefinition[];
+
+  /** 判定対象のCLI引数。省略時は実行中プロセスの先頭引数を利用します。 */
+  readonly optionName?: string;
 };
 
 /**
@@ -16,31 +19,30 @@ type CreateCliOutputParameters = {
  * @param parameters CLI出力の生成に必要な値。
  * @returns 標準出力へ書き込む文字列。
  */
-const createCliOutput = ({ options }: CreateCliOutputParameters): string => {
-  const CLI_OPTION_INDEX = 2,
-    option = options.find(({ alias, name }) => {
-      const optionName = process.argv.at(CLI_OPTION_INDEX);
+const CLI_OPTION_INDEX = 2,
+  createCliOutput = ({
+    options,
+    optionName = process.argv.at(CLI_OPTION_INDEX),
+  }: CreateCliOutputParameters): string => {
+    const option = options.find(({ alias, name }) => alias === optionName || name === optionName);
 
-      return typeof optionName === 'string' && (alias === optionName || name === optionName);
-    });
+    if (!option) {
+      return `${LOGO}\n`;
+    }
 
-  if (!option) {
-    return `${LOGO}\n`;
-  }
+    return [
+      'Pomotty CLI',
+      '',
+      'Usage: pomotty [OPTIONS]',
+      '',
+      'Options:',
+      ...options.flatMap(({ alias, description, name }): readonly string[] => {
+        const optionNames = [alias, name].filter(Boolean).join(', ');
 
-  return [
-    'Pomotty CLI',
-    '',
-    'Usage: pomotty [OPTIONS]',
-    '',
-    'Options:',
-    ...options.flatMap(({ alias, description, name }): readonly string[] => {
-      const optionNames = [alias, name].filter(Boolean).join(', ');
-
-      return [`  ${optionNames}`, `          ${description}`];
-    }),
-    '',
-  ].join('\n');
-};
+        return [`  ${optionNames}`, `          ${description}`];
+      }),
+      '',
+    ].join('\n');
+  };
 
 export { createCliOutput };

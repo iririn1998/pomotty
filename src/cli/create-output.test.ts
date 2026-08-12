@@ -1,11 +1,9 @@
-import { afterEach, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { LOGO } from '@/constants/logo.ts';
 import type { OptionDefinition } from '@/types/options.ts';
 import { createCliOutput } from './create-output.ts';
 
-const CLI_ARGV_START_INDEX = 0,
-  CLI_OPTION_INDEX = 2,
-  help = [
+const help = [
     'Pomotty CLI',
     '',
     'Usage: pomotty [OPTIONS]',
@@ -28,20 +26,7 @@ const CLI_ARGV_START_INDEX = 0,
       name: '--version',
     },
   ] as const satisfies readonly OptionDefinition[],
-  originalArgv = [...process.argv],
-  outputFor = (option?: string): string => {
-    process.argv.splice(CLI_OPTION_INDEX);
-
-    if (typeof option === 'string') {
-      process.argv.push(option);
-    }
-
-    return createCliOutput({ options });
-  };
-
-afterEach(() => {
-  process.argv.splice(CLI_ARGV_START_INDEX, process.argv.length, ...originalArgv);
-});
+  outputFor = (optionName = ''): string => createCliOutput({ optionName, options });
 
 test.each(['--help', '-h', '--version'])(
   '%sを指定すると利用可能なオプションのヘルプを返す',

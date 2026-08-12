@@ -67,6 +67,19 @@ export default defineConfig({
         'oxc/no-async-await': 'off',
       },
     },
+    {
+      files: ['src/cli.ts'],
+      rules: {
+        'node/no-top-level-await': 'off',
+      },
+    },
+    {
+      files: ['src/cli/run.ts', 'src/cli.test.ts'],
+      rules: {
+        'no-duplicate-imports': 'off',
+        'oxc/no-async-await': 'off',
+      },
+    },
   ],
   plugins: ['import', 'node', 'oxc', 'promise', 'typescript', 'unicorn'],
   rules: {
