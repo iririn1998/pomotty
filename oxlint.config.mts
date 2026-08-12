@@ -10,6 +10,9 @@ export default defineConfig({
     style: 'error',
     suspicious: 'error',
   },
+  env: {
+    node: true,
+  },
   ignorePatterns: ['.pnpm-store/**', 'node_modules/**', 'dist/**'],
   options: {
     denyWarnings: true,
