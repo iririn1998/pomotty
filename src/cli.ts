@@ -1,4 +1,7 @@
-import { LOGO } from './constants/logo.ts';
+import { OPTIONS } from '@/constants/options.ts';
+import { createCliOutput } from '@/cli/create-output.ts';
 import process from 'node:process';
 
-process.stdout.write(`${LOGO}\n`);
+const output = createCliOutput({ options: OPTIONS });
+
+process.stdout.write(output);
