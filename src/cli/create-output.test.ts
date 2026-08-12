@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'vitest';
-import { LOGO } from '#/constants/logo.ts';
-import type { OptionDefinition } from '#/types/options.ts';
+import { LOGO } from '@/constants/logo.ts';
+import type { OptionDefinition } from '@/types/options.ts';
 import { createCliOutput } from './create-output.ts';
 
 const CLI_ARGV_START_INDEX = 0,
