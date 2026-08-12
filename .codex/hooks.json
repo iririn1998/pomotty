@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npm run probity -- --agent codex"
+            "command": "pnpm run probity -- --agent codex"
           }
         ]
       }
