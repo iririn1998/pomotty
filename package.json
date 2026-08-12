@@ -13,11 +13,9 @@
     "lint:fix": "oxlint . --fix --deny-warnings --report-unused-disable-directives-severity=error",
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
-    "probity": "probity",
     "test": "vitest run"
   },
   "devDependencies": {
-    "@nizos/probity": "^1.10.0",
     "@types/node": "^26.2.0",
     "oxfmt": "^0.61.0",
     "oxlint": "^1.76.0",
