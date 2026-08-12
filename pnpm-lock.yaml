@@ -17,6 +17,9 @@ importers:
       oxlint:
         specifier: ^1.76.0
         version: 1.78.0
+      rolldown:
+        specifier: ^1.2.3
+        version: 1.2.3
       typescript:
         specifier: ^7.0.2
         version: 7.0.2

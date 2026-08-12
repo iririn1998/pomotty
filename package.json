@@ -8,7 +8,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node src/cli.ts",
+    "build": "rolldown -c rolldown.config.mjs",
+    "start": "pnpm build && node dist/cli.js",
     "lint": "oxlint . --deny-warnings --report-unused-disable-directives-severity=error",
     "lint:fix": "oxlint . --fix --deny-warnings --report-unused-disable-directives-severity=error",
     "format": "oxfmt --write",
@@ -19,6 +20,7 @@
     "@types/node": "^26.2.0",
     "oxfmt": "^0.61.0",
     "oxlint": "^1.76.0",
+    "rolldown": "^1.2.3",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },
