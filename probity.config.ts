@@ -5,9 +5,9 @@ import {
   forbidCommandPattern,
   forbidContentPattern,
   requireCommand,
-} from '@nizos/probity'
+} from '@nizos/probity';
 
-const CODE_FILES = ['src/**', 'test/**', 'scripts/**'] as const
+const CODE_FILES = ['src/**', 'test/**', 'scripts/**'] as const;
 
 export default defineConfig({
   rules: [
@@ -67,4 +67,4 @@ export default defineConfig({
       rules: [enforceTdd()],
     },
   ],
-})
+});
