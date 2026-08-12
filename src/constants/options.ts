@@ -5,11 +5,8 @@ import type { OptionDefinition } from '@/types/options.ts';
  */
 export const OPTIONS = [
   {
-    description: 'Display this help message.',
+    alias: '-h',
+    description: 'Print help',
     name: '--help',
-  },
-  {
-    description: 'Display this help message.',
-    name: '-h',
   },
 ] as const satisfies readonly OptionDefinition[];
