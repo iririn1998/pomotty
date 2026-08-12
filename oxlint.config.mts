@@ -25,6 +25,24 @@ export default defineConfig({
         'import/no-default-export': 'off',
       },
     },
+    {
+      files: ['src/timer.ts', 'src/timer.test.ts'],
+      rules: {
+        'oxc/no-async-await': 'off',
+      },
+    },
+    {
+      files: ['src/timer.ts'],
+      rules: {
+        'sort-vars': 'off',
+      },
+    },
+    {
+      files: ['src/timer.test.ts'],
+      rules: {
+        'no-duplicate-imports': 'off',
+      },
+    },
   ],
   plugins: ['import', 'node', 'oxc', 'promise', 'typescript', 'unicorn'],
   rules: {
