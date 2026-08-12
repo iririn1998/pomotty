@@ -1,9 +1,9 @@
-import { defineConfig } from 'oxfmt'
+import { defineConfig } from 'oxfmt';
 
 export default defineConfig({
   ignorePatterns: ['.pnpm-store/**', 'node_modules/**', 'dist/**'],
-  semi: false,
+  semi: true,
   singleQuote: true,
   tabWidth: 2,
   trailingComma: 'all',
-})
+});
