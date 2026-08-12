@@ -24,7 +24,7 @@
   },
   "devEngines": {
     "packageManager": {
-      "name": "npm",
+      "name": "pnpm",
       "onFail": "error"
     }
   }
