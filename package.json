@@ -8,6 +8,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "start": "node src/cli.ts",
     "lint": "oxlint . --deny-warnings --report-unused-disable-directives-severity=error",
     "lint:fix": "oxlint . --fix --deny-warnings --report-unused-disable-directives-severity=error",
     "format": "oxfmt --write",
