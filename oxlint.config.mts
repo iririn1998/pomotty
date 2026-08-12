@@ -43,6 +43,30 @@ export default defineConfig({
         'no-duplicate-imports': 'off',
       },
     },
+    {
+      files: ['scripts/generate-sounds.mjs'],
+      rules: {
+        'max-statements': 'off',
+        'no-magic-numbers': 'off',
+        'node/no-top-level-await': 'off',
+        'one-var': 'off',
+        'oxc/no-async-await': 'off',
+        'sort-vars': 'off',
+      },
+    },
+    {
+      files: ['src/notification-sound.ts'],
+      rules: {
+        'sort-vars': 'off',
+      },
+    },
+    {
+      files: ['src/notification-sound.test.ts'],
+      rules: {
+        'no-duplicate-imports': 'off',
+        'oxc/no-async-await': 'off',
+      },
+    },
   ],
   plugins: ['import', 'node', 'oxc', 'promise', 'typescript', 'unicorn'],
   rules: {
