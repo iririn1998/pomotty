@@ -1,4 +1,4 @@
-import type { TimerPhase } from '@/timer.ts';
+import type { TimerPhase } from '@/timer/timer.ts';
 import { fileURLToPath } from 'node:url';
 import process from 'node:process';
 import { spawn } from 'node:child_process';
@@ -61,7 +61,7 @@ const FIRST_COMMAND_INDEX = 0,
     };
   },
   soundFileFor = (phase: TimerPhase): string =>
-    fileURLToPath(new URL(`../assets/${phase}-end.wav`, import.meta.url)),
+    fileURLToPath(new URL(`../../assets/${phase}-end.wav`, import.meta.url)),
   soundEnvironmentFor = (soundFile: string): NodeJS.ProcessEnv => {
     const environment = structuredClone(process.env);
 

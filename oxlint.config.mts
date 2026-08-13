@@ -26,19 +26,19 @@ export default defineConfig({
       },
     },
     {
-      files: ['src/timer.ts', 'src/timer.test.ts'],
+      files: ['src/timer/timer.ts', 'src/timer/timer.test.ts'],
       rules: {
         'oxc/no-async-await': 'off',
       },
     },
     {
-      files: ['src/timer.ts'],
+      files: ['src/timer/timer.ts'],
       rules: {
         'sort-vars': 'off',
       },
     },
     {
-      files: ['src/timer.test.ts'],
+      files: ['src/timer/timer.test.ts'],
       rules: {
         'no-duplicate-imports': 'off',
       },
@@ -55,13 +55,13 @@ export default defineConfig({
       },
     },
     {
-      files: ['src/notification-sound.ts'],
+      files: ['src/notification/sound.ts'],
       rules: {
         'sort-vars': 'off',
       },
     },
     {
-      files: ['src/notification-sound.test.ts'],
+      files: ['src/notification/sound.test.ts'],
       rules: {
         'no-duplicate-imports': 'off',
         'oxc/no-async-await': 'off',

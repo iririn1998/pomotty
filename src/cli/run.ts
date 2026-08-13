@@ -1,9 +1,9 @@
-import { MILLISECONDS_PER_MINUTE, runPomodoroCycle } from '@/timer.ts';
-import type { TimerPhase, Wait } from '@/timer.ts';
+import { MILLISECONDS_PER_MINUTE, runPomodoroCycle } from '@/timer/timer.ts';
+import type { TimerPhase, Wait } from '@/timer/timer.ts';
 import { OPTIONS } from '@/constants/options.ts';
 import { confirmWorkStart } from '@/cli/confirm-start.ts';
 import { createCliOutput } from '@/cli/create-output.ts';
-import { playCompletionSound } from '@/notification-sound.ts';
+import { playCompletionSound } from '@/notification/sound.ts';
 import process from 'node:process';
 
 type WriteOutput = (output: string) => void;
