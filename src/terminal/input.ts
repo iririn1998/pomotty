@@ -2,18 +2,30 @@ import { on } from 'node:events';
 import process from 'node:process';
 import { emitKeypressEvents } from 'node:readline';
 
+/** 選択操作に必要なキー情報です。 */
 type SelectionKey = {
+  /** Ctrlキーが押されているかを示します。 */
   readonly ctrl: boolean;
+
+  /** 正規化済みのキー名です。 */
   readonly name: string;
 };
 
+/** 選択画面が利用するターミナル操作です。 */
 type SelectionTerminal = {
+  /** 次のキー入力を待ちます。 */
   readonly nextKey: () => Promise<SelectionKey>;
+
+  /** 変更したターミナル状態を元に戻します。 */
   readonly restore: () => Promise<void>;
+
+  /** 選択画面を出力します。 */
   readonly write: (output: string) => void;
 };
 
+/** 作業開始確認時に差し替えられる処理を定義します。 */
 type ConfirmWorkStartParameters = {
+  /** 選択画面用のターミナル操作を作成します。 */
   readonly createTerminal?: () => SelectionTerminal;
 };
 
@@ -26,6 +38,7 @@ const CHOICES = ['OK', 'NG'] as const,
   NEXT_INDEX_OFFSET = 1,
   REDRAW_SEQUENCE = `\r\u001B[${CHOICES.length}A\u001B[J`,
   SELECTION_QUESTION = 'Start working? (Use ↑/↓ to select, Enter to confirm)',
+  /** キーイベントの値を選択操作用の形式へ変換します。 */
   keyFrom = (value: unknown): SelectionKey => {
     let key = {},
       normalizedName = '';
@@ -43,6 +56,7 @@ const CHOICES = ['OK', 'NG'] as const,
 
     return { ctrl: ctrl === true, name: normalizedName };
   },
+  /** 現在の標準入出力から選択画面用のターミナル操作を作成します。 */
   createSelectionTerminal = (): SelectionTerminal => {
     emitKeypressEvents(process.stdin);
 
@@ -95,6 +109,7 @@ const CHOICES = ['OK', 'NG'] as const,
       },
     };
   },
+  /** 選択中の項目へ表示するマーカーを返します。 */
   markerFor = (selected: boolean): string => {
     if (selected) {
       return '❯';
@@ -102,11 +117,13 @@ const CHOICES = ['OK', 'NG'] as const,
 
     return ' ';
   },
+  /** 現在の選択位置を反映したメニューを生成します。 */
   renderSelection = (selectedIndex: number): string =>
     [
       SELECTION_QUESTION,
       ...CHOICES.map((choice, index) => `${markerFor(index === selectedIndex)} ${choice}`),
     ].join('\n'),
+  /** 上下移動後の選択位置を返します。 */
   nextChoiceIndex = (selectedIndex: number): number => {
     if (selectedIndex === FIRST_CHOICE_INDEX) {
       return CHOICES.length - NEXT_INDEX_OFFSET;
@@ -114,6 +131,7 @@ const CHOICES = ['OK', 'NG'] as const,
 
     return FIRST_CHOICE_INDEX;
   },
+  /** キー入力を処理し、確定結果または次の選択位置を返します。 */
   handleKey = (
     key: SelectionKey,
     selectedIndex: number,

@@ -15,6 +15,7 @@ const SAMPLE_RATE = 44_100,
   outputDirectory = path.resolve(
     process.argv.at(2) ?? fileURLToPath(new URL('../assets', import.meta.url)),
   ),
+  /** 作業終了音と休憩終了音を出力先へ生成します。 */
   main = async () => {
     await mkdir(outputDirectory, { recursive: true });
     await Promise.all([
@@ -23,6 +24,12 @@ const SAMPLE_RATE = 44_100,
     ]);
   };
 
+/**
+ * 指定した周波数列からモノラルのPCM WAVEデータを生成します。
+ *
+ * @param {readonly number[]} frequencies 順番に鳴らす周波数。
+ * @returns {Buffer} 生成したWAVEデータ。
+ */
 const createWave = (frequencies) => {
   const dataSize = SAMPLE_COUNT * BYTES_PER_SAMPLE,
     buffer = Buffer.alloc(HEADER_SIZE + dataSize),
