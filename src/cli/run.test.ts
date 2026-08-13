@@ -1,8 +1,8 @@
-import { DEFAULT_BREAK_DURATION_MS, DEFAULT_WORK_DURATION_MS } from './timer.ts';
+import { DEFAULT_BREAK_DURATION_MS, DEFAULT_WORK_DURATION_MS } from '@/timer/timer.ts';
 import { expect, test } from 'vitest';
-import { LOGO } from './constants/logo.ts';
-import type { TimerPhase } from './timer.ts';
-import { runCli } from './cli/run.ts';
+import { LOGO } from '@/terminal/constants.ts';
+import type { TimerPhase } from '@/timer/timer.ts';
+import { runCli } from './run.ts';
 
 type CliResult = {
   readonly confirmationCount: number;

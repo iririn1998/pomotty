@@ -1,5 +1,5 @@
-import { confirmWorkStart } from './confirm-start.ts';
-import type { SelectionKey, SelectionTerminal } from './confirm-start.ts';
+import { confirmWorkStart } from './input.ts';
+import type { SelectionKey, SelectionTerminal } from './input.ts';
 import { expect, test } from 'vitest';
 
 type ConfirmationResult = {

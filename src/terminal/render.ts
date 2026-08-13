@@ -1,5 +1,5 @@
-import { LOGO } from '@/constants/logo.ts';
-import type { OptionDefinition } from '@/types/options.ts';
+import { LOGO } from './constants.ts';
+import type { OptionDefinition } from '@/cli/types.ts';
 
 /** CLI出力の生成に必要な値です。 */
 type CreateCliOutputParameters = {

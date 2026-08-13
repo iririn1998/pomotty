@@ -1,8 +1,8 @@
 import { MILLISECONDS_PER_MINUTE, runPomodoroCycle } from '@/timer/timer.ts';
 import type { TimerPhase, Wait } from '@/timer/timer.ts';
-import { OPTIONS } from '@/constants/options.ts';
-import { confirmWorkStart } from '@/cli/confirm-start.ts';
-import { createCliOutput } from '@/cli/create-output.ts';
+import { OPTIONS } from '@/cli/constants.ts';
+import { confirmWorkStart } from '@/terminal/input.ts';
+import { createCliOutput } from '@/terminal/render.ts';
 import { playCompletionSound } from '@/notification/sound.ts';
 import process from 'node:process';
 

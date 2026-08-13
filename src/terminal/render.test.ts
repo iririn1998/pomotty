@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
-import { LOGO } from '@/constants/logo.ts';
-import type { OptionDefinition } from '@/types/options.ts';
-import { createCliOutput } from './create-output.ts';
+import { LOGO } from './constants.ts';
+import type { OptionDefinition } from '@/cli/types.ts';
+import { createCliOutput } from './render.ts';
 
 const help = [
     'Pomotty CLI',

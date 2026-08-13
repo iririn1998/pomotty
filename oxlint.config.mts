@@ -75,10 +75,10 @@ export default defineConfig({
     },
     {
       files: [
-        'src/cli/confirm-start.ts',
-        'src/cli/confirm-start.test.ts',
+        'src/terminal/input.ts',
+        'src/terminal/input.test.ts',
         'src/cli/run.ts',
-        'src/cli.test.ts',
+        'src/cli/run.test.ts',
       ],
       rules: {
         'no-duplicate-imports': 'off',
@@ -86,7 +86,7 @@ export default defineConfig({
       },
     },
     {
-      files: ['src/cli/confirm-start.ts'],
+      files: ['src/terminal/input.ts'],
       rules: {
         'max-lines-per-function': 'off',
         'max-statements': 'off',
@@ -95,14 +95,14 @@ export default defineConfig({
       },
     },
     {
-      files: ['src/cli/confirm-start.test.ts'],
+      files: ['src/terminal/input.test.ts'],
       rules: {
         'sort-imports': 'off',
         'sort-vars': 'off',
       },
     },
     {
-      files: ['src/cli/confirm-start.ts'],
+      files: ['src/terminal/input.ts'],
       rules: {
         'sort-imports': 'off',
       },
