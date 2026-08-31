@@ -1078,7 +1078,7 @@ macOS通知はbest effortとする。`osascript`の終了コード`0`はスク�
     "build": "tsdown",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:unit",
-    "test:unit": "node --test \"test/unit/**/*.test.ts\"",
+    "test:unit": "node --test \"src/**/*.test.ts\"",
     "test:package": "node --test \"test/package/**/*.test.ts\"",
     "verify:wav": "node scripts/verify-wav.mjs",
     "check": "npm run typecheck && npm run build && npm run test:unit && npm run verify:wav",
@@ -1115,9 +1115,10 @@ READMEには`npx pomotty`の起動例、主要オプション、統一したNode
 
 `node --test`を引数なしで実行すると`test/`以下の`.test.ts`を再帰的に発見する。このため、`npm pack`を起動するパッケージ検証テストを通常の単体テストと同じ探索対象に置いたまま、`prepack → check → node --test`と呼び出してはならない。
 
-- `test/unit/**/*.test.ts`は、時計、TTY、子プロセス等をフェイク化した単体・コンポーネントテストだけを含む
+- `src/**/*.test.ts`は対象実装と同じディレクトリに置き、時計、TTY、子プロセス等をフェイク化した単体・コンポーネントテストだけを含む
 - `test/package/**/*.test.ts`は、生成済みtarballのファイル構成、metadata、インストール結果、wav、ランタイム依存だけを検証し、実時間を使うCLI起動スモークは実行しない
-- `test:unit`と`test:package`は引用符付きglobで探索対象を明示し、互いのディレクトリを実行しない
+- 実装の単体テストは`timer.ts`に対する`timer.test.ts`のように、対象と同じベース名を使用する
+- `test:unit`と`test:package`は引用符付きglobで探索対象を明示し、互いのテストを実行しない
 - `prepack`は`check`だけを呼び、`verify:package`、`test:package`、`smoke:package`、`npm pack`、`npm publish`を直接・間接に呼ばない
 - `verify:package`だけがトップレベルから`npm pack`を1回起動し、生成後に`test:package`と`smoke:package`を実行する
 - `prepare`と`prepublishOnly`は定義しない
@@ -1256,23 +1257,45 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 ```
 .
 ├── src/
-│   ├── cli.ts          # エントリポイント、引数パース
-│   ├── timer.ts        # 状態機械、タイマーループ
-│   ├── render.ts       # ANSI 描画、非TTYフォールバック
-│   ├── unicode.ts      # Unicode 15.1固定の書記素分割・セル幅
-│   ├── input.ts        # raw mode、復号済みキー入力
-│   ├── notify.ts       # 音・デスクトップ通知
-│   ├── platform.ts     # OS 判定、安全なコマンド解決
-│   └── shutdown.ts     # 終了処理と端末復元
-├── test/
-│   ├── unit/
-│   │   ├── cli.test.ts
-│   │   ├── timer.test.ts
-│   │   ├── render.test.ts
+│   ├── cli.ts                         # 最小限のエントリポイント
+│   ├── cli/
+│   │   ├── constants.ts               # オプション定義などの共有定数
+│   │   ├── types.ts                   # CLI内で共有する型
+│   │   ├── parse-options.ts           # 引数パース、検証
+│   │   ├── parse-options.test.ts
+│   │   ├── run.ts                     # CLI統合
+│   │   └── run.test.ts
+│   ├── timer/
+│   │   ├── timer.ts                   # 状態機械、タイマーループ
+│   │   └── timer.test.ts
+│   ├── terminal/
+│   │   ├── constants.ts               # ロゴなどの表示用共有定数
+│   │   ├── input.ts                   # raw mode、復号済みキー入力
 │   │   ├── input.test.ts
-│   │   ├── notify.test.ts
-│   │   └── shutdown.test.ts
-│   └── package/
+│   │   ├── render.ts                  # ANSI描画、非TTYフォールバック
+│   │   └── render.test.ts
+│   ├── notification/
+│   │   ├── operation.ts               # 子プロセスと非同期処理の追跡
+│   │   ├── operation.test.ts
+│   │   ├── sound.ts
+│   │   ├── sound.test.ts
+│   │   ├── desktop.ts
+│   │   └── desktop.test.ts
+│   ├── platform/
+│   │   ├── commands.ts                # OS判定、安全なコマンド解決
+│   │   └── commands.test.ts
+│   ├── unicode/
+│   │   ├── grapheme.ts                # Unicode 15.1固定の書記素分割
+│   │   ├── grapheme.test.ts
+│   │   ├── width.ts                   # 表示セル幅
+│   │   ├── width.test.ts
+│   │   ├── sanitize.ts                # タスク名と診断の安全化
+│   │   └── sanitize.test.ts
+│   └── shutdown/
+│       ├── shutdown.ts                # 終了処理と端末復元
+│       └── shutdown.test.ts
+├── test/
+│   └── package/                       # 公開物全体を対象とする例外的なテスト
 │       ├── tarball.test.ts
 │       ├── installed-package.test.ts
 │       └── bundled-wav.test.ts
@@ -1292,7 +1315,9 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 └── LICENSE
 ```
 
-`test/package/`は`test:package`または`verify:package`から`POMOTTY_TARBALL`で生成済みtgzを渡された場合だけ実行し、`prepack`の探索対象へ含めない。環境変数が未設定、相対パス、存在しないファイル、`.tgz`以外の場合はテストをskipせず失敗させる。
+`src/`直下にはエントリポイントと機能ディレクトリだけを置く。単体・コンポーネントテストは対象実装と同じディレクトリに配置し、同じベース名へ`.test.ts`を付ける。複数の実装ファイルで共有する定数と型は、それを所有する機能内の`constants.ts`と`types.ts`へ配置する。1つの実装だけで使う定数と型は、その実装ファイル内に残す。プロジェクト全体を対象にした`src/constants.ts`、`src/types.ts`、`src/utils/`は設けない。
+
+`test/package/`は特定の実装ファイルではなく公開物全体を検証するため、併置ルールの例外とする。`test:package`または`verify:package`から`POMOTTY_TARBALL`で生成済みtgzを渡された場合だけ実行し、`prepack`の探索対象へ含めない。環境変数が未設定、相対パス、存在しないファイル、`.tgz`以外の場合はテストをskipせず失敗させる。
 
 ---
 
@@ -1300,7 +1325,7 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 
 テストランナーはNode.js標準の`node:test`を使用し、テストランナー自体の追加依存は持たない。消去可能なTypeScript構文だけを使う`.test.ts`を直接実行し、`tsc --noEmit`による型チェックも別途必須とする。
 
-単体テストと、`npm pack`を起動するパッケージテストは探索対象を分離する。`node --test`を引数なしで実行してはならず、単体テストは`node --test "test/unit/**/*.test.ts"`、パッケージテストは`node --test "test/package/**/*.test.ts"`として明示する。globはシェル展開へ依存させず、引用符を付けてNode.jsテストランナーへ渡す。`prepack`から実行されるのは単体テストだけであり、パッケージテストは生成済みtgzを渡された場合だけ実行する。
+単体テストと、`npm pack`を起動するパッケージテストは探索対象を分離する。`node --test`を引数なしで実行してはならず、単体テストは`node --test "src/**/*.test.ts"`、パッケージテストは`node --test "test/package/**/*.test.ts"`として明示する。globはシェル展開へ依存させず、引用符を付けてNode.jsテストランナーへ渡す。`prepack`から実行されるのは単体テストだけであり、パッケージテストは生成済みtgzを渡された場合だけ実行する。
 
 単体テストでは待ち時間を実際に消費しない。壁時計、単調時計、timer、子プロセス生成、`process.exit`、TTY属性、端末幅、stdin / stdout / stderrを注入可能にし、擬似時計とフェイクで決定的に検証する。実時間を使うのは§9のtarballスモークに設けた短い起動確認だけとする。
 

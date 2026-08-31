@@ -25,6 +25,88 @@ export default defineConfig({
         'import/no-default-export': 'off',
       },
     },
+    {
+      files: ['src/timer/timer.ts', 'src/timer/timer.test.ts'],
+      rules: {
+        'oxc/no-async-await': 'off',
+      },
+    },
+    {
+      files: ['src/timer/timer.ts'],
+      rules: {
+        'sort-vars': 'off',
+      },
+    },
+    {
+      files: ['src/timer/timer.test.ts'],
+      rules: {
+        'no-duplicate-imports': 'off',
+      },
+    },
+    {
+      files: ['scripts/generate-sounds.mjs'],
+      rules: {
+        'max-statements': 'off',
+        'no-magic-numbers': 'off',
+        'node/no-top-level-await': 'off',
+        'one-var': 'off',
+        'oxc/no-async-await': 'off',
+        'sort-vars': 'off',
+      },
+    },
+    {
+      files: ['src/notification/sound.ts'],
+      rules: {
+        'sort-vars': 'off',
+      },
+    },
+    {
+      files: ['src/notification/sound.test.ts'],
+      rules: {
+        'no-duplicate-imports': 'off',
+        'oxc/no-async-await': 'off',
+      },
+    },
+    {
+      files: ['src/cli.ts'],
+      rules: {
+        'node/no-top-level-await': 'off',
+      },
+    },
+    {
+      files: [
+        'src/terminal/input.ts',
+        'src/terminal/input.test.ts',
+        'src/cli/run.ts',
+        'src/cli/run.test.ts',
+      ],
+      rules: {
+        'no-duplicate-imports': 'off',
+        'oxc/no-async-await': 'off',
+      },
+    },
+    {
+      files: ['src/terminal/input.ts'],
+      rules: {
+        'max-lines-per-function': 'off',
+        'max-statements': 'off',
+        'no-await-in-loop': 'off',
+        'sort-vars': 'off',
+      },
+    },
+    {
+      files: ['src/terminal/input.test.ts'],
+      rules: {
+        'sort-imports': 'off',
+        'sort-vars': 'off',
+      },
+    },
+    {
+      files: ['src/terminal/input.ts'],
+      rules: {
+        'sort-imports': 'off',
+      },
+    },
   ],
   plugins: ['import', 'node', 'oxc', 'promise', 'typescript', 'unicorn'],
   rules: {

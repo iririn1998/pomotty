@@ -1,6 +1,6 @@
 # pomotty TODO
 
-`spec.md` のバージョン1を実装・検証・公開するためのTODO。上から依存関係順に進める。各機能は `test/unit/` に失敗するテストを先に追加してから実装する。
+`spec.md` のバージョン1を実装・検証・公開するためのTODO。上から依存関係順に進める。各機能は対象実装と同じディレクトリに失敗する`.test.ts`を先に追加してから実装する。
 
 ## 現状
 
@@ -30,11 +30,14 @@
   - [ ] シェバンはtsdownのbannerだけで付与する
   - [ ] hash、型定義、source mapを無効にする
   - [ ] Node.jsの型削除実行に非対応のTypeScript構文を使わない
-- [ ] `src/`、`test/unit/`、`test/package/`、`assets/`、`scripts/` の構成を作る
+- [ ] `src/`の機能別ディレクトリ、`test/package/`、`assets/`、`scripts/`の構成を作る
+  - [ ] 単体・コンポーネントテストを対象実装と同じディレクトリへ同じベース名で配置する
+  - [ ] 共有する定数と型を所有機能の`constants.ts`と`types.ts`へ置き、実装固有のものは実装ファイル内に残す
+  - [ ] プロジェクト全体の`src/constants.ts`と`src/types.ts`を作らない
 
 ## 2. Unicodeと入力値の安全性
 
-- [ ] `src/unicode.ts` にUnicode 15.1.0固定の拡張書記素クラスタ分割を実装する
+- [ ] `src/unicode/grapheme.ts` にUnicode 15.1.0固定の拡張書記素クラスタ分割を実装する
 - [ ] クラスタ単位の表示セル幅を実装する
   - [ ] Default Ignorableのみは0、VS15は1、RGI絵文字・VS16・keycapは2、EAW W/Fは2、残りは1セルとする
   - [ ] EAW Ambiguousはロケールによらず1セルとする
@@ -54,7 +57,7 @@
 
 ## 3. CLI引数と起動前検証
 
-- [ ] `src/cli.ts` にサブコマンドなしの引数パーサを実装する
+- [ ] `src/cli/parse-options.ts` にサブコマンドなしの引数パーサを実装する
   - [ ] `--work`、`--break`、`--long-break`、`--cycles`、`--task`、`--no-sound`、`--no-notify`、`--sound-work`、`--sound-break`、`--volume`を実装する
   - [ ] 値付きlong optionで分離形式と `--key=value` を受理する
   - [ ] `-` 始まりの値は `=` 形式だけで値として扱う
@@ -82,7 +85,7 @@
 
 ## 4. 状態機械と絶対時刻タイマー
 
-- [ ] `src/timer.ts` に `work` / `break` / `long_break` の状態と不変条件を実装する
+- [ ] `src/timer/timer.ts` に `work` / `break` / `long_break` の状態と不変条件を実装する
 - [ ] 自然終了とskipを別の遷移として実装する
   - [ ] WORK自然終了だけ `completedPomodoros` と `completedInBlock` を増やす
   - [ ] `completedInBlock === cycles` でLONG_BREAKへ入る
@@ -130,7 +133,7 @@
 
 ## 6. キー入力
 
-- [ ] `src/input.ts` に64バイト・500ms上限を持つincremental key decoderを実装する
+- [ ] `src/terminal/input.ts` に64バイト・500ms上限を持つincremental key decoderを実装する
   - [ ] UTF-8、CSI、SS3、Meta keyをchunk境界越しに復号する
   - [ ] 未完sequenceは上限・timeout・stdin endで全体を破棄し、内部byteを通常keyとして再解釈しない
   - [ ] cleanup可能な `dispose()` とtimer解除を実装する
@@ -146,7 +149,7 @@
 
 ## 7. 安全なOSコマンド解決
 
-- [ ] `src/platform.ts` に起動時1回だけの実行file解決を実装する
+- [ ] `src/platform/commands.ts` に起動時1回だけの実行file解決を実装する
   - [ ] macOSは `/usr/bin/afplay` と `/usr/bin/osascript` だけを検証する
   - [ ] Windowsは絶対 `SystemRoot` と固定PowerShell候補をrealpathし、cwd・`node_modules/.bin`配下を拒否する
   - [ ] Linuxは絶対PATH要素だけをNode.js内で探索し、空・相対・cwd配下・`node_modules/.bin`・symlink迂回を拒否する
@@ -158,7 +161,7 @@
 
 ## 8. 音・デスクトップ通知
 
-- [ ] `src/notify.ts` に `Operation` と `activeOperations` / `activeChildren` の追跡を実装する
+- [ ] `src/notification/operation.ts` に `Operation` と `activeOperations` / `activeChildren` の追跡を実装する
   - [ ] 結果を `success` / `failure` / `cancelled` に分け、cancelをfailure fallbackへ流さない
   - [ ] cancel callbackでPromiseを子のclose待ちなしに確定する
 - [ ] 絶対command pathと固定stdio profileだけを受ける `spawnTracked()` を実装する
@@ -184,7 +187,7 @@
 
 ## 9. 終了処理
 
-- [ ] `src/shutdown.ts` に全終了経路を集約する同期開始型 `requestShutdown()` を実装する
+- [ ] `src/shutdown/shutdown.ts` に全終了経路を集約する同期開始型 `requestShutdown()` を実装する
   - [ ] 最初の呼出しで理由・code・summary・diagnosticと同一 `shutdownPromise` を固定する
   - [ ] 2回目以降は同一Promiseを返し、cleanupを重複実行しない
   - [ ] Promiseはrejectせず、cleanupと段階timer登録完了時にresolveする
@@ -230,7 +233,7 @@
 ## 12. 単体・コンポーネントテスト完備
 
 - [ ] Node.js標準 `node:test` だけをtest runnerに使う
-- [ ] `test/unit/**/*.test.ts` と `test/package/**/*.test.ts` の探索を厳密に分離する
+- [ ] `src/**/*.test.ts` と `test/package/**/*.test.ts` の探索を厳密に分離する
 - [ ] 単体テストでは実時間を待たず、偽時計・偽timer・偽stream・偽child processを使う
 - [ ] `spec.md` §2〜§9の受け入れ条件と§11の必須検証を、対応するtest名から追跡できるようにする
 - [ ] `prepack → check` が単体テストだけを実行し、package testや `npm pack` へ再帰しないことを固定testにする
