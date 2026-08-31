@@ -10,6 +10,9 @@ type OptionDefinition = {
 
   /** オプションの役割を説明する簡潔な文章。 */
   readonly description: string;
+
+  /** オプションが受け取る値の表示名（`<minutes>` など）。 */
+  readonly valueName?: `<${string}>`;
 };
 
 export type { OptionDefinition };

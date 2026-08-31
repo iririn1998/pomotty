@@ -9,7 +9,7 @@ const FAILURE_EXIT_CODE = 1,
   };
 
 try {
-  await runCli();
+  process.exitCode = await runCli();
 } catch (error) {
   handleFailure(error);
 }

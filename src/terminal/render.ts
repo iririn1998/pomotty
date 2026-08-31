@@ -36,8 +36,9 @@ const CLI_OPTION_INDEX = 2,
       'Usage: pomotty [OPTIONS]',
       '',
       'Options:',
-      ...options.flatMap(({ alias, description, name }): readonly string[] => {
-        const optionNames = [alias, name].filter(Boolean).join(', ');
+      ...options.flatMap(({ alias, description, name, valueName }): readonly string[] => {
+        const longOptionName = [name, valueName].filter(Boolean).join(' '),
+          optionNames = [alias, longOptionName].filter(Boolean).join(', ');
 
         return [`  ${optionNames}`, `          ${description}`];
       }),

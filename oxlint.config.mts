@@ -81,8 +81,18 @@ export default defineConfig({
         'src/cli/run.test.ts',
       ],
       rules: {
+        'max-statements': 'off',
         'no-duplicate-imports': 'off',
         'oxc/no-async-await': 'off',
+      },
+    },
+    {
+      files: ['src/cli/parse-arguments.ts'],
+      rules: {
+        'max-lines-per-function': 'off',
+        'max-statements': 'off',
+        'one-var': 'off',
+        'sort-vars': 'off',
       },
     },
     {
