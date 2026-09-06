@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 const config = {
   input: 'src/cli.ts',
   output: {
-    file: 'dist/cli.js',
+    // Keep the same directory depth as src/notification/sound.ts for asset URLs.
+    file: 'dist/bin/pomotty.js',
     format: 'esm',
   },
   platform: 'node',

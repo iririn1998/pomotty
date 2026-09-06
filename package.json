@@ -1,15 +1,40 @@
 {
   "name": "pomotty",
   "version": "1.0.0",
-  "description": "",
-  "keywords": [],
+  "description": "An interactive terminal Pomodoro timer with configurable work and break sessions and sound notifications.",
+  "keywords": [
+    "cli",
+    "pomodoro",
+    "terminal",
+    "timer"
+  ],
+  "homepage": "https://github.com/iririn1998/pomotty#readme",
+  "bugs": {
+    "url": "https://github.com/iririn1998/pomotty/issues"
+  },
   "license": "ISC",
   "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iririn1998/pomotty.git"
+  },
+  "bin": {
+    "pomotty": "dist/bin/pomotty.js"
+  },
+  "files": [
+    "dist/bin/pomotty.js",
+    "assets/*.wav"
+  ],
   "type": "module",
-  "main": "index.js",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "rolldown -c rolldown.config.mjs",
-    "start": "pnpm build && node dist/cli.js",
+    "start": "pnpm build && node dist/bin/pomotty.js",
+    "prepack": "pnpm build",
+    "prepublishOnly": "pnpm test && pnpm lint && pnpm format:check",
     "lint": "oxlint . --deny-warnings --report-unused-disable-directives-severity=error",
     "lint:fix": "oxlint . --fix --deny-warnings --report-unused-disable-directives-severity=error",
     "format": "oxfmt --write",
@@ -29,5 +54,8 @@
       "name": "pnpm",
       "onFail": "error"
     }
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
