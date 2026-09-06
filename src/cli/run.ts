@@ -39,6 +39,19 @@ const CLI_ARGUMENTS_START_INDEX = 2,
   PHASE_NAMES = { break: 'Break', work: 'Work' } as const,
   SUCCESS_EXIT_CODE = 0,
   USAGE_ERROR_EXIT_CODE = 2,
+  /**
+   * 診断を1回だけ書き込み、失敗しても呼び出し元へ伝播させません。
+   *
+   * 診断を出力できなくても引数エラーは引数エラーなので、終了コードを
+   * 変えてはならず、同じ出力先へ診断を書き直してもいけません。
+   */
+  emitDiagnostic = (writeError: WriteError, message: string): void => {
+    try {
+      writeError(message);
+    } catch {
+      // 出力先が閉じている場合など。ここで握りつぶすのが期待動作です。
+    }
+  },
   /** 作業開始を確認し、1回のポモドーロサイクルを実行します。 */
   runCli = async ({
     arguments_ = process.argv.slice(CLI_ARGUMENTS_START_INDEX),
@@ -55,7 +68,7 @@ const CLI_ARGUMENTS_START_INDEX = 2,
     const parsedArguments = parseCliArguments(arguments_);
 
     if (parsedArguments.kind === 'error') {
-      writeError(parsedArguments.message);
+      emitDiagnostic(writeError, parsedArguments.message);
       return USAGE_ERROR_EXIT_CODE;
     }
 

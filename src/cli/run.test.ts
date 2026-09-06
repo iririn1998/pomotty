@@ -23,6 +23,7 @@ const COUNT_INCREMENT = 1,
   SEPARATED_BREAK_DURATION_MINUTES = 10,
   SEPARATED_WORK_DURATION_MINUTES = 30,
   SUCCESS_EXIT_CODE = 0,
+  USAGE_ERROR_EXIT_CODE = 2,
   help =
     'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  -h, --help\n          Print help\n',
   runCliFor = (arguments_: readonly string[] = [], confirmed = true): Promise<CliResult> => {
@@ -130,6 +131,32 @@ test('未知のオプションではエラー終了しタイマーを開始し�
     output: '',
     sounds: [],
   });
+});
+
+test('診断の書き込みが同期的に失敗しても終了コード2を保つ', async () => {
+  const durations: number[] = [],
+    outputs: string[] = [],
+    sounds: TimerPhase[] = [],
+    usageExitCode = await runCli({
+      arguments_: ['--unknown'],
+      confirmStart: () => Promise.resolve(true),
+      playSound: (phase) => {
+        sounds.push(phase);
+      },
+      wait: (durationMs) => {
+        durations.push(durationMs);
+        return Promise.resolve();
+      },
+      writeError: () => {
+        throw new Error('stderr is closed');
+      },
+      writeOutput: (value) => {
+        outputs.push(value);
+      },
+    });
+
+  expect(usageExitCode).toBe(USAGE_ERROR_EXIT_CODE);
+  expect({ durations, outputs, sounds }).toEqual({ durations: [], outputs: [], sounds: [] });
 });
 
 test('NGを選択するとタイマーを開始しない', async () => {
