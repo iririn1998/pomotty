@@ -1,4 +1,5 @@
 import { DEFAULT_BREAK_DURATION_MINUTES, DEFAULT_WORK_DURATION_MINUTES } from '@/timer/timer.ts';
+import { escapeDiagnostic } from '@/diagnostics/escape.ts';
 
 /** タイマー起動に利用するCLI引数です。 */
 type TimerCliArguments = {
@@ -106,7 +107,7 @@ const ARGUMENT_INDEX_INCREMENT = 1,
       if (!isDurationOption(optionName)) {
         return {
           kind: 'error',
-          message: `Error: Unknown option: ${argument}\n`,
+          message: `Error: Unknown option: ${escapeDiagnostic(argument)}\n`,
         };
       }
 

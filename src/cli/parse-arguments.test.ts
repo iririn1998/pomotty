@@ -7,8 +7,10 @@ const DEFAULT_TIMER_OPTIONS = {
     kind: 'run',
     workDurationMinutes: DEFAULT_WORK_DURATION_MINUTES,
   } as const,
+  LONG_OPTION_LENGTH = 300,
   MAXIMUM_DURATION_MINUTES = 1440,
-  MINIMUM_DURATION_MINUTES = 1;
+  MINIMUM_DURATION_MINUTES = 1,
+  TRUNCATED_OPTION_LENGTH = 158;
 
 test('オプションなしでは作業15分・休憩5分を返す', () => {
   expect(parseCliArguments([])).toEqual(DEFAULT_TIMER_OPTIONS);
@@ -82,7 +84,26 @@ describe.each(['--work', '--break'])('%s', (option) => {
 test('未知のオプションを拒否する', () => {
   expect(parseCliArguments(['--unknown'])).toEqual({
     kind: 'error',
-    message: 'Error: Unknown option: --unknown\n',
+    message: 'Error: Unknown option: "--unknown"\n',
+  });
+});
+
+test.each([
+  { escaped: String.raw`\x0AFORGED LOG LINE`, name: '改行', raw: '\nFORGED LOG LINE' },
+  { escaped: String.raw`\x1B[31m`, name: 'ESC', raw: '\u001B[31m' },
+  { escaped: String.raw`\u{202E}`, name: 'RLO', raw: '\u202E' },
+  { escaped: String.raw`\"`, name: '二重引用符', raw: '"' },
+])('未知のオプションに含まれる$nameをエスケープする', ({ escaped, raw }) => {
+  expect(parseCliArguments([`--unknown${raw}`])).toEqual({
+    kind: 'error',
+    message: `Error: Unknown option: "--unknown${escaped}"\n`,
+  });
+});
+
+test('未知のオプションを160コードポイントで切り詰める', () => {
+  expect(parseCliArguments([`--${'A'.repeat(LONG_OPTION_LENGTH)}`])).toEqual({
+    kind: 'error',
+    message: `Error: Unknown option: "--${'A'.repeat(TRUNCATED_OPTION_LENGTH)}…"\n`,
   });
 });
 

@@ -125,7 +125,7 @@ test('未知のオプションではエラー終了しタイマーを開始し�
   expect(result).toEqual({
     confirmationCount: 0,
     durations: [],
-    errorOutput: 'Error: Unknown option: --unknown\n',
+    errorOutput: 'Error: Unknown option: "--unknown"\n',
     exitCode: 2,
     output: '',
     sounds: [],
