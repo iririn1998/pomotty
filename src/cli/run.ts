@@ -3,11 +3,16 @@ import type { TimerPhase, Wait } from '@/timer/timer.ts';
 import { OPTIONS } from '@/cli/constants.ts';
 import { confirmWorkStart } from '@/terminal/input.ts';
 import { createCliOutput } from '@/terminal/render.ts';
+import { createDiagnosticWriter } from '@/diagnostics/writer.ts';
+import { parseCliArguments } from '@/cli/parse-arguments.ts';
 import { playCompletionSound } from '@/notification/sound.ts';
 import process from 'node:process';
 
 /** CLIの標準出力へ文字列を書き込む処理です。 */
 type WriteOutput = (output: string) => void;
+
+/** CLIの標準エラー出力へ文字列を書き込む処理です。 */
+type WriteError = (output: string) => void;
 
 /** CLI実行時に差し替えられる処理を定義します。 */
 type RunCliParameters = {
@@ -25,41 +30,61 @@ type RunCliParameters = {
 
   /** CLIの出力を書き込む処理です。 */
   readonly writeOutput?: WriteOutput;
+
+  /** CLIのエラーを書き込む処理です。 */
+  readonly writeError?: WriteError;
 };
 
 const CLI_ARGUMENTS_START_INDEX = 2,
-  EXPECTED_ARGUMENT_COUNT = 0,
-  FIRST_ARGUMENT_INDEX = 0,
   PHASE_ICONS = { break: '☕', work: '🍅' } as const,
   PHASE_NAMES = { break: 'Break', work: 'Work' } as const,
+  SUCCESS_EXIT_CODE = 0,
+  USAGE_ERROR_EXIT_CODE = 2,
+  /**
+   * 診断を1回だけ書き込み、失敗しても呼び出し元へ伝播させません。
+   *
+   * 診断を出力できなくても引数エラーは引数エラーなので、終了コードを
+   * 変えてはならず、同じ出力先へ診断を書き直してもいけません。
+   */
+  emitDiagnostic = (writeError: WriteError, message: string): void => {
+    try {
+      writeError(message);
+    } catch {
+      // 出力先が閉じている場合など。ここで握りつぶすのが期待動作です。
+    }
+  },
   /** 作業開始を確認し、1回のポモドーロサイクルを実行します。 */
   runCli = async ({
     arguments_ = process.argv.slice(CLI_ARGUMENTS_START_INDEX),
     confirmStart = confirmWorkStart,
     playSound = playCompletionSound,
     wait,
+    writeError = createDiagnosticWriter(),
     writeOutput = (output) => {
       process.stdout.write(output);
     },
-  }: RunCliParameters = {}): Promise<void> => {
-    writeOutput(
-      createCliOutput({
-        optionName: arguments_.at(FIRST_ARGUMENT_INDEX) ?? '',
-        options: OPTIONS,
-      }),
-    );
+  }: RunCliParameters = {}): Promise<number> => {
+    const parsedArguments = parseCliArguments(arguments_);
 
-    // 現時点ではオプションなしの起動だけがタイマーを開始します。
-    if (arguments_.length !== EXPECTED_ARGUMENT_COUNT) {
-      return;
+    if (parsedArguments.kind === 'error') {
+      emitDiagnostic(writeError, parsedArguments.message);
+      return USAGE_ERROR_EXIT_CODE;
     }
+
+    if (parsedArguments.kind === 'help') {
+      writeOutput(createCliOutput({ optionName: '--help', options: OPTIONS }));
+      return SUCCESS_EXIT_CODE;
+    }
+
+    writeOutput(createCliOutput({ optionName: '', options: OPTIONS }));
 
     if (!(await confirmStart())) {
       writeOutput('⏹️ Work was not started.\n');
-      return;
+      return SUCCESS_EXIT_CODE;
     }
 
     await runPomodoroCycle({
+      breakDurationMs: parsedArguments.breakDurationMinutes * MILLISECONDS_PER_MINUTE,
       onPhaseCompleted: (phase) => {
         writeOutput(`✅ ${PHASE_NAMES[phase]} complete.\n`);
         playSound(phase);
@@ -71,10 +96,12 @@ const CLI_ARGUMENTS_START_INDEX = 2,
         );
       },
       wait,
+      workDurationMs: parsedArguments.workDurationMinutes * MILLISECONDS_PER_MINUTE,
     });
 
     writeOutput('🎉 Pomodoro complete.\n');
+    return SUCCESS_EXIT_CODE;
   };
 
 export { runCli };
-export type { RunCliParameters, WriteOutput };
+export type { RunCliParameters, WriteError, WriteOutput };
