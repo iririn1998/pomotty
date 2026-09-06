@@ -36,10 +36,17 @@ type RunCliParameters = {
 };
 
 const CLI_ARGUMENTS_START_INDEX = 2,
+  COUNT_INCREMENT = 1,
   PHASE_ICONS = { break: '☕', work: '🍅' } as const,
   PHASE_NAMES = { break: 'Break', work: 'Work' } as const,
   SUCCESS_EXIT_CODE = 0,
   USAGE_ERROR_EXIT_CODE = 2,
+  /** フェーズ開始メッセージを生成します。 */
+  createPhaseStartedOutput = (phase: TimerPhase, durationMs: number): string => {
+    const durationMinutes = durationMs / MILLISECONDS_PER_MINUTE;
+
+    return `${PHASE_ICONS[phase]} ${PHASE_NAMES[phase]} started (${durationMinutes} min)\n`;
+  },
   /**
    * 診断を1回だけ書き込み、失敗しても呼び出し元へ伝播させません。
    *
@@ -53,16 +60,18 @@ const CLI_ARGUMENTS_START_INDEX = 2,
       // 出力先が閉じている場合など。ここで握りつぶすのが期待動作です。
     }
   },
-  /** 作業開始を確認し、1回のポモドーロサイクルを実行します。 */
+  /** CLIの標準出力へ書き込みます。 */
+  emitStandardOutput: WriteOutput = (output) => {
+    process.stdout.write(output);
+  },
+  /** 作業開始を確認し、指定回数のポモドーロサイクルを実行します。 */
   runCli = async ({
     arguments_ = process.argv.slice(CLI_ARGUMENTS_START_INDEX),
     confirmStart = confirmWorkStart,
     playSound = playCompletionSound,
     wait,
     writeError = createDiagnosticWriter(),
-    writeOutput = (output) => {
-      process.stdout.write(output);
-    },
+    writeOutput = emitStandardOutput,
   }: RunCliParameters = {}): Promise<number> => {
     const parsedArguments = parseCliArguments(arguments_);
 
@@ -83,21 +92,25 @@ const CLI_ARGUMENTS_START_INDEX = 2,
       return SUCCESS_EXIT_CODE;
     }
 
-    await runPomodoroCycle({
-      breakDurationMs: parsedArguments.breakDurationMinutes * MILLISECONDS_PER_MINUTE,
-      onPhaseCompleted: (phase) => {
-        writeOutput(`✅ ${PHASE_NAMES[phase]} complete.\n`);
-        playSound(phase);
-      },
-      onPhaseStarted: (phase, durationMs) => {
-        const durationMinutes = durationMs / MILLISECONDS_PER_MINUTE;
-        writeOutput(
-          `${PHASE_ICONS[phase]} ${PHASE_NAMES[phase]} started (${durationMinutes} min)\n`,
-        );
-      },
-      wait,
-      workDurationMs: parsedArguments.workDurationMinutes * MILLISECONDS_PER_MINUTE,
-    });
+    for (
+      let cycleIndex = 0;
+      cycleIndex < parsedArguments.roopCount;
+      cycleIndex += COUNT_INCREMENT
+    ) {
+      // 各サイクルは前の休憩が完了してから開始します。
+      // oxlint-disable-next-line no-await-in-loop
+      await runPomodoroCycle({
+        breakDurationMs: parsedArguments.breakDurationMinutes * MILLISECONDS_PER_MINUTE,
+        onPhaseCompleted: (phase) => {
+          writeOutput(`✅ ${PHASE_NAMES[phase]} complete.\n`);
+          playSound(phase);
+        },
+        onPhaseStarted: (phase, durationMs) =>
+          writeOutput(createPhaseStartedOutput(phase, durationMs)),
+        wait,
+        workDurationMs: parsedArguments.workDurationMinutes * MILLISECONDS_PER_MINUTE,
+      });
+    }
 
     writeOutput('🎉 Pomodoro complete.\n');
     return SUCCESS_EXIT_CODE;

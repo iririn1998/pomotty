@@ -5,6 +5,7 @@ import { parseCliArguments } from './parse-arguments.ts';
 const DEFAULT_TIMER_OPTIONS = {
     breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
     kind: 'run',
+    roopCount: 3,
     workDurationMinutes: DEFAULT_WORK_DURATION_MINUTES,
   } as const,
   LONG_OPTION_LENGTH = 300,
@@ -12,19 +13,19 @@ const DEFAULT_TIMER_OPTIONS = {
   MINIMUM_DURATION_MINUTES = 1,
   TRUNCATED_OPTION_LENGTH = 158;
 
-test('オプションなしでは作業15分・休憩5分を返す', () => {
+test('オプションなしでは作業15分・休憩5分・3回を返す', () => {
   expect(parseCliArguments([])).toEqual(DEFAULT_TIMER_OPTIONS);
 });
 
 test.each([
   {
     arguments_: ['--work', '30', '--break', '10'],
-    expected: { breakDurationMinutes: 10, kind: 'run', workDurationMinutes: 30 },
+    expected: { breakDurationMinutes: 10, kind: 'run', roopCount: 3, workDurationMinutes: 30 },
     name: '分離形式',
   },
   {
     arguments_: ['--break=20', '--work=50'],
-    expected: { breakDurationMinutes: 20, kind: 'run', workDurationMinutes: 50 },
+    expected: { breakDurationMinutes: 20, kind: 'run', roopCount: 3, workDurationMinutes: 50 },
     name: 'イコール形式',
   },
   {
@@ -32,6 +33,7 @@ test.each([
     expected: {
       breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
       kind: 'run',
+      roopCount: 3,
       workDurationMinutes: 45,
     },
     name: '作業時間だけ指定',
@@ -41,12 +43,53 @@ test.each([
     expected: {
       breakDurationMinutes: 15,
       kind: 'run',
+      roopCount: 3,
       workDurationMinutes: DEFAULT_WORK_DURATION_MINUTES,
     },
     name: '休憩時間だけ指定',
   },
 ])('$nameで時間を指定できる', ({ arguments_, expected }) => {
   expect(parseCliArguments(arguments_)).toEqual(expected);
+});
+
+test.each([
+  { arguments_: ['--roop', '1'], roopCount: 1 },
+  { arguments_: ['--roop=5'], roopCount: 5 },
+  { arguments_: ['--roop', String(Number.MAX_SAFE_INTEGER)], roopCount: Number.MAX_SAFE_INTEGER },
+])('繰り返し回数を受理する: $arguments_', ({ arguments_, roopCount }) => {
+  expect(parseCliArguments(arguments_)).toEqual({
+    breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
+    kind: 'run',
+    roopCount,
+    workDurationMinutes: DEFAULT_WORK_DURATION_MINUTES,
+  });
+});
+
+test.each([
+  [],
+  [''],
+  ['0'],
+  ['-1'],
+  ['1.5'],
+  ['01'],
+  ['+1'],
+  ['1e2'],
+  [' 2'],
+  ['Infinity'],
+  ['9007199254740992'],
+  ['--work'],
+])('不正な繰り返し回数を拒否する: %j', (...values) => {
+  expect(parseCliArguments(['--roop', ...values])).toEqual({
+    kind: 'error',
+    message: `Error: --roop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
+  });
+});
+
+test('繰り返し回数の重複指定を拒否する', () => {
+  expect(parseCliArguments(['--roop', '2', '--roop=3'])).toEqual({
+    kind: 'error',
+    message: 'Error: --roop may only be specified once.\n',
+  });
 });
 
 describe.each(['--work', '--break'])('%s', (option) => {

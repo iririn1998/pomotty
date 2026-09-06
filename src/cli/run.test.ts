@@ -25,7 +25,7 @@ const COUNT_INCREMENT = 1,
   SUCCESS_EXIT_CODE = 0,
   USAGE_ERROR_EXIT_CODE = 2,
   help =
-    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  -h, --help\n          Print help\n',
+    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --roop <count>\n          Work-break repetitions (positive integer, default: 3)\n  -h, --help\n          Print help\n',
   runCliFor = (arguments_: readonly string[] = [], confirmed = true): Promise<CliResult> => {
     const durations: number[] = [],
       sounds: TimerPhase[] = [];
@@ -62,12 +62,19 @@ const COUNT_INCREMENT = 1,
     }));
   };
 
-test('オプションなしで15分の作業と5分の休憩を1回実行する', async () => {
+test('オプションなしで15分の作業と5分の休憩を3回実行する', async () => {
   const result = await runCliFor();
 
   expect(result).toEqual({
     confirmationCount: 1,
-    durations: [DEFAULT_WORK_DURATION_MS, DEFAULT_BREAK_DURATION_MS],
+    durations: [
+      DEFAULT_WORK_DURATION_MS,
+      DEFAULT_BREAK_DURATION_MS,
+      DEFAULT_WORK_DURATION_MS,
+      DEFAULT_BREAK_DURATION_MS,
+      DEFAULT_WORK_DURATION_MS,
+      DEFAULT_BREAK_DURATION_MS,
+    ],
     errorOutput: '',
     exitCode: 0,
     output: [
@@ -76,15 +83,23 @@ test('オプションなしで15分の作業と5分の休憩を1回実行する'
       '✅ Work complete.\n',
       '☕ Break started (5 min)\n',
       '✅ Break complete.\n',
+      '🍅 Work started (15 min)\n',
+      '✅ Work complete.\n',
+      '☕ Break started (5 min)\n',
+      '✅ Break complete.\n',
+      '🍅 Work started (15 min)\n',
+      '✅ Work complete.\n',
+      '☕ Break started (5 min)\n',
+      '✅ Break complete.\n',
       '🎉 Pomodoro complete.\n',
     ].join(''),
-    sounds: ['work', 'break'],
+    sounds: ['work', 'break', 'work', 'break', 'work', 'break'],
   });
 });
 
 test.each([
   {
-    arguments_: ['--work', '30', '--break', '10'],
+    arguments_: ['--work', '30', '--break', '10', '--roop', '1'],
     durations: [
       SEPARATED_WORK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
       SEPARATED_BREAK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
@@ -92,8 +107,10 @@ test.each([
     name: '分離形式',
   },
   {
-    arguments_: ['--work=45', '--break=15'],
+    arguments_: ['--work=45', '--break=15', '--roop=2'],
     durations: [
+      EQUALS_WORK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
+      EQUALS_BREAK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
       EQUALS_WORK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
       EQUALS_BREAK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
     ],
@@ -105,6 +122,20 @@ test.each([
   expect(result.durations).toEqual(durations);
   expect(result.errorOutput).toBe('');
   expect(result.exitCode).toBe(SUCCESS_EXIT_CODE);
+  expect(result.confirmationCount).toBe(COUNT_INCREMENT);
+});
+
+test('不正な繰り返し回数では開始確認もタイマーも実行しない', async () => {
+  const result = await runCliFor(['--roop', '0']);
+
+  expect(result).toEqual({
+    confirmationCount: 0,
+    durations: [],
+    errorOutput: `Error: --roop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
+    exitCode: 2,
+    output: '',
+    sounds: [],
+  });
 });
 
 test.each(['--help', '-h'])('%sでヘルプを表示してタイマーを開始しない', async (option) => {
