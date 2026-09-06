@@ -87,6 +87,13 @@ export default defineConfig({
       },
     },
     {
+      files: ['src/diagnostics/escape.ts', 'src/diagnostics/escape.test.ts'],
+      rules: {
+        'no-control-regex': 'off',
+        'sort-vars': 'off',
+      },
+    },
+    {
       files: ['src/cli/parse-arguments.ts'],
       rules: {
         'max-lines-per-function': 'off',
