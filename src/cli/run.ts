@@ -3,6 +3,7 @@ import type { TimerPhase, Wait } from '@/timer/timer.ts';
 import { OPTIONS } from '@/cli/constants.ts';
 import { confirmWorkStart } from '@/terminal/input.ts';
 import { createCliOutput } from '@/terminal/render.ts';
+import { createDiagnosticWriter } from '@/diagnostics/writer.ts';
 import { parseCliArguments } from '@/cli/parse-arguments.ts';
 import { playCompletionSound } from '@/notification/sound.ts';
 import process from 'node:process';
@@ -58,9 +59,7 @@ const CLI_ARGUMENTS_START_INDEX = 2,
     confirmStart = confirmWorkStart,
     playSound = playCompletionSound,
     wait,
-    writeError = (output) => {
-      process.stderr.write(output);
-    },
+    writeError = createDiagnosticWriter(),
     writeOutput = (output) => {
       process.stdout.write(output);
     },
