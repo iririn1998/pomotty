@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { PassThrough } from 'node:stream';
 import { createDiagnosticWriter } from './writer.ts';
 
 /** 出力先の失敗を再現するための差し替えストリームです。 */
@@ -83,6 +84,21 @@ test('書き込みの同期例外を呼び出し元へ伝播させない', () =>
   expect(() => {
     write('Error: Unknown option\n');
   }).not.toThrow();
+});
+
+test('実ストリームのerrorイベントを未処理の例外にしない', () => {
+  const stream = new PassThrough(),
+    write = createDiagnosticWriter(stream);
+
+  // リスナーがなければEventEmitterはこのerrorを同期的にthrowし、
+  // 未処理の例外として終了コードを1へ変えてしまう。
+  expect(() => {
+    stream.emit('error', new Error('EPIPE: broken pipe, write'));
+  }).not.toThrow();
+
+  write('Error: Unknown option\n');
+
+  expect(stream.read()).toBeNull();
 });
 
 test('一度書き込みに失敗したら以後は書き込みを試みない', () => {
