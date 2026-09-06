@@ -1,54 +1,57 @@
 # pomotty
 
-Node.js 22以降で利用できる、ターミナル用のポモドーロタイマーです。
+English | [日本語](./README.ja.md)
+
+A Pomodoro timer for the terminal, available on Node.js 22 or later.
 
 ```shell
 npx pomotty
 ```
 
-グローバルにインストールする場合は、次のコマンドを実行します。
+To install it globally, run:
 
 ```shell
 npm install --global pomotty
 pomotty
 ```
 
-`pomotty`で作業開始の選択メニューを表示します。上下キーで`OK`を選んで
-Enterを押すと15分の作業と5分の休憩を3セット実行し、`NG`を選ぶとタイマーを
-開始せず終了します。
+Run `pomotty` to display the start menu. Use the up and down arrow keys to select
+`OK`, then press Enter to start 3 cycles of 15 minutes of work and 5 minutes of
+break. Select `NG` to exit without starting the timer.
 
 ```shell
 pomotty
 ```
 
-作業時間と休憩時間は、1〜1440の整数（分）で指定できます。片方だけを指定した
-場合、もう片方には既定値が使われます。
+Work and break durations accept whole numbers from 1 to 1440, in minutes. If you
+specify only one duration, the other uses its default value.
 
 ```shell
 pomotty --work 30 --break 10
 pomotty --work=45 --break=15
 ```
 
-`--roop`で作業・休憩の繰り返し回数を指定できます。既定値は3で、1以上の整数
-（最大9007199254740991）を受け付けます。開始確認は最初の1回だけで、最後の休憩が
-完了すると終了します。
+Use `--roop` to set the number of work and break cycles. It defaults to 3 and
+accepts whole numbers from 1 to 9007199254740991. The start confirmation appears
+only once, and the timer exits after the final break finishes.
 
 ```shell
 pomotty --roop 5
 pomotty --work=25 --break=5 --roop=2
 ```
 
-利用可能なオプションは、次のコマンドで確認できます。
+To see the available options, run:
 
 ```shell
 pomotty --help
 ```
 
-作業と休憩の完了時には、それぞれ異なる通知音を再生します。macOSでは
-`afplay`、Linuxでは`paplay`または`aplay`、WindowsではPowerShellを利用し、
-再生できない環境では異なる回数のターミナルベルに切り替わります。
+Different notification sounds play when work and break sessions end. Sound
+playback uses `afplay` on macOS, `paplay` or `aplay` on Linux, and PowerShell on
+Windows. If audio playback is unavailable, the timer falls back to different
+numbers of terminal bells for work and break notifications.
 
-## 開発
+## Development
 
 ```shell
 pnpm install --frozen-lockfile
@@ -58,20 +61,22 @@ pnpm lint
 pnpm format:check
 ```
 
-## npmへの公開・更新
+## Publishing and updating on npm
 
-開発と公開にはpnpmを使用します。初回または認証が切れた場合は
-`pnpm login --registry=https://registry.npmjs.org/`でnpmへログインします。
+Use pnpm for development and publishing. Before your first publish, or when your
+authentication expires, sign in to npm with
+`pnpm login --registry=https://registry.npmjs.org/`.
 
-更新時は変更内容に応じて`pnpm version patch`、`pnpm version minor`、
-`pnpm version major`で未公開のバージョンへ更新します。
-これらのコマンドはGitコミットとタグも作成するため、先に変更をコミットしてください。
+For updates, choose `pnpm version patch`, `pnpm version minor`, or
+`pnpm version major` according to the changes to bump to an unpublished version.
+Commit your changes first, as these commands also create a Git commit and tag.
 
 ```shell
 pnpm publish --dry-run --no-git-checks
 pnpm publish
 ```
 
-公開前にテスト・lint・フォーマット検証が実行され、パッケージ作成時にビルドされます。
-配布物にはCLI、通知音、README、package.jsonが含まれます。
-公開時にnpmから認証を求められたら、表示される案内に従って完了してください。
+Tests, linting, and formatting checks run before publishing, and the project is
+built when the package is created. The package includes the CLI, notification
+sounds, README, and package.json. If npm requests authentication during
+publishing, follow the displayed instructions to complete it.
