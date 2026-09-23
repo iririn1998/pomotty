@@ -25,9 +25,11 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          # Trusted publishing requires npm >= 11.5.1, which Node.js 24 bundles.
+          # registry-url is omitted because it writes a placeholder token to
+          # .npmrc that stops npm from performing the OIDC exchange.
+          node-version: 24.x
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       - name: Verify tag matches package version
         run: |
@@ -40,8 +42,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Run tests
+        run: pnpm test
+
+      - name: Run lint
+        run: pnpm lint
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Pack package
+        run: pnpm pack --pack-destination "$RUNNER_TEMP/package"
+
+      # pnpm publish's own OIDC exchange is rejected by npm, so publish the
+      # tarball with the npm CLI. It runs outside the repository because
+      # devEngines rejects npm there.
       - name: Publish to npm
-        run: pnpm publish --no-git-checks
+        working-directory: ${{ runner.temp }}/package
+        run: npm publish ./pomotty-*.tgz
 
       - name: Create GitHub release
         run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
