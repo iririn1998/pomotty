@@ -14,20 +14,25 @@ pnpm lint
 pnpm format:check
 ```
 
-## npmへの公開・更新
+## リリース
 
-開発と公開にはpnpmを使用します。初回または認証が切れた場合は
-`pnpm login --registry=https://registry.npmjs.org/`でnpmへログインします。
+`v*`タグをpushすると[Releaseワークフロー](./.github/workflows/release.yml)が実行されます。
+タグと`package.json`のバージョンが一致することを確認したうえで、npmへ公開し、
+同じバージョンのGitHub Releaseを作成するため、npmとGitHub Releasesは常に一致します。
+ローカルでは`pnpm publish`を実行しないでください。
 
-更新時は変更内容に応じて`pnpm version patch`、`pnpm version minor`、
-`pnpm version major`で未公開のバージョンへ更新します。
-これらのコマンドはGitコミットとタグも作成するため、先に変更をコミットしてください。
+先に変更をコミットしてから、変更内容に応じて`pnpm version patch`、
+`pnpm version minor`、`pnpm version major`でバージョンを更新します。
+これらのコマンドはGitコミットと`v<バージョン>`タグを作成するので、両方をpushします。
 
 ```shell
-pnpm publish --dry-run --no-git-checks
-pnpm publish
+pnpm version patch
+git push --follow-tags
 ```
 
 公開前にテスト・lint・フォーマット検証が実行され、パッケージ作成時にビルドされます。
 配布物にはCLI、通知音、README、package.jsonが含まれます。
-公開時にnpmから認証を求められたら、表示される案内に従って完了してください。
+配布物の内容は`pnpm publish --dry-run --no-git-checks`でローカル確認できます。
+
+npmの認証には[Trusted Publishing](https://docs.npmjs.com/trusted-publishers)を使用するため、
+リポジトリにnpmトークンは保存しません。

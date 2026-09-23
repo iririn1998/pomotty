@@ -14,22 +14,28 @@ pnpm lint
 pnpm format:check
 ```
 
-## Publishing and updating on npm
+## Releasing
 
-Use pnpm for development and publishing. Before your first publish, or when your
-authentication expires, sign in to npm with
-`pnpm login --registry=https://registry.npmjs.org/`.
+Releases are published by the [Release workflow](./.github/workflows/release.yml)
+when a `v*` tag is pushed. It checks that the tag matches the `package.json`
+version, publishes the package to npm, and creates a GitHub release with the
+same version, so npm and GitHub releases always stay in sync. Do not run
+`pnpm publish` locally.
 
-For updates, choose `pnpm version patch`, `pnpm version minor`, or
-`pnpm version major` according to the changes to bump to an unpublished version.
-Commit your changes first, as these commands also create a Git commit and tag.
+Commit your changes first, then bump the version with `pnpm version patch`,
+`pnpm version minor`, or `pnpm version major` according to the changes. These
+commands create a Git commit and a `v<version>` tag. Push both:
 
 ```shell
-pnpm publish --dry-run --no-git-checks
-pnpm publish
+pnpm version patch
+git push --follow-tags
 ```
 
 Tests, linting, and formatting checks run before publishing, and the project is
 built when the package is created. The package includes the CLI, notification
-sounds, README, and package.json. If npm requests authentication during
-publishing, follow the displayed instructions to complete it.
+sounds, README, and package.json. To check the package contents locally, run
+`pnpm publish --dry-run --no-git-checks`.
+
+npm authentication uses
+[trusted publishing](https://docs.npmjs.com/trusted-publishers), so no npm token
+is stored in the repository.
