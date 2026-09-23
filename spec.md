@@ -44,7 +44,7 @@ npx pomotty [options]
 
 | オプション             | 既定値   | 説明                                                                                     |
 | ---------------------- | -------- | ---------------------------------------------------------------------------------------- |
-| `--work <min>`         | `25`     | 作業時間（分）。1〜1440の整数                                                            |
+| `--work <min>`         | `15`     | 作業時間（分）。1〜1440の整数                                                            |
 | `--break <min>`        | `5`      | 短い休憩時間（分）。1〜1440の整数                                                        |
 | `--long-break <min>`   | `15`     | 長い休憩時間（分）。1〜1440の整数                                                        |
 | `--cycles <n>`         | `4`      | 長い休憩に入るまでに自然終了させる作業セット数。1〜100の整数                             |
@@ -73,7 +73,7 @@ npx pomotty --task "仕様書レビュー" --no-sound
 使い方: pomotty [options]
 
 オプション:
-  --work <min>         作業時間。1〜1440の整数（既定: 25）
+  --work <min>         作業時間。1〜1440の整数（既定: 15）
   --break <min>        短い休憩時間。1〜1440の整数（既定: 5）
   --long-break <min>   長い休憩時間。1〜1440の整数（既定: 15）
   --cycles <n>         長い休憩までの自然終了WORK数。1〜100（既定: 4）
@@ -116,7 +116,7 @@ npx pomotty --task "仕様書レビュー" --no-sound
 
 引数の解析と検証は、raw mode、タイマー、音、通知を初期化する前に完了させる。`--help`と`--version`は情報をstdoutへ出力して終了コード`0`で終了し、タイマーを開始しない。最初のstdout書き込み前に最小の`error`リスナーを登録し、help / version書き込みの同期throwまたは非同期`error`が`EPIPE`なら終了コード`0`、その他なら`1`とする。この経路でもサマリ、ANSI、診断は出力しない。
 
-値付きロングオプションは`--work 25`と`--work=25`の両形式を受理する。ただし、値が`-`で始まる場合は、すべての値付きオプションで`--option=value`形式だけを受理する。分離形式でオプション直後に現れた`-`始まりのargv要素は値として消費せず、独立したオプションとして解釈する。したがって`--task=-h`はタスク名`-h`として受理するが、`--task -h`の`-h`はhelpオプションとなる。`--task --title`は未知のオプションとして拒否する。
+値付きロングオプションは`--work 15`と`--work=15`の両形式を受理する。ただし、値が`-`で始まる場合は、すべての値付きオプションで`--option=value`形式だけを受理する。分離形式でオプション直後に現れた`-`始まりのargv要素は値として消費せず、独立したオプションとして解釈する。したがって`--task=-h`はタスク名`-h`として受理するが、`--task -h`の`-h`はhelpオプションとなる。`--task --title`は未知のオプションとして拒否する。
 
 短縮形は`-h`と`-v`だけとし、`-hv`のような結合は受理しない。位置引数とオプション終端は持たないため、単独の`--`も、それ以降の値の有無にかかわらず終了コード`2`で拒否する。
 
@@ -385,7 +385,7 @@ space、`s`、`q`、raw mode中の`Ctrl+C`を処理するときは、後述の�
 
 OSから直接配送された終了シグナル、stdoutのEPIPE、stdinのerror、内部エラーは期限精算を行わず、§7の終了処理を直ちに開始する。これらは手動キーイベントではない。
 
-例えば10:00に25分の作業を開始し、10:10から11:00までスリープした場合、復帰した11:00に作業を1回完了として処理し、11:00から所定時間の休憩を開始する。10:25以降に相当する休憩・作業フェーズを遡って生成しない。
+例えば10:00に15分の作業を開始し、10:10から11:00までスリープした場合、復帰した11:00に作業を1回完了として処理し、11:00から所定時間の休憩を開始する。10:15以降に相当する休憩・作業フェーズを遡って生成しない。
 
 バージョン1ではシステムの壁時計を正とする。実行中にシステム時計が未来へ変更されて `endsAt` を超えた場合も同じ規則で完了させ、過去へ変更された場合は表示上の残り時間が増えることを許容する。時計変更の検知・補正はスコープ外とする。
 
@@ -549,14 +549,14 @@ ${phaseStatus} ${time} ${cycle}
 `interactive === false`の場合は、起動時とフェーズ遷移時にだけstdoutへ1行出力する。
 
 ```text
-[10:00:00] WORK 開始 (25:00)
-[10:25:00] WORK 完了 → BREAK 開始 (5:00)
-[10:30:00] BREAK 完了 → WORK 開始 (25:00)
+[10:00:00] WORK 開始 (15:00)
+[10:15:00] WORK 完了 → BREAK 開始 (5:00)
+[10:20:00] BREAK 完了 → WORK 開始 (15:00)
 ```
 
 - タイムスタンプは実行環境のローカル時刻による`HH:mm:ss`
 - 括弧内のフェーズ時間は「時間の表示形式」と同じ整形関数を使う。90分の作業なら`(1:30:00)`となる
-- 正規化済みタスク名がある場合は、すべての行の末尾へ` task=${JSON.stringify(task)}`を付ける。タスク名がなければsuffixも余分な空白も付けない。例: `[10:00:00] WORK 開始 (25:00) task="仕様書レビュー"`
+- 正規化済みタスク名がある場合は、すべての行の末尾へ` task=${JSON.stringify(task)}`を付ける。タスク名がなければsuffixも余分な空白も付けない。例: `[10:00:00] WORK 開始 (15:00) task="仕様書レビュー"`
 - 通常ログはstdout、診断とエラーはstderrへ出力する
 - ANSI、色、カーソル制御、ターミナルベルは出力しない
 - stdinキー操作は提供せず、終了はOSシグナルによって行う
@@ -739,7 +739,7 @@ shutdown中に解除するのはUI、tick、キー復号器、resizeなど通常
 | 総分数              | 書式       | 例                                                  |
 | ------------------- | ---------- | --------------------------------------------------- |
 | 0                   | `0分`      | `🍅 完了: 0 ポモドーロ / タイマー完了換算時間: 0分` |
-| 1〜59               | `M分`      | `25分`                                              |
+| 1〜59               | `M分`      | `15分`                                              |
 | 60以上かつ分が0     | `H時間`    | `2時間`                                             |
 | 60以上かつ分が0以外 | `H時間M分` | `1時間15分`                                         |
 
@@ -1078,7 +1078,7 @@ macOS通知はbest effortとする。`osascript`の終了コード`0`はスク�
     "build": "tsdown",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:unit",
-    "test:unit": "node --test \"test/unit/**/*.test.ts\"",
+    "test:unit": "node --test \"src/**/*.test.ts\"",
     "test:package": "node --test \"test/package/**/*.test.ts\"",
     "verify:wav": "node scripts/verify-wav.mjs",
     "check": "npm run typecheck && npm run build && npm run test:unit && npm run verify:wav",
@@ -1115,9 +1115,10 @@ READMEには`npx pomotty`の起動例、主要オプション、統一したNode
 
 `node --test`を引数なしで実行すると`test/`以下の`.test.ts`を再帰的に発見する。このため、`npm pack`を起動するパッケージ検証テストを通常の単体テストと同じ探索対象に置いたまま、`prepack → check → node --test`と呼び出してはならない。
 
-- `test/unit/**/*.test.ts`は、時計、TTY、子プロセス等をフェイク化した単体・コンポーネントテストだけを含む
+- `src/**/*.test.ts`は対象実装と同じディレクトリに置き、時計、TTY、子プロセス等をフェイク化した単体・コンポーネントテストだけを含む
 - `test/package/**/*.test.ts`は、生成済みtarballのファイル構成、metadata、インストール結果、wav、ランタイム依存だけを検証し、実時間を使うCLI起動スモークは実行しない
-- `test:unit`と`test:package`は引用符付きglobで探索対象を明示し、互いのディレクトリを実行しない
+- 実装の単体テストは`timer.ts`に対する`timer.test.ts`のように、対象と同じベース名を使用する
+- `test:unit`と`test:package`は引用符付きglobで探索対象を明示し、互いのテストを実行しない
 - `prepack`は`check`だけを呼び、`verify:package`、`test:package`、`smoke:package`、`npm pack`、`npm publish`を直接・間接に呼ばない
 - `verify:package`だけがトップレベルから`npm pack`を1回起動し、生成後に`test:package`と`smoke:package`を実行する
 - `prepare`と`prepublishOnly`は定義しない
@@ -1256,23 +1257,45 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 ```
 .
 ├── src/
-│   ├── cli.ts          # エントリポイント、引数パース
-│   ├── timer.ts        # 状態機械、タイマーループ
-│   ├── render.ts       # ANSI 描画、非TTYフォールバック
-│   ├── unicode.ts      # Unicode 15.1固定の書記素分割・セル幅
-│   ├── input.ts        # raw mode、復号済みキー入力
-│   ├── notify.ts       # 音・デスクトップ通知
-│   ├── platform.ts     # OS 判定、安全なコマンド解決
-│   └── shutdown.ts     # 終了処理と端末復元
-├── test/
-│   ├── unit/
-│   │   ├── cli.test.ts
-│   │   ├── timer.test.ts
-│   │   ├── render.test.ts
+│   ├── cli.ts                         # 最小限のエントリポイント
+│   ├── cli/
+│   │   ├── constants.ts               # オプション定義などの共有定数
+│   │   ├── types.ts                   # CLI内で共有する型
+│   │   ├── parse-options.ts           # 引数パース、検証
+│   │   ├── parse-options.test.ts
+│   │   ├── run.ts                     # CLI統合
+│   │   └── run.test.ts
+│   ├── timer/
+│   │   ├── timer.ts                   # 状態機械、タイマーループ
+│   │   └── timer.test.ts
+│   ├── terminal/
+│   │   ├── constants.ts               # ロゴなどの表示用共有定数
+│   │   ├── input.ts                   # raw mode、復号済みキー入力
 │   │   ├── input.test.ts
-│   │   ├── notify.test.ts
-│   │   └── shutdown.test.ts
-│   └── package/
+│   │   ├── render.ts                  # ANSI描画、非TTYフォールバック
+│   │   └── render.test.ts
+│   ├── notification/
+│   │   ├── operation.ts               # 子プロセスと非同期処理の追跡
+│   │   ├── operation.test.ts
+│   │   ├── sound.ts
+│   │   ├── sound.test.ts
+│   │   ├── desktop.ts
+│   │   └── desktop.test.ts
+│   ├── platform/
+│   │   ├── commands.ts                # OS判定、安全なコマンド解決
+│   │   └── commands.test.ts
+│   ├── unicode/
+│   │   ├── grapheme.ts                # Unicode 15.1固定の書記素分割
+│   │   ├── grapheme.test.ts
+│   │   ├── width.ts                   # 表示セル幅
+│   │   ├── width.test.ts
+│   │   ├── sanitize.ts                # タスク名と診断の安全化
+│   │   └── sanitize.test.ts
+│   └── shutdown/
+│       ├── shutdown.ts                # 終了処理と端末復元
+│       └── shutdown.test.ts
+├── test/
+│   └── package/                       # 公開物全体を対象とする例外的なテスト
 │       ├── tarball.test.ts
 │       ├── installed-package.test.ts
 │       └── bundled-wav.test.ts
@@ -1292,7 +1315,9 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 └── LICENSE
 ```
 
-`test/package/`は`test:package`または`verify:package`から`POMOTTY_TARBALL`で生成済みtgzを渡された場合だけ実行し、`prepack`の探索対象へ含めない。環境変数が未設定、相対パス、存在しないファイル、`.tgz`以外の場合はテストをskipせず失敗させる。
+`src/`直下にはエントリポイントと機能ディレクトリだけを置く。単体・コンポーネントテストは対象実装と同じディレクトリに配置し、同じベース名へ`.test.ts`を付ける。複数の実装ファイルで共有する定数と型は、それを所有する機能内の`constants.ts`と`types.ts`へ配置する。1つの実装だけで使う定数と型は、その実装ファイル内に残す。プロジェクト全体を対象にした`src/constants.ts`、`src/types.ts`、`src/utils/`は設けない。
+
+`test/package/`は特定の実装ファイルではなく公開物全体を検証するため、併置ルールの例外とする。`test:package`または`verify:package`から`POMOTTY_TARBALL`で生成済みtgzを渡された場合だけ実行し、`prepack`の探索対象へ含めない。環境変数が未設定、相対パス、存在しないファイル、`.tgz`以外の場合はテストをskipせず失敗させる。
 
 ---
 
@@ -1300,7 +1325,7 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 
 テストランナーはNode.js標準の`node:test`を使用し、テストランナー自体の追加依存は持たない。消去可能なTypeScript構文だけを使う`.test.ts`を直接実行し、`tsc --noEmit`による型チェックも別途必須とする。
 
-単体テストと、`npm pack`を起動するパッケージテストは探索対象を分離する。`node --test`を引数なしで実行してはならず、単体テストは`node --test "test/unit/**/*.test.ts"`、パッケージテストは`node --test "test/package/**/*.test.ts"`として明示する。globはシェル展開へ依存させず、引用符を付けてNode.jsテストランナーへ渡す。`prepack`から実行されるのは単体テストだけであり、パッケージテストは生成済みtgzを渡された場合だけ実行する。
+単体テストと、`npm pack`を起動するパッケージテストは探索対象を分離する。`node --test`を引数なしで実行してはならず、単体テストは`node --test "src/**/*.test.ts"`、パッケージテストは`node --test "test/package/**/*.test.ts"`として明示する。globはシェル展開へ依存させず、引用符を付けてNode.jsテストランナーへ渡す。`prepack`から実行されるのは単体テストだけであり、パッケージテストは生成済みtgzを渡された場合だけ実行する。
 
 単体テストでは待ち時間を実際に消費しない。壁時計、単調時計、timer、子プロセス生成、`process.exit`、TTY属性、端末幅、stdin / stdout / stderrを注入可能にし、擬似時計とフェイクで決定的に検証する。実時間を使うのは§9のtarballスモークに設けた短い起動確認だけとする。
 

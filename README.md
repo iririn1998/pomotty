@@ -1,18 +1,57 @@
 # pomotty
 
-A Pomodoro timer for your terminal.
+English | [日本語](./README.ja.md)
 
-> **Status:** work in progress. This release reserves the package name — the timer itself is not implemented yet.
+A Pomodoro timer for the terminal, available on Node.js `^22.18.0 || >=24.11.0`.
 
-## Usage
-
-```sh
+```shell
 npx pomotty
 ```
 
-## Requirements
+To install it globally, run:
 
-- Node.js `^22.18.0 || >=24.11.0`
+```shell
+npm install --global pomotty
+pomotty
+```
+
+Run `pomotty` to display the start menu. Use the up and down arrow keys to select
+`OK`, then press Enter to start 3 cycles of 15 minutes of work and 5 minutes of
+break. Select `NG` to exit without starting the timer.
+
+```shell
+pomotty
+```
+
+Work and break durations accept whole numbers from 1 to 1440, in minutes. If you
+specify only one duration, the other uses its default value.
+
+```shell
+pomotty --work 30 --break 10
+pomotty --work=45 --break=15
+```
+
+Use `--roop` to set the number of work and break cycles. It defaults to 3 and
+accepts whole numbers from 1 to 9007199254740991. The start confirmation appears
+only once, and the timer exits after the final break finishes.
+
+```shell
+pomotty --roop 5
+pomotty --work=25 --break=5 --roop=2
+```
+
+To see the available options, run:
+
+```shell
+pomotty --help
+```
+
+Different notification sounds play when work and break sessions end. Sound
+playback uses `afplay` on macOS, `paplay` or `aplay` on Linux, and PowerShell on
+Windows. If audio playback is unavailable, the timer falls back to different
+numbers of terminal bells for work and break notifications.
+
+For development and npm publishing instructions, see the [development guide](./DEVELOPMENT.md).
 
 ## License
 
