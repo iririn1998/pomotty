@@ -5,7 +5,7 @@ import { parseCliArguments } from './parse-arguments.ts';
 const DEFAULT_TIMER_OPTIONS = {
     breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
     kind: 'run',
-    roopCount: 3,
+    loopCount: 3,
     workDurationMinutes: DEFAULT_WORK_DURATION_MINUTES,
   } as const,
   LONG_OPTION_LENGTH = 300,
@@ -20,12 +20,12 @@ test('オプションなしでは作業15分・休憩5分・3回を返す', () =
 test.each([
   {
     arguments_: ['--work', '30', '--break', '10'],
-    expected: { breakDurationMinutes: 10, kind: 'run', roopCount: 3, workDurationMinutes: 30 },
+    expected: { breakDurationMinutes: 10, kind: 'run', loopCount: 3, workDurationMinutes: 30 },
     name: '分離形式',
   },
   {
     arguments_: ['--break=20', '--work=50'],
-    expected: { breakDurationMinutes: 20, kind: 'run', roopCount: 3, workDurationMinutes: 50 },
+    expected: { breakDurationMinutes: 20, kind: 'run', loopCount: 3, workDurationMinutes: 50 },
     name: 'イコール形式',
   },
   {
@@ -33,7 +33,7 @@ test.each([
     expected: {
       breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
       kind: 'run',
-      roopCount: 3,
+      loopCount: 3,
       workDurationMinutes: 45,
     },
     name: '作業時間だけ指定',
@@ -43,7 +43,7 @@ test.each([
     expected: {
       breakDurationMinutes: 15,
       kind: 'run',
-      roopCount: 3,
+      loopCount: 3,
       workDurationMinutes: DEFAULT_WORK_DURATION_MINUTES,
     },
     name: '休憩時間だけ指定',
@@ -53,14 +53,14 @@ test.each([
 });
 
 test.each([
-  { arguments_: ['--roop', '1'], roopCount: 1 },
-  { arguments_: ['--roop=5'], roopCount: 5 },
-  { arguments_: ['--roop', String(Number.MAX_SAFE_INTEGER)], roopCount: Number.MAX_SAFE_INTEGER },
-])('繰り返し回数を受理する: $arguments_', ({ arguments_, roopCount }) => {
+  { arguments_: ['--loop', '1'], loopCount: 1 },
+  { arguments_: ['--loop=5'], loopCount: 5 },
+  { arguments_: ['--loop', String(Number.MAX_SAFE_INTEGER)], loopCount: Number.MAX_SAFE_INTEGER },
+])('繰り返し回数を受理する: $arguments_', ({ arguments_, loopCount }) => {
   expect(parseCliArguments(arguments_)).toEqual({
     breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
     kind: 'run',
-    roopCount,
+    loopCount,
     workDurationMinutes: DEFAULT_WORK_DURATION_MINUTES,
   });
 });
@@ -79,16 +79,16 @@ test.each([
   ['9007199254740992'],
   ['--work'],
 ])('不正な繰り返し回数を拒否する: %j', (...values) => {
-  expect(parseCliArguments(['--roop', ...values])).toEqual({
+  expect(parseCliArguments(['--loop', ...values])).toEqual({
     kind: 'error',
-    message: `Error: --roop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
+    message: `Error: --loop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
   });
 });
 
 test('繰り返し回数の重複指定を拒否する', () => {
-  expect(parseCliArguments(['--roop', '2', '--roop=3'])).toEqual({
+  expect(parseCliArguments(['--loop', '2', '--loop=3'])).toEqual({
     kind: 'error',
-    message: 'Error: --roop may only be specified once.\n',
+    message: 'Error: --loop may only be specified once.\n',
   });
 });
 

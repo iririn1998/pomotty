@@ -31,13 +31,13 @@ pomotty --work 30 --break 10
 pomotty --work=45 --break=15
 ```
 
-`--roop`で作業・休憩の繰り返し回数を指定できます。既定値は3で、1以上の整数
+`--loop`で作業・休憩の繰り返し回数を指定できます。既定値は3で、1以上の整数
 （最大9007199254740991）を受け付けます。開始確認は最初の1回だけで、最後の休憩が
 完了すると終了します。
 
 ```shell
-pomotty --roop 5
-pomotty --work=25 --break=5 --roop=2
+pomotty --loop 5
+pomotty --work=25 --break=5 --loop=2
 ```
 
 利用可能なオプションは、次のコマンドで確認できます。

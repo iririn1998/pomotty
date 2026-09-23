@@ -31,13 +31,13 @@ pomotty --work 30 --break 10
 pomotty --work=45 --break=15
 ```
 
-Use `--roop` to set the number of work and break cycles. It defaults to 3 and
+Use `--loop` to set the number of work and break cycles. It defaults to 3 and
 accepts whole numbers from 1 to 9007199254740991. The start confirmation appears
 only once, and the timer exits after the final break finishes.
 
 ```shell
-pomotty --roop 5
-pomotty --work=25 --break=5 --roop=2
+pomotty --loop 5
+pomotty --work=25 --break=5 --loop=2
 ```
 
 To see the available options, run:

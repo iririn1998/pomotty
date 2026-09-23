@@ -94,7 +94,7 @@ const CLI_ARGUMENTS_START_INDEX = 2,
 
     for (
       let cycleIndex = 0;
-      cycleIndex < parsedArguments.roopCount;
+      cycleIndex < parsedArguments.loopCount;
       cycleIndex += COUNT_INCREMENT
     ) {
       // 各サイクルは前の休憩が完了してから開始します。

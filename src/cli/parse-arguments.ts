@@ -1,12 +1,12 @@
 import { DEFAULT_BREAK_DURATION_MINUTES, DEFAULT_WORK_DURATION_MINUTES } from '@/timer/timer.ts';
-import { DEFAULT_ROOP_COUNT } from './constants.ts';
+import { DEFAULT_LOOP_COUNT } from './constants.ts';
 import { escapeDiagnostic } from '@/diagnostics/escape.ts';
 
 /** タイマー起動に利用するCLI引数です。 */
 type TimerCliArguments = {
   readonly breakDurationMinutes: number;
   readonly kind: 'run';
-  readonly roopCount: number;
+  readonly loopCount: number;
   readonly workDurationMinutes: number;
 };
 
@@ -17,7 +17,7 @@ type ParseCliArgumentsResult =
   | { readonly kind: 'error'; readonly message: string };
 
 /** 数値を指定できるCLIオプションです。 */
-type NumericOption = '--break' | '--work' | '--roop';
+type NumericOption = '--break' | '--work' | '--loop';
 
 /** CLI引数1個から取り出したオプション名と値です。 */
 type NumericArgument = {
@@ -34,17 +34,17 @@ const ARGUMENT_INDEX_INCREMENT = 1,
   HELP_OPTIONS = ['--help', '-h'] as const,
   MAXIMUM_DURATION_MINUTES = 1440,
   NEXT_ARGUMENT_OFFSET = 1,
-  ROOP_PATTERN = /^[1-9][0-9]*$/u,
+  LOOP_PATTERN = /^[1-9][0-9]*$/u,
   /** 引数が数値指定オプションか判定します。 */
   isNumericOption = (value: string): value is NumericOption =>
-    value === '--break' || value === '--work' || value === '--roop',
+    value === '--break' || value === '--work' || value === '--loop',
   /** 引数がヘルプオプションか判定します。 */
   isHelpOption = (value: string): boolean => HELP_OPTIONS.some((option) => option === value),
   /** 数値指定のエラーを生成します。 */
   createValueError = (option: NumericOption): ParseCliArgumentsResult => {
     let maximum = MAXIMUM_DURATION_MINUTES;
 
-    if (option === '--roop') {
+    if (option === '--loop') {
       maximum = Number.MAX_SAFE_INTEGER;
     }
 
@@ -63,8 +63,8 @@ const ARGUMENT_INDEX_INCREMENT = 1,
     let pattern = DURATION_PATTERN,
       maximum = MAXIMUM_DURATION_MINUTES;
 
-    if (option === '--roop') {
-      pattern = ROOP_PATTERN;
+    if (option === '--loop') {
+      pattern = LOOP_PATTERN;
       maximum = Number.MAX_SAFE_INTEGER;
     }
 
@@ -106,7 +106,7 @@ const ARGUMENT_INDEX_INCREMENT = 1,
 
     const specifiedOptions = new Set<NumericOption>();
     let breakDurationMinutes = DEFAULT_BREAK_DURATION_MINUTES,
-      roopCount = DEFAULT_ROOP_COUNT,
+      loopCount = DEFAULT_LOOP_COUNT,
       workDurationMinutes = DEFAULT_WORK_DURATION_MINUTES;
 
     for (
@@ -146,8 +146,8 @@ const ARGUMENT_INDEX_INCREMENT = 1,
 
       if (optionName === '--work') {
         workDurationMinutes = numericValue;
-      } else if (optionName === '--roop') {
-        roopCount = numericValue;
+      } else if (optionName === '--loop') {
+        loopCount = numericValue;
       } else {
         breakDurationMinutes = numericValue;
       }
@@ -156,7 +156,7 @@ const ARGUMENT_INDEX_INCREMENT = 1,
     return {
       breakDurationMinutes,
       kind: 'run',
-      roopCount,
+      loopCount,
       workDurationMinutes,
     };
   };

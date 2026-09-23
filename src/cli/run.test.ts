@@ -25,7 +25,7 @@ const COUNT_INCREMENT = 1,
   SUCCESS_EXIT_CODE = 0,
   USAGE_ERROR_EXIT_CODE = 2,
   help =
-    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --roop <count>\n          Work-break repetitions (positive integer, default: 3)\n  -h, --help\n          Print help\n',
+    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (positive integer, default: 3)\n  -h, --help\n          Print help\n',
   runCliFor = (arguments_: readonly string[] = [], confirmed = true): Promise<CliResult> => {
     const durations: number[] = [],
       sounds: TimerPhase[] = [];
@@ -99,7 +99,7 @@ test('オプションなしで15分の作業と5分の休憩を3回実行する'
 
 test.each([
   {
-    arguments_: ['--work', '30', '--break', '10', '--roop', '1'],
+    arguments_: ['--work', '30', '--break', '10', '--loop', '1'],
     durations: [
       SEPARATED_WORK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
       SEPARATED_BREAK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
@@ -107,7 +107,7 @@ test.each([
     name: '分離形式',
   },
   {
-    arguments_: ['--work=45', '--break=15', '--roop=2'],
+    arguments_: ['--work=45', '--break=15', '--loop=2'],
     durations: [
       EQUALS_WORK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
       EQUALS_BREAK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
@@ -126,12 +126,12 @@ test.each([
 });
 
 test('不正な繰り返し回数では開始確認もタイマーも実行しない', async () => {
-  const result = await runCliFor(['--roop', '0']);
+  const result = await runCliFor(['--loop', '0']);
 
   expect(result).toEqual({
     confirmationCount: 0,
     durations: [],
-    errorOutput: `Error: --roop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
+    errorOutput: `Error: --loop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
     exitCode: 2,
     output: '',
     sounds: [],
