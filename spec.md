@@ -2,7 +2,7 @@
 
 ## 1. 概要
 
-ターミナル上で動作するポモドーロタイマー。`npx` から即座に起動でき、フォアグラウンドで残り時間を表示し続ける。フェーズ切り替え時に音でユーザーへ知らせ、macOS / Linux ではデスクトップ通知も発生させる。Windows は音のみとし、デスクトップ通知には対応しない。
+ターミナル上で動作するポモドーロタイマー。`npx` から即座に起動でき、開始確認の後、作業と休憩を`--loop`で指定した回数だけ繰り返して終了する。実行中はフォアグラウンドで残り時間を表示し続ける。フェーズ切り替え時に音でユーザーへ知らせ、macOS / Linux ではデスクトップ通知も発生させる。Windows は音のみとし、デスクトップ通知には対応しない。
 
 ### 設計方針
 
@@ -45,9 +45,8 @@ npx pomotty [options]
 | オプション             | 既定値   | 説明                                                                                     |
 | ---------------------- | -------- | ---------------------------------------------------------------------------------------- |
 | `--work <min>`         | `15`     | 作業時間（分）。1〜1440の整数                                                            |
-| `--break <min>`        | `5`      | 短い休憩時間（分）。1〜1440の整数                                                        |
-| `--long-break <min>`   | `15`     | 長い休憩時間（分）。1〜1440の整数                                                        |
-| `--cycles <n>`         | `4`      | 長い休憩に入るまでに自然終了させる作業セット数。1〜100の整数                             |
+| `--break <min>`        | `5`      | 休憩時間（分）。1〜1440の整数                                                            |
+| `--loop <count>`       | `3`      | 作業と休憩の組を繰り返す回数。1〜9007199254740991の整数。最後の休憩が完了すると終了      |
 | `--task <name>`        | なし     | タスク名。画面と、対応OSではデスクトップ通知に表示                                       |
 | `--no-sound`           | —        | 音を無効化                                                                               |
 | `--no-notify`          | —        | デスクトップ通知を無効化（macOS / Linuxのみ。Windowsでは受理するが動作に影響しない）     |
@@ -61,8 +60,8 @@ npx pomotty [options]
 
 ```bash
 npx pomotty
-npx pomotty --work 50 --break 10 --cycles 2
-npx pomotty --task "仕様書レビュー" --no-sound
+npx pomotty --work 50 --break 10 --loop 2
+npx pomotty --task "Review spec" --no-sound
 ```
 
 ### ヘルプ表示
@@ -70,46 +69,58 @@ npx pomotty --task "仕様書レビュー" --no-sound
 `--help`の出力は次を規範とする。末尾には改行をちょうど1個付ける。列幅に応じた折り返しや色付けは行わず、TTY / 非TTYで同じ文字列を出力する。
 
 ```text
-使い方: pomotty [options]
+Pomotty CLI
 
-オプション:
-  --work <min>         作業時間。1〜1440の整数（既定: 15）
-  --break <min>        短い休憩時間。1〜1440の整数（既定: 5）
-  --long-break <min>   長い休憩時間。1〜1440の整数（既定: 15）
-  --cycles <n>         長い休憩までの自然終了WORK数。1〜100（既定: 4）
-  --task <name>        タスク名
-  --no-sound           音を無効化
-  --no-notify          デスクトップ通知を無効化
-  --sound-work <path>  作業終了音のwavファイル
-  --sound-break <path> 休憩終了音のwavファイル
-  --volume <0-1>       音量（既定: 0.6）
-  -h, --help           このヘルプを表示
-  -v, --version        バージョンを表示
+Usage: pomotty [OPTIONS]
 
-キー操作（インタラクティブTTYのみ）:
-  space  一時停止 / 再開
-  s      現フェーズをskip
-  q      終了
-  Ctrl+C 終了
+Options:
+  --work <minutes>
+          Work duration in minutes (1-1440, default: 15)
+  --break <minutes>
+          Break duration in minutes (1-1440, default: 5)
+  --loop <count>
+          Work-break repetitions (positive integer, default: 3)
+  --task <name>
+          Task name
+  --no-sound
+          Disable sounds
+  --no-notify
+          Disable desktop notifications
+  --sound-work <path>
+          WAV file played when work ends
+  --sound-break <path>
+          WAV file played when a break ends
+  --volume <0-1>
+          Sound volume (default: 0.6)
+  -h, --help
+          Print help
+  -v, --version
+          Print version
 
-動作:
-  WORKと休憩を終了操作まで無期限に繰り返します。
-  --cyclesは総実行回数ではなく、LONG_BREAKまでの間隔です。
-  非TTYではキー操作を無効化し、終了にはOSシグナルを使用します。
+Keys (interactive TTY only):
+  space   Pause / resume
+  s       Skip the current phase
+  q       Quit
+  Ctrl+C  Quit
 
-通知:
-  macOS / Linuxではデスクトップ通知を利用できます。
-  Windowsは音のみです。--no-notifyは受理しますが動作に影響しません。
-  macOSで通知が出ない場合は、システム設定の通知一覧で該当する通知元を確認してください。
+Behavior:
+  A start confirmation appears once before the first work session.
+  Work and break alternate --loop times, and the timer exits after the final break.
+  Without a TTY, keys are disabled after the start confirmation. Use OS signals to quit.
 
-音量と音源:
-  --volumeはmacOS（afplay）とLinux（paplay）で有効です。
-  Linuxでaplayへフォールバックした場合とWindowsでは無視されます。
-  Windowsで差し替え音源を使う場合は、非圧縮PCMのRIFF WAVEが必要です。
+Notifications:
+  Desktop notifications are available on macOS and Linux.
+  Windows plays sounds only. --no-notify is accepted but has no effect.
+  If notifications do not appear on macOS, check the notification sources in System Settings.
 
-引数:
-  `-`で始まる値は`--task=-h`のように`=`形式で指定します。
-  位置引数と`--`によるオプション終端は使用できません。
+Volume and sounds:
+  --volume applies to macOS (afplay) and Linux (paplay).
+  It is ignored when Linux falls back to aplay and on Windows.
+  Custom sounds on Windows must be uncompressed PCM RIFF WAVE files.
+
+Arguments:
+  Pass values that start with "-" in the "=" form, such as --task=-h.
+  Positional arguments and the "--" option terminator are not supported.
 ```
 
 `--version`は`pomotty <package.jsonのversion>`という1行をstdoutへ出力し、末尾に改行をちょうど1個付ける。バージョン1.0.0の出力は厳密に`pomotty 1.0.0\n`となる。
@@ -124,19 +135,35 @@ help / versionの先行判定では、argv要素全体が`--help`または`-h`�
 
 単独`--`は引数終端として機能しないため、先行判定の走査も止めない。したがって`pomotty -- --help`はhelpを表示し、`pomotty -- --version`はversionを表示するが、情報オプションを含まない`pomotty --`と`pomotty -- value`は終了コード`2`となる。
 
+### 開始確認
+
+引数検証に成功し、help / versionでもない場合は、タイマー、音、通知を初期化する前にロゴと開始確認メニューを表示する。開始確認は`--loop`の値にかかわらず最初の1回だけ行い、サイクルの間では再確認しない。
+
+```text
+Start working? (Use ↑/↓ to select, Enter to confirm)
+❯ OK
+  NG
+```
+
+- 初期選択は`OK`とする。上下キーで`OK`と`NG`を切り替えて選択肢を再描画し、Enterで確定する
+- 上下キー、Enter、Ctrl+C以外のキーは無視する
+- `OK`で確定した場合は、§3の初期状態で最初のWORKを開始する
+- `NG`で確定した場合、Ctrl+Cを押した場合、確定前にstdinが終端した場合は、タイマー、音、通知を開始せず、stdoutへ`⏹️ Work was not started.`を1行出力して終了コード`0`で終了する。サマリは出力しない
+- TTYではメニュー表示中だけraw modeを有効にし、確定時にアプリが変更したraw modeとstdinのflowing状態だけを元へ戻す。非TTYではraw modeを使わず、stdinから復号したEnterで確定する
+
 ### 入力値の検証
 
 値の受理可否は実装差を生まないよう、正規表現で厳密に定義する。`--task`を除く各オプションは、前後の空白を含めた文字列をそのまま照合し、暗黙のtrimは行わない。`--task`だけは「ユーザー入力の安全な取り扱い」の正規化規則に従い、正規化の一部として前後の空白を除去する。
 
-| 対象                                  | 受理する形式                             | 追加の範囲条件                                                                                   |
-| ------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `--work` / `--break` / `--long-break` | `/^[1-9][0-9]{0,3}$/`                    | 1〜1440                                                                                          |
-| `--cycles`                            | `/^[1-9][0-9]{0,2}$/`                    | 1〜100                                                                                           |
-| `--volume`                            | `/^(?:0\|1\|0\.[0-9]{1,6}\|1\.0{1,6})$/` | 0〜1（両端を含む）                                                                               |
-| `--sound-work` / `--sound-break`      | 空文字ではない任意の文字列               | 解決後のパスが、存在する読み取り可能な通常ファイルで、拡張子が`.wav`（大文字小文字を区別しない） |
-| `--task`                              | 任意の文字列                             | 正規化規則に従って処理する。長さによる拒否は行わない                                             |
+| 対象                             | 受理する形式                             | 追加の範囲条件                                                                                   |
+| -------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `--work` / `--break`             | `/^[1-9][0-9]{0,3}$/`                    | 1〜1440                                                                                          |
+| `--loop`                         | `/^[1-9][0-9]*$/`                        | 1〜9007199254740991（`Number.MAX_SAFE_INTEGER`）                                                 |
+| `--volume`                       | `/^(?:0\|1\|0\.[0-9]{1,6}\|1\.0{1,6})$/` | 0〜1（両端を含む）                                                                               |
+| `--sound-work` / `--sound-break` | 空文字ではない任意の文字列               | 解決後のパスが、存在する読み取り可能な通常ファイルで、拡張子が`.wav`（大文字小文字を区別しない） |
+| `--task`                         | 任意の文字列                             | 正規化規則に従って処理する。長さによる拒否は行わない                                             |
 
-上記の正規表現により、先行`+`と`-`、先行ゼロ（`025`）、前後の空白、指数表記（`1e0`）、小数点のみの表記（`.5`、`1.`）、`NaN`、`Infinity`、`0x`表記、全角数字はすべて拒否される。時間系オプションの最小値は`1`なので、先頭桁を`[1-9]`に固定することで`0`と先行ゼロを正規表現の段階で除ける。数値オプションの小数は`--volume`以外では受理しない。`--volume`の小数点以下は6桁までとし、7桁以上は拒否する（音量に必要な精度をはるかに超えるため）。範囲条件は正規表現の照合後に整数値・実数値として判定する。
+上記の正規表現により、先行`+`と`-`、先行ゼロ（`025`）、前後の空白、指数表記（`1e0`）、小数点のみの表記（`.5`、`1.`）、`NaN`、`Infinity`、`0x`表記、全角数字はすべて拒否される。時間系オプションと`--loop`の最小値は`1`なので、先頭桁を`[1-9]`に固定することで`0`と先行ゼロを正規表現の段階で除ける。数値オプションの小数は`--volume`以外では受理しない。`--volume`の小数点以下は6桁までとし、7桁以上は拒否する（音量に必要な精度をはるかに超えるため）。範囲条件は正規表現の照合後に整数値・実数値として判定する。
 
 - 値を必要とするオプションの値不足、未知のオプション、位置引数、単独の`--`と`--`以降の値は拒否する
 - 同じオプションの重複は拒否する。`node:util`の`parseArgs`は既定で最後の値を採用するため、該当オプションを`multiple: true`で受け取り、要素数が2以上なら拒否する
@@ -148,8 +175,8 @@ help / versionの先行判定では、argv要素全体が`--help`または`-h`�
 stderrの`error`リスナーは最初の診断書き込みより前に登録する。この登録はraw modeや端末表示の初期化には含めず、エラー時は`stderrUnavailable = true`として以後の診断を省略するだけとする。診断の同期的な書き込み例外または非同期`error`で終了コード`2`を変更してはならない。
 
 ```text
-エラー: --workには1〜1440の整数を指定してください（入力: "0"）
-使い方は`pomotty --help`で確認できます。
+Error: --work requires an integer from 1 to 1440 (received: "0").
+Run `pomotty --help` for usage.
 ```
 
 #### 引数検証の受け入れ条件
@@ -157,6 +184,7 @@ stderrの`error`リスナーは最初の診断書き込みより前に登録す�
 - 各数値オプションについて最小値と最大値を受理し、その外側、空文字、小数、`NaN`、`Infinity`を終了コード`2`で拒否する
 - `+25`、`025`、`" 25"`、`"25 "`、`1e0`、`.5`、`1.`、`0x19`、全角数字`２５`を終了コード`2`で拒否する
 - `--work 0`は正規表現の段階で拒否され、`--work 1440`は受理、`--work 1441`は範囲条件で拒否される
+- `--loop 1`と`--loop 9007199254740991`は受理し、`--loop 0`と`--loop 9007199254740992`は拒否する
 - `--volume`は`0`、`1`、`0.6`、`0.60`、`1.0`を受理し、`1.1`、`-0.1`、`.5`、`0.1234567`を拒否する
 - 同じオプションを2回指定した場合は、値が同一でも終了コード`2`で拒否する
 - 不正な引数ではraw modeへ入らず、タイマー、音、通知の子プロセスを開始しない
@@ -256,64 +284,62 @@ const sanitizeTask = (value: string) => {
 ## 3. 状態機械
 
 ```
-idle ──起動──> WORK
+idle ──開始確認でOK──> WORK（cycle = 1）
+idle ──開始確認でNG──> 終了（タイマーを開始しない）
 
-WORK ──自然終了──> completedInBlock を +1
-                    ├── completedInBlock < cycles ──> BREAK
-                    └── completedInBlock = cycles ──> LONG_BREAK
-
+WORK ──自然終了──> completedPomodoros を +1 して BREAK
 WORK ──skip──> BREAK（カウンターは変更しない）
-BREAK ──自然終了 / skip──> WORK
-LONG_BREAK ──自然終了 / skip──> completedInBlock を 0 にして WORK
+BREAK ──自然終了 / skip──> cycle < loopCount なら cycle を +1 して WORK
+                         └── cycle = loopCount なら finished（タイマーを終了）
 ```
 
-`cycles`は、長い休憩に入るまでに**自然終了した作業フェーズ数**を表す。起動時の`completedInBlock`は`0`。作業が自然終了した時点で`completedInBlock`と`completedPomodoros`をそれぞれ1増やし、`completedInBlock === cycles`なら`LONG_BREAK`へ、それ以外なら`BREAK`へ遷移する。`LONG_BREAK`中は`completedInBlock === cycles`を維持し、長い休憩の自然終了またはskip時に`0`へ戻してから`WORK`を開始する。
+`loopCount`は`--loop`の値で、作業と休憩の組を実行する総回数を表す。各サイクルは1回のWORKと1回のBREAKからなり、起動時の`cycle`は`1`とする。BREAKが自然終了またはskipで終わった時点で、`cycle < loopCount`なら`cycle`を1増やして次のWORKを開始し、`cycle === loopCount`なら`finished`へ遷移してタイマーを終了する。休憩時間は常に`--break`の値を使い、長い休憩はバージョン1の対象外とする。
 
 ### 遷移時の挙動
 
-| イベント             | カウンター                                   | 音・通知                                                            | 遷移後                                                       |
-| -------------------- | -------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------ |
-| WORKの自然終了       | `completedPomodoros`と`completedInBlock`を+1 | 作業終了音。macOS / Linuxでは「お疲れさま。N分休憩」も通知          | `completedInBlock === cycles`ならLONG_BREAK、それ以外はBREAK |
-| WORKのskip           | 変更なし                                     | なし                                                                | BREAK                                                        |
-| BREAKの自然終了      | 変更なし                                     | 休憩終了音。macOS / Linuxでは「休憩終了。作業に戻りましょう」も通知 | WORK                                                         |
-| BREAKのskip          | 変更なし                                     | なし                                                                | WORK                                                         |
-| LONG_BREAKの自然終了 | `completedInBlock`を0にする                  | 休憩終了音。macOS / Linuxでは「休憩終了。作業に戻りましょう」も通知 | WORK                                                         |
-| LONG_BREAKのskip     | `completedInBlock`を0にする                  | なし                                                                | WORK                                                         |
+| イベント        | カウンター                         | 音・通知                                          | 遷移後                                          |
+| --------------- | ---------------------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| WORKの自然終了  | `completedPomodoros`を+1           | 作業終了音。macOS / Linuxでは作業終了の通知も行う | BREAK                                           |
+| WORKのskip      | 変更なし                           | なし                                              | BREAK                                           |
+| BREAKの自然終了 | `cycle < loopCount`なら`cycle`を+1 | 休憩終了音。macOS / Linuxでは休憩終了の通知も行う | `cycle < loopCount`ならWORK、それ以外はfinished |
+| BREAKのskip     | `cycle < loopCount`なら`cycle`を+1 | なし                                              | `cycle < loopCount`ならWORK、それ以外はfinished |
 
-音と通知は自然終了時だけ発生させ、手動skipでは発生させない。Windowsでは自然終了時の通知手段を音だけとし、手動skipでは音も発生させない。遷移先フェーズは常に実行状態で、所定の時間を全量設定して開始する。
+音と通知は自然終了時だけ発生させ、手動skipでは発生させない。Windowsでは自然終了時の通知手段を音だけとし、手動skipでは音も発生させない。遷移先フェーズは常に実行状態で、所定の時間を全量設定して開始する。通知本文は§8に従う。
+
+`finished`へ遷移した場合は次のフェーズを開始せず、状態更新と最後のBREAKに対応する音・通知要求の後、§7の完了終了（終了コード`0`、サマリあり）を開始する。
 
 ### 保持する状態
 
-| フィールド           | 型                                  | 説明                                                |
-| -------------------- | ----------------------------------- | --------------------------------------------------- |
-| `phase`              | `'work' \| 'break' \| 'long_break'` | 現在のフェーズ                                      |
-| `paused`             | `boolean`                           | 一時停止中か                                        |
-| `endsAt`             | `number \| null`                    | 実行中の終了予定時刻（Unix ms）。一時停止中は`null` |
-| `remainingMs`        | `number \| null`                    | 一時停止時の残り時間。実行中は`null`                |
-| `completedInBlock`   | `number`                            | 現在ブロック内で自然終了した作業数                  |
-| `completedPomodoros` | `number`                            | 起動以降に自然終了した作業セット総数                |
+| フィールド           | 型                  | 説明                                                |
+| -------------------- | ------------------- | --------------------------------------------------- |
+| `phase`              | `'work' \| 'break'` | 現在のフェーズ                                      |
+| `paused`             | `boolean`           | 一時停止中か                                        |
+| `endsAt`             | `number \| null`    | 実行中の終了予定時刻（Unix ms）。一時停止中は`null` |
+| `remainingMs`        | `number \| null`    | 一時停止時の残り時間。実行中は`null`                |
+| `cycle`              | `number`            | 現在のサイクル番号（1始まり）                       |
+| `completedPomodoros` | `number`            | 起動以降に自然終了した作業セット総数                |
 
-引数検証、外部コマンド解決、表示モードの初期化に成功した後、初回表示の直前に`startNow = Date.now()`を1回取得する。初期状態は`phase = 'work'`、`paused = false`、`endsAt = startNow + workDurationMs`、`remainingMs = null`、`completedInBlock = 0`、`completedPomodoros = 0`とする。起動自体では音・通知を発生させず、初回フレームまたは起動ログを1回だけ出力する。
+引数検証、開始確認でのOK選択、外部コマンド解決、表示モードの初期化に成功した後、初回表示の直前に`startNow = Date.now()`を1回取得する。初期状態は`phase = 'work'`、`paused = false`、`endsAt = startNow + workDurationMs`、`remainingMs = null`、`cycle = 1`、`completedPomodoros = 0`とする。起動自体では音・通知を発生させず、初回フレームまたは起動ログを1回だけ出力する。
 
 状態は次の不変条件を満たす。
 
 - 実行中は`paused === false`、`endsAt`は有限数、`remainingMs === null`
 - 一時停止中は`paused === true`、`endsAt === null`、`remainingMs > 0`
 - `completedPomodoros`は0以上の整数で、skipでは増加しない
-- `0 <= completedInBlock <= cycles`
-- `phase === 'long_break'`なら`completedInBlock === cycles`
-- `phase === 'work'`または`phase === 'break'`なら`completedInBlock < cycles`
+- `1 <= cycle <= loopCount`
+- `phase === 'work'`なら`completedPomodoros <= cycle - 1`、`phase === 'break'`なら`completedPomodoros <= cycle`
 
 #### 状態遷移の受け入れ条件
 
-- `cycles = 1`では最初のWORK自然終了後にLONG_BREAKへ入り、その終了またはskip後に`completedInBlock = 0`のWORKを開始する
-- WORKを`cycles - 1`回自然終了した状態でWORKをskipしてもLONG_BREAKには入らず、両カウンターも増えない
-- WORKのskip後はBREAK、BREAKのskip後はWORKとなり、いずれも遷移先を所定の時間で実行状態として開始する
-- LONG_BREAKの自然終了とskipは、どちらも`completedInBlock`を0へ戻す
+- `loopCount = 1`では最初のBREAKの自然終了またはskipでタイマーを終了し、次のWORKを開始しない
+- `loopCount = 3`では1回目と2回目のBREAK終了で`cycle`を1増やしてWORKを開始し、3回目のBREAK終了でタイマーを終了する
+- WORKのskip後はBREAK、BREAKのskip後は次のWORKまたは終了となる。遷移先のフェーズは所定の時間で実行状態として開始する
+- 最終サイクルのWORKをskipしてもタイマーは終了せず、BREAKを実行する
 - 一時停止中にどのフェーズをskipしても一時停止状態を引き継がず、`endsAt = skip検知時刻 + 遷移先フェーズ時間`として再開する
 - `transitionFromSkip()`自体は音とデスクトップ通知を発生させない。期限到達済みフェーズを先に自然終了として精算した同一キーイベントでは、その自然終了に由来する音・通知要求だけは発生する
 - `now === endsAt`では自然終了を手動操作より優先する。期限到達済みWORKに対するspace、skip、quitのいずれでも、WORK完了カウンターが1増え、自然終了の音・通知要求が1回だけ発生する
 - `now < endsAt`であれば手動操作を現在フェーズへ適用し、WORKのskipではカウンターを増やさない
+- 期限到達済みの最終BREAKに対するspace、skip、quitでは、自然終了として精算して完了終了を開始し、手動操作は適用しない
 - tickとキーイベントの配送順を入れ替えても、期限到達フェーズの完了判定、カウンター、手動操作適用後のフェーズが一致する
 
 ---
@@ -370,8 +396,8 @@ const tickTimer = setInterval(() => {
 OS のスリープ、休止状態、プロセスの一時停止、イベントループ遅延などにより `Date.now() >= endsAt` となった場合は、次の規則で処理する。
 
 1. 現在フェーズを**1回だけ**完了させる
-2. 現在フェーズが作業なら、完了ポモドーロ数とサイクル進捗を通常の時間経過による終了と同様に更新する
-3. 次フェーズを決定し、その`endsAt`を`settleExpiredPhase()`へ渡された`now + 次フェーズの所要時間`に設定する。遷移処理内で`Date.now()`を再取得しない
+2. 現在フェーズが作業なら完了ポモドーロ数を、休憩ならサイクル番号を、通常の時間経過による終了と同様に更新する
+3. 次フェーズを決定し、その`endsAt`を`settleExpiredPhase()`へ渡された`now + 次フェーズの所要時間`に設定する。遷移処理内で`Date.now()`を再取得しない。最終サイクルのBREAKが完了した場合は次フェーズを開始せず、手順4の後で§7の完了終了を開始する
 4. 状態と `endsAt` の更新後、完了したフェーズに対応する音と通知を1回だけ発生させる
 5. スリープ中に経過した可能性がある複数フェーズは復元せず、catch-up遷移は行わない
 
@@ -379,7 +405,7 @@ OS のスリープ、休止状態、プロセスの一時停止、イベント�
 
 `settleExpiredPhase(now)`は期限到達を確定する唯一の入口とし、tickと手動キー操作の双方がこの関数を使用する。`transitionFromTimeout()`をほかの場所から直接呼び出してはならない。
 
-space、`s`、`q`、raw mode中の`Ctrl+C`を処理するときは、後述の再入ガードを通過したキーイベントごとに`now = Date.now()`を1回だけ取得し、`settleExpiredPhase(now)`を呼んだ後で手動操作を処理する。期限精算によってフェーズが自然終了した場合、**同じキー操作を遷移後の新しいフェーズへ適用する**。例えば期限到達済みのWORKで`s`を受けた場合は、まずWORKを自然終了としてカウンターへ加算してBREAKを開始し、その後同じ`s`でBREAKをskipしてWORKへ進む。`q`またはraw mode中の`Ctrl+C`では、WORK完了を反映してからshutdownとサマリ生成を行う。
+space、`s`、`q`、raw mode中の`Ctrl+C`を処理するときは、後述の再入ガードを通過したキーイベントごとに`now = Date.now()`を1回だけ取得し、`settleExpiredPhase(now)`を呼んだ後で手動操作を処理する。期限精算によってフェーズが自然終了した場合、**同じキー操作を遷移後の新しいフェーズへ適用する**。例えば期限到達済みのWORKで`s`を受けた場合は、まずWORKを自然終了としてカウンターへ加算してBREAKを開始し、その後同じ`s`でBREAKをskipしてWORKへ進む。`q`またはraw mode中の`Ctrl+C`では、WORK完了を反映してからshutdownとサマリ生成を行う。期限精算で最終BREAKが完了してタイマーが終了した場合は、同じキー操作を適用せず完了終了を優先する。
 
 `handleManualAction()`の先頭では`shuttingDown === true`または`transitioning === true`ならイベント全体を破棄する。その後にだけ`now`を取得して期限精算と操作を行う。`settleExpiredPhase()`が`false`を返したことだけを、常に手動操作を続行してよい根拠にはしない。
 
@@ -414,7 +440,7 @@ const interactive =
 - `interactive === false`: 行単位ログモードとし、ANSI、色、カーソル操作、raw mode、キー操作をすべて無効にする
 - `NO_COLOR`環境変数が存在し、かつ値が空文字ではない場合は色だけを無効にする（[no-color.org](https://no-color.org/)の規定に合わせる）。TTYのインライン描画とキー操作は維持する。`NO_COLOR=`（空文字）は未設定と同じ扱いとする
 
-バージョン1のユーザー向けメッセージは日本語に統一する。状態識別子の`WORK`、`BREAK`、`LONG_BREAK`、`PAUSED`はログ解析と視認性のため英語の固定文字列とし、ローカライズ対象外とする。
+バージョン1のユーザー向けメッセージは英語に統一する。状態識別子の`WORK`、`BREAK`、`PAUSED`はログ解析と視認性のため固定文字列とし、将来のローカライズでも翻訳しない。
 
 ### 時間の表示形式
 
@@ -438,7 +464,7 @@ const interactive =
 標準レイアウト（60列以上）の例：
 
 ```
-  🍅 WORK  ●●○○   仕様書レビュー
+  🍅 WORK  ●●○   Review spec
 
      14:30
 
@@ -447,28 +473,27 @@ const interactive =
   [space] pause   [s] skip   [q] quit
 ```
 
-- 色が有効な場合、WORKのアクセントはSGR 31（赤）、BREAK / LONG_BREAKはSGR 32（緑）とする。着色対象は`🍅`、`${phaseStatus}`、バーの`█`部分だけで、各対象の直後にSGR 39で前景色を既定値へ戻す。太字など他のSGR属性は付けない。`PAUSED`は元フェーズの色を継承する。`NO_COLOR`有効時はSGR列を一切生成しない
+- 色が有効な場合、WORKのアクセントはSGR 31（赤）、BREAKはSGR 32（緑）とする。着色対象は`🍅`、`${phaseStatus}`、バーの`█`部分だけで、各対象の直後にSGR 39で前景色を既定値へ戻す。太字など他のSGR属性は付けない。`PAUSED`は元フェーズの色を継承する。`NO_COLOR`有効時はSGR列を一切生成しない
 - プログレスバーとパーセントはフェーズの**経過率**を表す。`floor((durationMs - visibleRemainingMs) / durationMs * 100)`を0〜100に丸める
-- サイクル進捗の表記は**レイアウトごとに固定**する
-  - 標準レイアウトのみ、`cycles <= 12`なら`●○`で`completedInBlock / cycles`を表示する。`●`は自然終了したWORK数、`○`は残り数とする
-  - 標準レイアウトでも`cycles > 12`なら幅の増大を避けるため`2/20`の数値形式を使用する
-  - コンパクトレイアウトと最小レイアウトは、`cycles`の値にかかわらず**常に数値形式**を使用する
-- LONG_BREAK中は進捗が満了状態となり、その終了またはskip後のWORKでは0へ戻る
+- サイクル進捗は現在のサイクル番号`cycle`と`loopCount`で表し、表記は**レイアウトごとに固定**する
+  - 標準レイアウトのみ、`loopCount <= 12`なら`●`を`cycle`個、`○`を`loopCount - cycle`個並べる
+  - 標準レイアウトでも`loopCount > 12`なら幅の増大を避けるため`2/20`の数値形式（`${cycle}/${loopCount}`）を使用する
+  - コンパクトレイアウトと最小レイアウトは、`loopCount`の値にかかわらず**常に数値形式**を使用する
 - タスク名は`--task`指定時のみ表示し、利用可能な表示セル幅に合わせて末尾を`…`で省略する
 - 一時停止中の`PAUSED`表示はレイアウトごとに次のとおりとする
-  - 標準: ヘッダのフェーズ名の直後に`PAUSED`を置く（`🍅 WORK PAUSED  ●●○○ …`）
-  - コンパクト: フェーズ名の直後に`PAUSED`を置く（行全体は`WORK PAUSED 2/4`）
-  - 最小: フェーズ名を`PAUSED`へ置き換え、`PAUSED 14:30 2/4`とする。フェーズ名と一時停止の両方を表示する幅がないため、一時停止を優先する
+  - 標準: ヘッダのフェーズ名の直後に`PAUSED`を置く（`🍅 WORK PAUSED  ●●○ …`）
+  - コンパクト: フェーズ名の直後に`PAUSED`を置く（行全体は`WORK PAUSED 2/3`）
+  - 最小: フェーズ名を`PAUSED`へ置き換え、`PAUSED 14:30 2/3`とする。フェーズ名と一時停止の両方を表示する幅がないため、一時停止を優先する
 
 端末幅に応じて次のレイアウトへ切り替える。
 
 | 利用可能列数 | レイアウト                                                                     |
 | ------------ | ------------------------------------------------------------------------------ |
 | 60以上       | 標準。ヘッダ、時刻、バー、キーガイド、タスク名                                 |
-| 30〜59       | コンパクト。`WORK 2/4`、時刻、パーセント、短縮キーガイド。バーとタスク名は省略 |
-| 29以下       | 最小。`WORK 14:30 2/4`の1行だけ。収まらない場合は右端を省略                    |
+| 30〜59       | コンパクト。`WORK 2/3`、時刻、パーセント、短縮キーガイド。バーとタスク名は省略 |
+| 29以下       | 最小。`WORK 14:30 2/3`の1行だけ。収まらない場合は右端を省略                    |
 
-ANSI装飾を付ける前の論理フレームは、次のテンプレートで構築する。`${phaseStatus}`は通常時の`WORK` / `BREAK` / `LONG_BREAK`である。一時停止中は標準・コンパクトで`${phase} PAUSED`、最小で`PAUSED`とする。`${cycle}`はそのレイアウトの規則で整形したサイクル進捗、`${taskPart}`はタスクがある場合だけ`   ${task}`、`${pauseAction}`は実行中なら`pause`、一時停止中なら`resume`である。
+ANSI装飾を付ける前の論理フレームは、次のテンプレートで構築する。`${phaseStatus}`は通常時の`WORK` / `BREAK`である。一時停止中は標準・コンパクトで`${phase} PAUSED`、最小で`PAUSED`とする。`${cycle}`はそのレイアウトの規則で整形したサイクル進捗、`${taskPart}`はタスクがある場合だけ`   ${task}`、`${pauseAction}`は実行中なら`pause`、一時停止中なら`resume`である。
 
 ```text
 標準:
@@ -491,7 +516,7 @@ ${phaseStatus} ${time} ${cycle}
 
 標準の`${bar30}`は常に30セルで、左から`floor(percent * 30 / 100)`セルを`█`、残りを`░`とする。標準ヘッダのタスクだけを先に省略し、それでも固定UIが幅上限を超える異常に狭い状況では行全体へ同じ省略処理を適用する。コンパクトと最小の各行も必ず幅上限を通す。
 
-設定可能な最大フェーズ時間24時間と最大サイクル数100だけを考えた最小レイアウトの最長ケースは、実行中の`LONG_BREAK 24:00:00 100/100`（27セル）である。`columns = 28`では上限`Math.max(1, columns - 1) = 27`セルへちょうど収まり、`columns = 27`以下では後述の書記素単位省略を適用する。
+設定可能な最大フェーズ時間24時間と最大ループ回数9007199254740991だけを考えた最小レイアウトの最長ケースは、一時停止中の`PAUSED 24:00:00 9007199254740991/9007199254740991`（49セル）である。`columns = 50`では上限`Math.max(1, columns - 1) = 49`セルへちょうど収まり、`columns = 49`以下では後述の書記素単位省略を適用する。
 
 システム時計を過去へ変更した場合は残り時間の時部分が任意の桁数まで増え得るため、有限の「絶対的な最長ケース」は存在しない。すべての最小レイアウト行に対して毎回セル幅上限を適用し、コードポイント単位で直接削除しない。
 
@@ -549,18 +574,20 @@ ${phaseStatus} ${time} ${cycle}
 `interactive === false`の場合は、起動時とフェーズ遷移時にだけstdoutへ1行出力する。
 
 ```text
-[10:00:00] WORK 開始 (15:00)
-[10:15:00] WORK 完了 → BREAK 開始 (5:00)
-[10:20:00] BREAK 完了 → WORK 開始 (15:00)
+[10:00:00] WORK started (15:00)
+[10:15:00] WORK complete → BREAK started (5:00)
+[10:20:00] BREAK complete → WORK started (15:00)
+…
+[11:00:00] BREAK complete
 ```
 
 - タイムスタンプは実行環境のローカル時刻による`HH:mm:ss`
 - 括弧内のフェーズ時間は「時間の表示形式」と同じ整形関数を使う。90分の作業なら`(1:30:00)`となる
-- 正規化済みタスク名がある場合は、すべての行の末尾へ` task=${JSON.stringify(task)}`を付ける。タスク名がなければsuffixも余分な空白も付けない。例: `[10:00:00] WORK 開始 (15:00) task="仕様書レビュー"`
+- 正規化済みタスク名がある場合は、すべての行の末尾へ` task=${JSON.stringify(task)}`を付ける。タスク名がなければsuffixも余分な空白も付けない。例: `[10:00:00] WORK started (15:00) task="Review spec"`
 - 通常ログはstdout、診断とエラーはstderrへ出力する
 - ANSI、色、カーソル制御、ターミナルベルは出力しない
-- stdinキー操作は提供せず、終了はOSシグナルによって行う
-- インタラクティブモードでは`q`、raw mode中の`Ctrl+C`、またはOSシグナルで終了する。行単位ログモードではstdinを監視せず、`q`や`\x03`を含む入力バイトを終了操作として扱わない。OSシグナルまたは出力エラーが発生しない限り、WORKと休憩を無期限に繰り返す。`cycles`は総実行回数ではなく、LONG_BREAKまでの間隔である
+- 開始確認の完了後はstdinキー操作を提供せず、途中終了はOSシグナルによって行う
+- インタラクティブモードでは`q`、raw mode中の`Ctrl+C`、またはOSシグナルで終了する。行単位ログモードでは開始確認の完了後にstdinを監視せず、`q`や`\x03`を含む入力バイトを終了操作として扱わない。OSシグナルまたは出力エラーが発生しない限り、`--loop`で指定した回数のWORKと休憩を実行し、最後のBREAKが終わると終了する
 - stdoutで`EPIPE`が発生した場合は出力先が閉じられたものとして、サマリを出力せず終了コード`0`でcleanupする。その他のstdoutエラーは終了コード`1`とする
 
 インライン描画を採用する目的は、現在のターミナル文脈を保ったまま動作させ、終了時に最終サマリだけを通常のスクロールバックへ残すことである。各ポモドーロの履歴や「今日の完了数」は保存しない。履歴保存は将来の作業ログ機能の責務とする。
@@ -568,6 +595,8 @@ ${phaseStatus} ${time} ${cycle}
 ---
 
 ## 6. キー入力
+
+本節はタイマー実行中のキー入力を規定する。開始確認メニューのキー入力は§2「開始確認」に従い、確定時にメニュー用のraw modeとリスナーを解除してから本節の初期化を行う。
 
 キー入力は`interactive === true`の場合だけ有効にする。チャンク境界を跨いでCSI、SS3、Metaキーなどを復号できるインクリメンタルな`keyDecoder`を使い、rawバイトを文字単位で走査してはならない。`node:readline`のkeypress復号を内部部品として利用してよいが、stdinへ直接`emitKeypressEvents(process.stdin)`を接続するだけの実装は、後述の64バイト上限、500ms timeout、disposeを保証できないため不可とする。ラッパーまたは専用復号器がこれらを一元管理する。
 
@@ -691,6 +720,8 @@ POSIXの`kill()`は対象プロセスへsignalを送るだけで子孫プロセ�
 
 | 終了経路                                   | 終了コード | サマリ                                           |
 | ------------------------------------------ | ---------: | ------------------------------------------------ |
+| 全ループ完了（最後のBREAKの終了）          |          0 | 出力する                                         |
+| 開始確認でNG / Ctrl+C / stdin終端          |          0 | 出力しない（`⏹️ Work was not started.`を出力）   |
 | `q`                                        |          0 | 出力する                                         |
 | raw mode中のCtrl+C / `SIGINT`              |        130 | 出力する                                         |
 | `SIGTERM`（対応OSのみ）                    |        143 | 出力する                                         |
@@ -708,7 +739,7 @@ POSIXの`kill()`は対象プロセスへsignalを送るだけで子孫プロセ�
 
 shutdown中に解除するのはUI、tick、キー復号器、resizeなど通常動作用のリスナーだけとする。OSシグナル、`uncaughtException`、`unhandledRejection`、`process.exit`、shutdown専用stdout / stderr、子プロセスの`error` / `close`リスナーはプロセス終了まで維持する。shutdown中に後続のシグナルまたは異常が届いても、そのハンドラは`requestShutdown()`を再度呼んで同じPromiseを受け取るだけで、既定動作による途中終了や終了コードの変更を起こさない。
 
-`uncaughtException`と`unhandledRejection`のハンドラは処理を継続するためではなく、端末を復元して異常終了するためだけに使用する。捕捉値は`try { String(value) } catch { "例外値を文字列化できませんでした" }`相当で安全に文字列化して`diagnostic`へ渡し、raw modeとカーソルの復元後に`escapeDiagnostic()`済みの1行をstderrへ出す。悪意ある`toString()`の再例外やstderrのEPIPEでcleanupを中断してはならず、stack全体や元の文字列を別途出力してはならない。
+`uncaughtException`と`unhandledRejection`のハンドラは処理を継続するためではなく、端末を復元して異常終了するためだけに使用する。捕捉値は`try { String(value) } catch { "Unable to convert the thrown value to a string" }`相当で安全に文字列化して`diagnostic`へ渡し、raw modeとカーソルの復元後に`escapeDiagnostic()`済みの1行をstderrへ出す。悪意ある`toString()`の再例外やstderrのEPIPEでcleanupを中断してはならず、stack全体や元の文字列を別途出力してはならない。
 
 `process.on('exit', restoreTerminalSync)`の登録条件と動作は§5に従う。これは最後の同期的な保険であり、フレーム消去、子プロセス終了、サマリ出力などの通常shutdown処理は行わない。
 
@@ -726,24 +757,26 @@ shutdown中に解除するのはUI、tick、キー復号器、resizeなど通常
 
 ### 終了時サマリ
 
-正常終了および捕捉可能な終了シグナルでは、インタラクティブ表示中ならインラインフレームを消し、サマリを1回だけ通常の1行としてスクロールバックへ残す。行単位ログモードでは既存ログに続けてサマリを出力する。
+完了終了、`q`、および捕捉可能な終了シグナルでは、インタラクティブ表示中ならインラインフレームを消し、サマリを1回だけ通常の1行としてスクロールバックへ残す。行単位ログモードでは既存ログに続けてサマリを出力する。完了終了の場合だけ、サマリの直前に`🎉 Pomodoro complete.`を1行出力する。
 
 ```
-🍅 完了: 3 ポモドーロ / タイマー完了換算時間: 1時間15分
+🍅 Completed: 3 pomodoros / Timer-credited time: 1h 15m
 ```
 
-`タイマー完了換算時間`は`completedPomodoros * workDurationMs`で計算する。自然終了として精算したWORKだけを含み、現在進行中のWORK、途中で終了したWORK、skipしたWORKは含めない。一時停止時間は含めない。スリープ復帰や未来への壁時計変更で自然終了として処理されたWORKも所定時間を完了したものとして算入するため、**実際に集中していた経過時間を表す値ではない**。この意味を誤認させないため「完了作業時間」とは呼ばない。この値は現在のプロセス起動以降の集計であり、「今日」の永続統計ではない。
+`Timer-credited time`は`completedPomodoros * workDurationMs`で計算する。自然終了として精算したWORKだけを含み、現在進行中のWORK、途中で終了したWORK、skipしたWORKは含めない。一時停止時間は含めない。スリープ復帰や未来への壁時計変更で自然終了として処理されたWORKも所定時間を完了したものとして算入するため、**実際に集中していた経過時間を表す値ではない**。この意味を誤認させないため`Focused time`や`Work time`とは呼ばない。この値は現在のプロセス起動以降の集計であり、「今日」の永続統計ではない。
+
+ポモドーロ数は`completedPomodoros === 1`のときだけ単数形`pomodoro`、それ以外は`pomodoros`とする。
 
 `completedPomodoros * workDurationMs`は常に分単位の整数になるため（`--work`は整数分のみ受理する）、秒は表示しない。書式は次のとおり。
 
-| 総分数              | 書式       | 例                                                  |
-| ------------------- | ---------- | --------------------------------------------------- |
-| 0                   | `0分`      | `🍅 完了: 0 ポモドーロ / タイマー完了換算時間: 0分` |
-| 1〜59               | `M分`      | `15分`                                              |
-| 60以上かつ分が0     | `H時間`    | `2時間`                                             |
-| 60以上かつ分が0以外 | `H時間M分` | `1時間15分`                                         |
+| 総分数              | 書式    | 例                                                    |
+| ------------------- | ------- | ----------------------------------------------------- |
+| 0                   | `0m`    | `🍅 Completed: 0 pomodoros / Timer-credited time: 0m` |
+| 1〜59               | `Mm`    | `15m`                                                 |
+| 60以上かつ分が0     | `Hh`    | `2h`                                                  |
+| 60以上かつ分が0以外 | `Hh Mm` | `1h 15m`                                              |
 
-時の桁は上限を設けない（`--work 1440`で100ポモドーロ完了すれば`2400時間`となる）。1ポモドーロも完了していない場合もサマリは出力し、`0 ポモドーロ / タイマー完了換算時間: 0分`とする。
+時の桁は上限を設けない（`--work 1440`で100ポモドーロ完了すれば`2400h`となる）。1ポモドーロも完了していない場合もサマリは出力し、`0 pomodoros / Timer-credited time: 0m`とする。
 
 ---
 
@@ -959,8 +992,8 @@ macOS / Linux では音と同時に発火させる。音は聴覚、通知は視
 
 macOSとLinuxで同一の論理タイトル・本文を使用する。正規化後のタスク名がなければ`title = "pomotty"`、あれば`title = "pomotty — " + task`とする。
 
-- WORK自然終了時の本文は`"お疲れさま。" + nextBreakMinutes + "分休憩"`とする。`nextBreakMinutes`は実際の遷移先がBREAKなら`--break`、LONG_BREAKなら`--long-break`の値である
-- BREAKまたはLONG_BREAK自然終了時の本文は`"休憩終了。作業に戻りましょう"`とする
+- WORK自然終了時の本文は`"Nice work. Take a " + breakMinutes + "-minute break."`とする。`breakMinutes`は`--break`の値である
+- BREAK自然終了時の本文は、次のWORKへ進む場合は`"Break is over. Time to get back to work."`、最後のBREAKでタイマーを終了する場合は`"Pomodoro complete."`とする
 - ユーザー由来のタスク名はtitleだけに含め、bodyには含めない。freedesktop通知のbodyはmarkupとして解釈され得るため、ユーザー由来文字列をLinuxのbodyへ入れない
 - skip、`--no-notify`、Windows、shutdown開始後は通知子プロセスを起動しない
 
@@ -1053,7 +1086,7 @@ macOS通知はbest effortとする。`osascript`の終了コード`0`はスク�
 - `osascript` へ渡す引数配列が `['-', title, body]` であり、`--` を含まない
 - `osascript`のstdinがEPIPEになってもonceガードが`failure`を1回だけ確定し、タイマーは継続する。shutdown中なら`cancelled`となる
 - タスクなしではtitleが厳密に`pomotty`、タスクありでは`pomotty — <正規化済みtask>`となる
-- 短い休憩と長い休憩でWORK終了本文の分数が実際の遷移先時間と一致する
+- WORK終了本文の分数が`--break`の値と一致し、最後のBREAKの終了本文が`Pomodoro complete.`となる
 - `<a>`、`<img>`、`&`を含むタスク名が通知bodyへ入らない
 - cwd、相対PATH要素、または`node_modules/.bin`に同名コマンドを置いても実行されず、全OSで`spawn()`の第1引数が検証済み絶対パスとなる
 - 呼び出し側のオプションから`shell: true`を注入できない
@@ -1109,7 +1142,7 @@ Node.jsの要件は、公開後のCLI実行、ビルド、型チェック、テ�
 
 `files`にREADMEとLICENSEを書いていないのは意図的である。npmは`package.json`、`README`、`LICENSE`を`files`の指定に関わらず常に同梱するため、重複して書く必要がない。公開物の受け入れ条件でこの3点の存在を確認する。
 
-READMEには`npx pomotty`の起動例、主要オプション、統一したNode.js要件、OS別機能表、「デスクトップ通知はmacOS / Linuxのみ、Windowsは音のみ」の制約、`--volume`が`afplay`と`paplay`でのみ有効であること、`--sound-*`が非圧縮PCMのwavを要求すること（Windows）、macOS通知はbest effortであり最初の試行後に通知設定で関連する通知元を確認すること、サマリの「タイマー完了換算時間」の意味、ライセンスを記載する。選択したSPDXライセンスと一致する`LICENSE`ファイルを同梱する。
+READMEには`npx pomotty`の起動例、主要オプション、統一したNode.js要件、OS別機能表、「デスクトップ通知はmacOS / Linuxのみ、Windowsは音のみ」の制約、`--volume`が`afplay`と`paplay`でのみ有効であること、`--sound-*`が非圧縮PCMのwavを要求すること（Windows）、macOS通知はbest effortであり最初の試行後に通知設定で関連する通知元を確認すること、サマリの`Timer-credited time`の意味、ライセンスを記載する。選択したSPDXライセンスと一致する`LICENSE`ファイルを同梱する。
 
 ### テストとpack検証の分離
 
@@ -1231,8 +1264,8 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 2. npm CLIを`exec --offline --prefix <temp> -- pomotty --version`の引数で起動してbin shimを検証し、終了コード`0`、厳密な期待文字列、stderr空、ANSIなしを確認する
 3. 同じ経路で`pomotty --help`を実行し、終了コード`0`、§2の厳密なhelp文字列、stderr空、ANSIなしを確認する
 4. 同じ経路で`pomotty --work 0`を実行し、終了コード`2`、エスケープ済み診断、タイマー未起動を確認する
-5. 継続実行するタイマーだけはnpm / cmd wrapperを介さず、インストール済み`dist/cli.js`の絶対パスを`spawn(process.execPath, [cliPath, ...args], { shell: false })`で、`--work 1 --break 1 --long-break 1 --cycles 1 --no-sound --no-notify`を付けて非TTY起動する
-6. 5秒以内に`[HH:mm:ss] WORK 開始 (1:00)`形式の1行がstdoutへ出ること、ANSIを含まないこと、出力後1秒間は予期せず終了しないことを確認する
+5. 継続実行するタイマーだけはnpm / cmd wrapperを介さず、インストール済み`dist/cli.js`の絶対パスを`spawn(process.execPath, [cliPath, ...args], { shell: false })`で、`--work 1 --break 1 --loop 1 --no-sound --no-notify`を付けて非TTY起動し、stdinへ改行1個を書き込んで開始確認を`OK`で確定する
+6. 5秒以内に`[HH:mm:ss] WORK started (1:00)`形式の1行がstdoutへ出ること、ANSIを含まないこと、出力後1秒間は予期せず終了しないことを確認する
 7. POSIXではSIGTERMを送り、終了コード`143`とサマリ1回を確認する
 8. Windowsではpackaging smokeの目的を起動確認に限定し、確認後に前項で直接起動したNode子を終了し、`close`を待ってから一時ディレクトリを削除する。Windowsの正常shutdown、サマリ、端末復元は注入可能な単体テストで別途検証する
 
@@ -1335,12 +1368,13 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 | 引数の受理形式     | `+25` / `025` / `" 25"` / `1e0` / `.5` / `1.` / `0x19` / 全角数字の拒否、`--volume`の`0` / `1` / `0.6` / `1.0`の受理と`1.1`の拒否、絶対パスの`path.resolve()`適用                                                                                                                                                                                                                                 |
 | 診断               | C0 / C1、ANSI、改行、双方向制御、引用符、バックスラッシュ、対応しないサロゲートのエスケープ、160コードポイント上限、ユーザー入力を含む例外メッセージ                                                                                                                                                                                                                                              |
 | タスク名の正規化   | well-formed化と対応しないサロゲート、`置換 → trim → 書記素境界を守った120コードポイント上限 → trim`、ASCII 121文字、119文字後のZWJ絵文字、上限境界の結合文字、bidi制御文字とZWSP / BOMの除去、ZWNJ / ZWJの保持、Unicode 15.1固定                                                                                                                                                                  |
-| 状態機械           | 全自然終了・skip遷移、`cycles = 1`、長い休憩後のリセット、一時停止中のskip、カウンター不変条件                                                                                                                                                                                                                                                                                                    |
+| 開始確認           | 初期選択`OK`、上下キーでの切り替え、Enterでの確定、`NG` / Ctrl+C / stdin終端でタイマー・音・通知を開始しないこと、raw modeとflowing状態の復元、確認が1回だけであること                                                                                                                                                                                                                            |
+| 状態機械           | 全自然終了・skip遷移、`loopCount = 1`、最終BREAKの自然終了とskipでの終了、最終サイクルのWORK skip、一時停止中のskip、カウンター不変条件                                                                                                                                                                                                                                                           |
 | 時間               | 通常終了、tick遅延、スリープ相当、未来・過去への壁時計変更、`now === endsAt`でのspace / skip / quit、tickとキーの配送順反転、多重遷移防止、catch-upしないこと、`transitioning`の例外解除                                                                                                                                                                                                          |
 | 時間の書式         | 実行中と一時停止中の`visibleRemainingMs`算出、`displaySeconds`が3599 / 3600での形式切り替え、`visibleRemainingMs = 3599500`が`59:59`ではなく`1:00:00`になること、残り1msの`0:01`表示、サマリの各時間書式                                                                                                                                                                                          |
-| 描画               | 3レイアウトの規範テンプレート、`LONG_BREAK 24:00:00 100/100` = 27セル、時計巻き戻しによる長い時表記、Unicode 15.1固定幅、CJK・結合文字・RGI絵文字・VS15 / VS16・Ambiguous文字、書記素単位省略、最終行を含む末尾改行、`renderedRows`、resize時に上移動せず旧フレームを保持して新フレームだけを追跡すること、通常再描画時の旧行消去、`NO_COLOR`、`TERM=dumb`                                        |
+| 描画               | 3レイアウトの規範テンプレート、`PAUSED 24:00:00 9007199254740991/9007199254740991` = 49セル、時計巻き戻しによる長い時表記、Unicode 15.1固定幅、CJK・結合文字・RGI絵文字・VS15 / VS16・Ambiguous文字、書記素単位省略、最終行を含む末尾改行、`renderedRows`、resize時に上移動せず旧フレームを保持して新フレームだけを追跡すること、通常再描画時の旧行消去、`NO_COLOR`、`TERM=dumb`                  |
 | キー入力           | `S` / `Q`、`Ctrl+C`、`Ctrl+S`の無視、F2 / F4、`Alt+q`、CSI / SS3を各バイト位置で分割した入力、同一チャンクの`ss`が2回作用すること、`sq`と`qs`、shutdown後のイベント無視、stdinの`end`                                                                                                                                                                                                             |
-| 非TTY              | 起動と遷移時だけの行ログ、ANSI・ベル・raw modeなし、パイプ入力の`q`と`\x03`を消費しないこと、シグナル終了、通常時とshutdown中の`EPIPE`                                                                                                                                                                                                                                                            |
+| 非TTY              | 起動と遷移時だけの行ログ、ANSI・ベル・raw modeなし、開始確認後にパイプ入力の`q`と`\x03`を消費しないこと、シグナル終了、通常時とshutdown中の`EPIPE`                                                                                                                                                                                                                                                |
 | コマンド解決       | macOS / Windowsの固定絶対パス、Windows候補のrealpath、Linuxの絶対PATH探索、空・相対・cwd配下・`node_modules/.bin`・symlink迂回の拒否、起動後に再解決しないこと、`shell`を上書きできないこと、信頼する環境変数とTOCTOUの非保証                                                                                                                                                                     |
 | 音・通知           | OS別の引数配列、`spawnTracked`判別共用体とstdioプロファイル、厳密なtitle / body、`osascript`本体とstdinのエラー、`error` / `close`競合、非ゼロ終了、5秒 / 10秒timeoutと1秒後の強制終了要求、Linuxの試行順、volume換算、DISPLAY / WAYLAND_DISPLAYの未定義・空文字列、1バイトのTTYベル、Windows通知なし、macOS表示のbest effort、再生の並行、shutdown時cancel Promiseの即時完了とフォールバック禁止 |
 | 終了処理           | 全終了コードとSIGQUIT / SIGBREAK方針、サマリ有無とタイマー完了換算時間、cleanupと同一Promiseの冪等性、単調時計による500 / 1500 / 2000ms絶対期限、変更した端末状態だけの同期復元、shutdown専用stdout / stderrリスナー、後続signal、子の段階終了、kill不能な子の切り離し、2000ms強制終了、shutdown後のspawn禁止                                                                                     |
@@ -1382,5 +1416,6 @@ packジョブだけがtgzを生成する。smokeジョブとpublishジョブはp
 - 設定ファイル（`~/.config/pomotty/config.json`）による既定値のカスタマイズ
 - 作業ログの記録と統計表示
 - `npm i -g` 利用者向けのステータスライン連携
-- UI言語の切り替え（`--lang` または `LANG` の参照）。バージョン1は日本語固定だが、npmの利用者層を考えると英語が必要になる可能性が高い
+- UI言語の切り替え（`--lang` または `LANG` の参照）。バージョン1は英語固定とし、日本語などへのローカライズは将来検討する
+- 長い休憩（`--long-break`）と、長い休憩に入るまでの作業数（`--cycles`）
 - Windowsのデスクトップ通知（WinRTトースト、または`BurntToast`相当の自前実装）
