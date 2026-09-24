@@ -26,9 +26,9 @@
   - [ ] `@types/node@22.20.1`、`tsdown@0.22.14`、`typescript@7.0.2`を固定する
   - [ ] `build`、`typecheck`、`test:unit`、`test:package`、`verify:wav`、`check`、`prepack`、`verify:package`、`smoke:package`を定義する
 - [ ] `tsconfig.json` をNodeNext・strict・noEmit・`.ts` import対応で追加する
-- [ ] `tsdown.config.ts` を追加し、`src/cli.ts` をNode 22向けESMの `dist/cli.js` 1ファイルへバンドルする
-  - [ ] シェバンはtsdownのbannerだけで付与する
-  - [ ] hash、型定義、source mapを無効にする
+- [x] `tsdown.config.ts` を追加し、`src/cli.ts` をNode 22向けESMの `dist/cli.js` 1ファイルへバンドルする
+  - [x] シェバンはtsdownのbannerだけで付与する
+  - [x] hash、型定義、source mapを無効にする
   - [ ] Node.jsの型削除実行に非対応のTypeScript構文を使わない
 - [ ] `src/`の機能別ディレクトリ、`test/package/`、`assets/`、`scripts/`の構成を作る
   - [ ] 単体・コンポーネントテストを対象実装と同じディレクトリへ同じベース名で配置する
@@ -61,7 +61,7 @@
 ## 3. CLI引数と起動前検証
 
 - [ ] `src/cli/parse-options.ts` にサブコマンドなしの引数パーサを実装する
-  - [ ] `--work`、`--break`、`--long-break`、`--cycles`、`--task`、`--no-sound`、`--no-notify`、`--sound-work`、`--sound-break`、`--volume`を実装する
+  - [ ] `--work`、`--break`、`--loop`、`--task`、`--no-sound`、`--no-notify`、`--sound-work`、`--sound-break`、`--volume`を実装する
   - [ ] 値付きlong optionで分離形式と `--key=value` を受理する
   - [ ] `-` 始まりの値は `=` 形式だけで値として扱う
   - [ ] `-h` / `--help` と `-v` / `--version` だけを短縮形として認める
@@ -71,7 +71,7 @@
   - [ ] `-- --help` と `-- --version` は情報表示を優先する
   - [ ] 優先経路では他の引数や重複を検証せず、タイマーを初期化しない
 - [ ] 数値を仕様の正規表現と範囲で厳密に検証する
-  - [ ] 時間は1〜1440、cyclesは1〜100、volumeは0〜1かつ小数6桁以下とする
+  - [ ] 時間は1〜1440、loopは1〜9007199254740991、volumeは0〜1かつ小数6桁以下とする
   - [ ] trim、先行符号・ゼロ、指数表記、16進、全角数字、規定外小数を受理しない
 - [ ] 音源pathを起動時cwd基準で一度だけ絶対pathへ解決・検証する
   - [ ] 読み取り可能な通常ファイルかつ大文字小文字を問わず `.wav` であることを確認する
@@ -88,11 +88,11 @@
 
 ## 4. 状態機械と絶対時刻タイマー
 
-- [ ] `src/timer/timer.ts` に `work` / `break` / `long_break` の状態と不変条件を実装する
+- [ ] `src/timer/timer.ts` に `work` / `break` の状態、`cycle`、不変条件を実装する
 - [ ] 自然終了とskipを別の遷移として実装する
-  - [ ] WORK自然終了だけ `completedPomodoros` と `completedInBlock` を増やす
-  - [ ] `completedInBlock === cycles` でLONG_BREAKへ入る
-  - [ ] LONG_BREAK終了・skip時にblock進捗を0へ戻す
+  - [ ] WORK自然終了だけ `completedPomodoros` を増やす
+  - [ ] BREAK終了（自然終了・skip）時に `cycle < loopCount` なら `cycle` を増やしてWORKへ進む
+  - [ ] 最後のBREAK終了（自然終了・skip）で次フェーズを開始せず完了終了する
   - [ ] skipでは音・通知を発生させず、遷移先を全時間・実行状態で開始する
 - [ ] `endsAt` を真実の情報源にし、250ms intervalは更新契機としてだけ使う
 - [ ] `settleExpiredPhase(now)` を期限到達確定の唯一の入口として実装する
@@ -105,7 +105,7 @@
   - [ ] `now === endsAt` ではspace / skip / quitより自然終了を優先する
   - [ ] OS signal、出力・stdin error、内部エラーでは期限精算しない
 - [ ] 起動時刻を初回表示直前に1回取得し、初期WORKを音・通知なしで開始する
-- [ ] 偽時計で全遷移、cycles=1、pause、skip、tick遅延、sleep、時計変更、配送順、再入、例外解除を単体テストする
+- [ ] 偽時計で全遷移、loop=1、最終BREAKでの終了、pause、skip、tick遅延、sleep、時計変更、配送順、再入、例外解除を単体テストする
 
 ## 5. 表示と非TTYログ
 
@@ -115,7 +115,7 @@
 - [ ] 残り時間を `ceil(ms / 1000)` で `M:SS` / `H:MM:SS` に整形する
 - [ ] 経過率、30セルbar、サイクル進捗、pause表示を実装する
   - [ ] 60列以上は標準、30〜59列はcompact、29列以下はminimalにする
-  - [ ] 標準かつcycles≤12だけ `●○`、それ以外は数値形式にする
+  - [ ] 標準かつloopCount≤12だけ `●○` で現在の `cycle` を表し、それ以外は数値形式にする
   - [ ] タスクと全物理行を `max(1, columns - 1)` セル以内へ省略する
   - [ ] 色は規定部分だけSGR 31/32で着色し、各部分直後にSGR 39で戻す
 - [ ] `node:readline` でインライン描画を実装する
@@ -208,7 +208,8 @@
   - [ ] 対応OSに存在するsignal handlerだけを登録する
   - [ ] `uncaughtException` / `unhandledRejection` は安全に文字列化・escapeし、端末復元後に1行だけ診断する
   - [ ] 捕捉不能なSIGKILL / SIGSTOPは保証対象外とする
-- [ ] 終了サマリと「タイマー完了換算時間」の0分・分・時間・時間分形式を実装する
+- [ ] 終了サマリと `Timer-credited time` の `0m` / `Mm` / `Hh` / `Hh Mm` 形式を実装する
+  - [ ] 完了終了ではサマリの直前に `🎉 Pomodoro complete.` を出力する
 - [ ] 全終了code、冪等性、cleanup順、出力error、signal、fatal、段階期限、kill不能child、同期端末復元を偽clockで単体テストする
 
 ## 10. CLI統合
@@ -216,7 +217,8 @@
 - [ ] 引数検証 → platform解決 → 表示mode決定 → interactive初期化 → 初期state → 初回表示の順で組み立てる
 - [ ] tick、手動操作、phase遷移、音・通知、描画、shutdownを依存注入可能な境界で接続する
 - [ ] stdout / stderr / stdin、clock、timer、spawn、TTY、columns、process exitをテストで差し替え可能にする
-- [ ] タイマーを終了操作まで無期限に繰り返し、cyclesを総実行回数として扱わない
+- [x] 起動時にロゴと開始確認メニュー（OK / NG）を1回だけ表示し、NG・Ctrl+C・stdin終端ではタイマーを開始せず終了コード0で終了する
+- [x] `--loop` で指定した回数だけWORKとBREAKを繰り返し、最後のBREAK完了後に終了する
 - [ ] 起動失敗時も、変更済みの端末状態とlistenerを確実にcleanupする
 
 ## 11. 同梱wav
