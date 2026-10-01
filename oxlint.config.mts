@@ -61,6 +61,12 @@ export default defineConfig({
       },
     },
     {
+      files: ['src/terminal/countdown.ts'],
+      rules: {
+        'sort-vars': 'off',
+      },
+    },
+    {
       files: ['src/notification/sound.test.ts'],
       rules: {
         'no-duplicate-imports': 'off',

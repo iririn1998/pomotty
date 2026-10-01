@@ -112,7 +112,7 @@
 - [ ] 起動時にinteractive判定を1回行う
   - [ ] stdin/stdoutがTTYかつ `TERM !== 'dumb'` の場合だけinteractiveにする
   - [ ] 空でない `NO_COLOR` では色だけを無効にする
-- [ ] 残り時間を `ceil(ms / 1000)` で `M:SS` / `H:MM:SS` に整形する
+- [x] 残り時間を `ceil(ms / 1000)` で `M:SS` / `H:MM:SS` に整形する
 - [ ] 経過率、30セルbar、サイクル進捗、pause表示を実装する
   - [ ] 60列以上は標準、30〜59列はcompact、29列以下はminimalにする
   - [ ] 標準かつcycles≤12だけ `●○`、それ以外は数値形式にする

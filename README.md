@@ -40,6 +40,10 @@ pomotty --loop 5
 pomotty --work=25 --break=5 --loop=2
 ```
 
+While a work or break session is running, the remaining time is shown on a single
+line and updated every second, as `14:59` (or `1:29:59` for an hour or more). It is
+not shown when output is redirected to a pipe or file.
+
 To see the available options, run:
 
 ```shell

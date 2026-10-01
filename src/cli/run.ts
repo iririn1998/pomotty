@@ -1,8 +1,11 @@
 import { MILLISECONDS_PER_MINUTE, runPomodoroCycle } from '@/timer/timer.ts';
 import type { TimerPhase, Wait } from '@/timer/timer.ts';
+import type { CountdownDisplay } from '@/terminal/countdown.ts';
 import { OPTIONS } from '@/cli/constants.ts';
+import type { TimerCliArguments } from '@/cli/parse-arguments.ts';
 import { confirmWorkStart } from '@/terminal/input.ts';
 import { createCliOutput } from '@/terminal/render.ts';
+import { createCountdownDisplay } from '@/terminal/countdown.ts';
 import { createDiagnosticWriter } from '@/diagnostics/writer.ts';
 import { parseCliArguments } from '@/cli/parse-arguments.ts';
 import { playCompletionSound } from '@/notification/sound.ts';
@@ -22,6 +25,9 @@ type RunCliParameters = {
   /** 作業開始を確認する処理です。 */
   readonly confirmStart?: () => Promise<boolean>;
 
+  /** フェーズの残り時間を表示する処理です。省略時は標準出力が対話端末の場合だけ表示します。 */
+  readonly countdown?: CountdownDisplay;
+
   /** フェーズ完了音を再生する処理です。 */
   readonly playSound?: (phase: TimerPhase) => void;
 
@@ -33,6 +39,24 @@ type RunCliParameters = {
 
   /** CLIのエラーを書き込む処理です。 */
   readonly writeError?: WriteError;
+};
+
+/** 指定回数のポモドーロサイクルを実行するための値です。 */
+type RepeatPomodoroCyclesParameters = {
+  /** フェーズの残り時間を表示する処理です。 */
+  readonly countdown: CountdownDisplay;
+
+  /** フェーズ完了音を再生する処理です。 */
+  readonly playSound: (phase: TimerPhase) => void;
+
+  /** 作業時間、休憩時間、繰り返し回数です。 */
+  readonly timerArguments: TimerCliArguments;
+
+  /** 指定時間だけ待機する処理です。 */
+  readonly wait?: Wait;
+
+  /** CLIの出力を書き込む処理です。 */
+  readonly writeOutput: WriteOutput;
 };
 
 const CLI_ARGUMENTS_START_INDEX = 2,
@@ -64,10 +88,47 @@ const CLI_ARGUMENTS_START_INDEX = 2,
   emitStandardOutput: WriteOutput = (output) => {
     process.stdout.write(output);
   },
+  /** フェーズの残り時間を表示しながら、指定回数のポモドーロサイクルを実行します。 */
+  repeatPomodoroCycles = async ({
+    countdown,
+    playSound,
+    timerArguments,
+    wait,
+    writeOutput,
+  }: RepeatPomodoroCyclesParameters): Promise<void> => {
+    try {
+      for (
+        let cycleIndex = 0;
+        cycleIndex < timerArguments.loopCount;
+        cycleIndex += COUNT_INCREMENT
+      ) {
+        // 各サイクルは前の休憩が完了してから開始します。
+        // oxlint-disable-next-line no-await-in-loop
+        await runPomodoroCycle({
+          breakDurationMs: timerArguments.breakDurationMinutes * MILLISECONDS_PER_MINUTE,
+          onPhaseCompleted: (phase) => {
+            countdown.stop();
+            writeOutput(`✅ ${PHASE_NAMES[phase]} complete.\n`);
+            playSound(phase);
+          },
+          onPhaseStarted: (phase, durationMs) => {
+            writeOutput(createPhaseStartedOutput(phase, durationMs));
+            countdown.start(durationMs);
+          },
+          wait,
+          workDurationMs: timerArguments.workDurationMinutes * MILLISECONDS_PER_MINUTE,
+        });
+      }
+    } finally {
+      // 待機が失敗した場合も、残り時間の行を後続の出力へ残しません。
+      countdown.stop();
+    }
+  },
   /** 作業開始を確認し、指定回数のポモドーロサイクルを実行します。 */
   runCli = async ({
     arguments_ = process.argv.slice(CLI_ARGUMENTS_START_INDEX),
     confirmStart = confirmWorkStart,
+    countdown,
     playSound = playCompletionSound,
     wait,
     writeError = createDiagnosticWriter(),
@@ -92,25 +153,13 @@ const CLI_ARGUMENTS_START_INDEX = 2,
       return SUCCESS_EXIT_CODE;
     }
 
-    for (
-      let cycleIndex = 0;
-      cycleIndex < parsedArguments.loopCount;
-      cycleIndex += COUNT_INCREMENT
-    ) {
-      // 各サイクルは前の休憩が完了してから開始します。
-      // oxlint-disable-next-line no-await-in-loop
-      await runPomodoroCycle({
-        breakDurationMs: parsedArguments.breakDurationMinutes * MILLISECONDS_PER_MINUTE,
-        onPhaseCompleted: (phase) => {
-          writeOutput(`✅ ${PHASE_NAMES[phase]} complete.\n`);
-          playSound(phase);
-        },
-        onPhaseStarted: (phase, durationMs) =>
-          writeOutput(createPhaseStartedOutput(phase, durationMs)),
-        wait,
-        workDurationMs: parsedArguments.workDurationMinutes * MILLISECONDS_PER_MINUTE,
-      });
-    }
+    await repeatPomodoroCycles({
+      countdown: countdown ?? createCountdownDisplay({ write: writeOutput }),
+      playSound,
+      timerArguments: parsedArguments,
+      wait,
+      writeOutput,
+    });
 
     writeOutput('🎉 Pomodoro complete.\n');
     return SUCCESS_EXIT_CODE;

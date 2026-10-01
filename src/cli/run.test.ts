@@ -4,12 +4,14 @@ import {
   MILLISECONDS_PER_MINUTE,
 } from '@/timer/timer.ts';
 import { expect, test } from 'vitest';
+import type { CountdownDisplay } from '@/terminal/countdown.ts';
 import { LOGO } from '@/terminal/constants.ts';
 import type { TimerPhase } from '@/timer/timer.ts';
 import { runCli } from './run.ts';
 
 type CliResult = {
   readonly confirmationCount: number;
+  readonly countdownEvents: readonly string[];
   readonly durations: readonly number[];
   readonly errorOutput: string;
   readonly exitCode: number;
@@ -26,8 +28,18 @@ const COUNT_INCREMENT = 1,
   USAGE_ERROR_EXIT_CODE = 2,
   help =
     'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (positive integer, default: 3)\n  -h, --help\n          Print help\n',
+  /** 残り時間表示の開始・停止を記録する偽の表示を作成します。 */
+  recordCountdown = (events: string[], prefix = ''): CountdownDisplay => ({
+    start: (durationMs) => {
+      events.push(`${prefix}start:${durationMs}`);
+    },
+    stop: () => {
+      events.push(`${prefix}stop`);
+    },
+  }),
   runCliFor = (arguments_: readonly string[] = [], confirmed = true): Promise<CliResult> => {
-    const durations: number[] = [],
+    const countdownEvents: string[] = [],
+      durations: number[] = [],
       sounds: TimerPhase[] = [];
     let confirmationCount = 0,
       errorOutput = '',
@@ -39,6 +51,7 @@ const COUNT_INCREMENT = 1,
         confirmationCount += COUNT_INCREMENT;
         return Promise.resolve(confirmed);
       },
+      countdown: recordCountdown(countdownEvents),
       playSound: (phase) => {
         sounds.push(phase);
       },
@@ -54,6 +67,7 @@ const COUNT_INCREMENT = 1,
       },
     }).then((exitCode) => ({
       confirmationCount,
+      countdownEvents,
       durations,
       errorOutput,
       exitCode,
@@ -67,6 +81,21 @@ test('オプションなしで15分の作業と5分の休憩を3回実行する'
 
   expect(result).toEqual({
     confirmationCount: 1,
+    countdownEvents: [
+      `start:${DEFAULT_WORK_DURATION_MS}`,
+      'stop',
+      `start:${DEFAULT_BREAK_DURATION_MS}`,
+      'stop',
+      `start:${DEFAULT_WORK_DURATION_MS}`,
+      'stop',
+      `start:${DEFAULT_BREAK_DURATION_MS}`,
+      'stop',
+      `start:${DEFAULT_WORK_DURATION_MS}`,
+      'stop',
+      `start:${DEFAULT_BREAK_DURATION_MS}`,
+      'stop',
+      'stop',
+    ],
     durations: [
       DEFAULT_WORK_DURATION_MS,
       DEFAULT_BREAK_DURATION_MS,
@@ -130,6 +159,7 @@ test('不正な繰り返し回数では開始確認もタイマーも実行し�
 
   expect(result).toEqual({
     confirmationCount: 0,
+    countdownEvents: [],
     durations: [],
     errorOutput: `Error: --loop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
     exitCode: 2,
@@ -143,6 +173,7 @@ test.each(['--help', '-h'])('%sでヘルプを表示してタイマーを開始�
 
   expect(result).toEqual({
     confirmationCount: 0,
+    countdownEvents: [],
     durations: [],
     errorOutput: '',
     exitCode: 0,
@@ -156,6 +187,7 @@ test('未知のオプションではエラー終了しタイマーを開始し�
 
   expect(result).toEqual({
     confirmationCount: 0,
+    countdownEvents: [],
     durations: [],
     errorOutput: 'Error: Unknown option: "--unknown"\n',
     exitCode: 2,
@@ -195,10 +227,64 @@ test('NGを選択するとタイマーを開始しない', async () => {
 
   expect(result).toEqual({
     confirmationCount: 1,
+    countdownEvents: [],
     durations: [],
     errorOutput: '',
     exitCode: 0,
     output: `${LOGO}\n⏹️ Work was not started.\n`,
     sounds: [],
   });
+});
+
+test('残り時間の表示はフェーズ開始の案内の後に始め、完了の案内の前に消す', async () => {
+  const events: string[] = [],
+    exitCode = await runCli({
+      arguments_: ['--loop', '1'],
+      confirmStart: () => Promise.resolve(true),
+      countdown: recordCountdown(events, 'countdown:'),
+      playSound: () => {
+        // 音の再生順はこのテストの対象外です。
+      },
+      wait: (durationMs) => {
+        events.push(`wait:${durationMs}`);
+        return Promise.resolve();
+      },
+      writeOutput: (value) => {
+        events.push(`output:${value}`);
+      },
+    });
+
+  expect(exitCode).toBe(SUCCESS_EXIT_CODE);
+  expect(events).toEqual([
+    `output:${LOGO}\n`,
+    'output:🍅 Work started (15 min)\n',
+    `countdown:start:${DEFAULT_WORK_DURATION_MS}`,
+    `wait:${DEFAULT_WORK_DURATION_MS}`,
+    'countdown:stop',
+    'output:✅ Work complete.\n',
+    'output:☕ Break started (5 min)\n',
+    `countdown:start:${DEFAULT_BREAK_DURATION_MS}`,
+    `wait:${DEFAULT_BREAK_DURATION_MS}`,
+    'countdown:stop',
+    'output:✅ Break complete.\n',
+    'countdown:stop',
+    'output:🎉 Pomodoro complete.\n',
+  ]);
+});
+
+test('待機が失敗しても残り時間の表示を止めてからエラーを伝える', async () => {
+  const countdownEvents: string[] = [],
+    failure = new Error('timer failed'),
+    result = runCli({
+      arguments_: ['--loop', '1'],
+      confirmStart: () => Promise.resolve(true),
+      countdown: recordCountdown(countdownEvents),
+      wait: () => Promise.reject(failure),
+      writeOutput: () => {
+        // 出力内容はこのテストの対象外です。
+      },
+    });
+
+  await expect(result).rejects.toBe(failure);
+  expect(countdownEvents).toEqual([`start:${DEFAULT_WORK_DURATION_MS}`, 'stop']);
 });
