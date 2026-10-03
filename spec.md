@@ -760,12 +760,17 @@ shutdown中に解除するのはUI、tick、キー復号器、resizeなど通常
 
 - 通常終了可能な再生・通知子はshutdown時に終了し、`close`後に追跡集合から除去される
 - kill不能な子は1500ms後に親から切り離され、OS上に残ることがある。子が残らないことは親プロセスの保証事項にしない
-- kill不能な子、未flushのstdout、残存ハンドルがあっても、イベントループが応答する限り親プロセスはshutdown開始から2000ms後の最初のtimer実行機会に終了する
-- shutdown開始後は、新しい再生・通知子プロセスとベルが発生しない
+- kill不能な子、未flushのstdout、残存ハンドルがあっても、イベントループが応答する限り親プロセスは`shutdownDeadline`（完了終了以外はshutdown開始から2000ms、完了終了は5000ms）後の最初のtimer実行機会に終了する
+- shutdown開始後は、完了通知操作を除き、新しい再生・通知子プロセスとベルが発生しない。完了通知の猶予終了後は完了通知操作も含めて発生しない
+- 完了終了では、最後のBREAKの自然終了で要求した音・通知をshutdown開始時にcancelせず、子へ`kill()`も送らない。全完了通知操作が確定するか`shutdownStartedAt + 3000`に達した時点で残りをcancelし、そこから500ms / 1500msの段階終了を行う
+- 完了終了でも、フレーム消去、raw modeとカーソルの復元、`🎉 Pomodoro complete.`とサマリの出力は猶予を待たずに行われる
+- 完了通知の猶予中に`SIGINT`などの後続シグナルや異常が届くと猶予は直ちに終了し、終了コード`0`とサマリは変更されない
+- 最後のBREAKをskipして完了した場合は音・通知が発生せず、猶予なしで段階終了に進む
+- 完了終了以外のshutdownでは、完了通知の猶予を設けず全操作を直ちにcancelする
 - shutdown開始後のstdout EPIPEは、決定済み終了コードを変更せず、再帰的shutdownを起こさない
 - 非TTYの全終了経路と`restoreTerminalSync`でANSIエスケープを出力しない
 - `requestShutdown()`を複数回呼んでも、cleanup、サマリ、kill、強制終了timerは各1系列だけ実行され、全呼び出しが同じPromiseを受け取る
-- cleanupに600msを要しても500ms段階は直ちに実行され、1500ms / 2000ms段階は`shutdownStartedAt`基準の期限を維持する
+- cleanupに600msを要しても500ms段階は直ちに実行され、1500ms段階は`terminationStartedAt`基準、強制終了は`shutdownDeadline`基準の期限を維持する
 - fatal診断のstderrがEPIPEになっても再帰的shutdownや未処理`error`を起こさず、決定済み終了コードを維持する
 
 ### 終了時サマリ
