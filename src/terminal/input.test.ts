@@ -1,6 +1,6 @@
 import { confirmWorkStart } from './input.ts';
 import type { SelectionKey, SelectionTerminal } from './input.ts';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { PassThrough } from 'node:stream';
 
 type FakeInput = PassThrough & {
@@ -151,13 +151,16 @@ const createInput = (isTTY: boolean): FakeInput => {
 describe('実際のストリームを使う開始確認', () => {
   test('確定前にstdinが終端するとfalseを返し、入力の待機を終える', async () => {
     const input = createInput(false),
+      pause = vi.spyOn(input, 'pause'),
       { confirmation, writes } = confirmWith(input);
 
     input.end();
 
     expect(await confirmation).toBe(false);
     expect(writes).toEqual([MENU_WITH_OK_SELECTED, '\n']);
-    expect(input.readableFlowing).toBe(false);
+    // Node.js 26以降は終端済みストリームのpause()でflowing状態が変わらないため、
+    // 状態ではなく、アプリが開始したflowingを戻す呼び出しを確認します。
+    expect(pause).toHaveBeenCalledTimes(1);
     expect(input.rawModes).toEqual([]);
   });
 
