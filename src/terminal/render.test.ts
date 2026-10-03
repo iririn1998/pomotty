@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { LOGO } from './constants.ts';
-import type { OptionDefinition } from '@/cli/types.ts';
+import type { OptionDefinition } from '#src/cli/types.ts';
 import { createCliOutput } from './render.ts';
 
 const help = [

@@ -1,10 +1,11 @@
-import { DEFAULT_BREAK_DURATION_MINUTES, DEFAULT_WORK_DURATION_MINUTES } from '@/timer/timer.ts';
+import { DEFAULT_BREAK_DURATION_MINUTES, DEFAULT_WORK_DURATION_MINUTES } from '#src/timer/timer.ts';
 import type { OptionDefinition } from './types.ts';
 
-/**
- * CLIで現在案内しているオプションの一覧です。
- */
+/** `--loop`を指定しない場合に作業と休憩を繰り返す回数です。 */
 const DEFAULT_LOOP_COUNT = 3,
+  /**
+   * CLIで現在案内しているオプションの一覧です。
+   */
   OPTIONS = [
     {
       description: `Work duration in minutes (1-1440, default: ${DEFAULT_WORK_DURATION_MINUTES})`,
