@@ -978,7 +978,7 @@ const runPlayer = (
 
 `PlayerOptions`は`env`だけを許可し、`shell`、`stdio`、`windowsHide`を呼び出し側から上書きできない型にする。通知用の呼び出しを含め、`spawnTracked()`の公開型から生の`stdio`と`shell`を除外する。shutdownによるcancel callbackは子の`close`を待たずPromiseを確定し、子の終了自体は`activeChildren`と§7へ委ねる。
 
-タイムアウト時は後続候補へ進むが、子プロセスは`close`を確認するまで`activeChildren`から除去しない。`kill()`後1秒以内に`close`しなければ強制終了（`kill('SIGKILL')`）を1回試み、その補助timerもshutdownで解除する。shutdown経路での終了手順と上限は§7の「子プロセスの終了とハングの回避」に従う。
+タイムアウト時は後続候補へ進むが、子プロセスは`close`を確認するまで`activeChildren`から除去しない。`kill()`後1秒以内に`close`しなければ強制終了（`kill('SIGKILL')`）を1回試み、その補助timerもshutdownで解除する。shutdown経路での終了手順と上限は§7の「子プロセスの終了と親プロセスの上限」に従う。
 
 音源は§2で起動時に検証済みだが、実行中に削除・置換される可能性がある（TOCTOU）。再生前の再検証は行わず、**通常の再生失敗として同じフォールバック経路で扱う**。検証は起動時の入力ミスを早期に知らせるためのものであり、実行時の保証ではない。
 
