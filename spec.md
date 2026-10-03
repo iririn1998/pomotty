@@ -672,27 +672,39 @@ stdinの`end`イベントは`interactive === true`では通常発生しないが
 
 カーソルを隠したまま、あるいはraw modeのまま終了するとターミナルの表示や入力が乱れるため、**捕捉可能な全終了経路**を単一の`requestShutdown()`へ集約する。`SIGKILL`、`SIGSTOP`、OSや端末自体の強制終了は捕捉できないため、復元を保証しない。
 
-`requestShutdown(reason, exitCode, showSummary, diagnostic?)`は`async`関数にせず、最初の呼び出しで`shutdownPromise`を作成してcleanup開始前に保存する。最初の呼び出しだけがshutdownを開始し、2回目以降は参照同一性まで同じ`shutdownPromise`を返す。終了理由、終了コード、サマリ有無、任意の異常診断は最初の呼び出しで固定し、後発エラーで変更しない。Promiseはrejectせず、後述の手順1〜11の同期処理と段階timerの登録が完了した時点でresolveする。子の`close`、1500ms後の切り離し、親プロセス終了は待たない。
+`requestShutdown(reason, exitCode, showSummary, diagnostic?)`は`async`関数にせず、最初の呼び出しで`shutdownPromise`を作成してcleanup開始前に保存する。最初の呼び出しだけがshutdownを開始し、2回目以降は参照同一性まで同じ`shutdownPromise`を返す。終了理由、終了コード、サマリ有無、任意の異常診断は最初の呼び出しで固定し、後発エラーで変更しない。Promiseはrejectせず、後述の手順1〜11の同期処理と、段階timerまたは完了通知の猶予timerの登録が完了した時点でresolveする。完了通知の確定、子の`close`、1500ms後の切り離し、親プロセス終了は待たない。
 
-本仕様では、終了不能なOS子プロセスを完全に回収することより、**親プロセスをshutdown開始から2秒で終了させることを優先する**。通常はイベントループの自然終了を利用するが、2秒の期限に達した場合だけ`process.exit(exitCode)`を最終手段として使用する。この場合はstdout / stderrの最終書き込みが途中で切れる可能性を許容する。OSまたは同期処理がイベントループ自体を停止させた時間は、JavaScriptから上限を保証できない。
+本仕様では、終了不能なOS子プロセスを完全に回収することより、**親プロセスを`shutdownDeadline`までに終了させることを優先する**。`shutdownDeadline`は完了終了以外ではshutdown開始から2000ms、完了終了では完了通知の猶予3000msを加えた5000msとする。通常はイベントループの自然終了を利用するが、期限に達した場合だけ`process.exit(exitCode)`を最終手段として使用する。この場合はstdout / stderrの最終書き込みが途中で切れる可能性を許容する。OSまたは同期処理がイベントループ自体を停止させた時間は、JavaScriptから上限を保証できない。
 
 shutdownは次の順序で開始する。
 
-1. `shuttingDown = true`を同期的に設定し、注入可能な単調時計`clock.monotonicNow()`を1回呼んで`shutdownStartedAt`を保存し、終了コードと`shutdownDeadline = shutdownStartedAt + 2000`を固定する
+1. `shuttingDown = true`を同期的に設定し、注入可能な単調時計`clock.monotonicNow()`を1回呼んで`shutdownStartedAt`を保存し、終了コードと`shutdownDeadline = shutdownStartedAt + graceMs + 2000`を固定する。`graceMs`は`reason === 'complete'`なら`COMPLETION_GRACE_MS = 3000`、それ以外は`0`とする
 2. `shutdownDeadline`までの残り時間で強制終了timerを登録する。このtimerは`unref()`し、期限時に`restoreTerminalSync()`を実行してから`process.exit(exitCode)`を呼ぶ
-3. 実行中の音・通知操作すべてについて冪等な`operation.cancel()`を呼ぶ。以後、再生候補、通知、ベルを新規に開始してはならない
-4. tick、再生・通知timeout、resize debounceなど通常動作用timerを解除する。shutdown自身が使う強制終了timerと子プロセス終了timerは解除しない
+3. 実行中の音・通知操作について冪等な`operation.cancel()`を呼ぶ。完了終了では§8の完了通知操作だけを除外し、後述の猶予終了時にcancelする。完了終了以外では完了通知操作も含めすべてcancelする。以後、完了通知操作以外の再生候補、通知、ベルを新規に開始してはならない
+4. tick、再生・通知timeout、resize debounceなど通常動作用timerを解除する。ただし猶予中の完了通知操作に属するtimeoutと強制終了要求timerは解除せず、その操作のcancelまたは確定時に解除する。shutdown自身が使う強制終了timer、完了通知の猶予timer、子プロセス終了timerは解除しない
 5. stdinの`keypress` / `end` / `error`とキー復号器が追加した内部リスナー、stdoutの`resize`、その他の通常動作用リスナーを解除する。通常時のstdout / stderr `error`リスナーを外す前に、後述のshutdown専用リスナーを登録する
 6. インラインフレームをbest effortで消去し、raw modeとカーソルを直ちに復元する。子プロセスの終了待ちより端末復元を優先する
 7. `showSummary === true`かつstdoutが利用可能なら、サマリを1回だけ書く。`drain`は待たない
 8. `diagnostic`があれば、§2の`escapeDiagnostic()`を適用した1行をstderrへbest effortで1回だけ書く。`drain`は待たない
 9. アプリが`stdin.resume()`した場合だけ`process.stdin.pause()`し、`stdinResumedByApp = false`とする
 10. `process.exitCode = exitCode`を設定する
-11. shutdown開始時点で追跡中の子プロセスへ終了要求を送り、後述の段階的終了処理を開始する
+11. 完了終了以外では`terminationStartedAt = shutdownStartedAt`とし、追跡中の子プロセスへ終了要求を送って後述の段階的終了処理を開始する。完了終了では後述の完了通知の猶予を開始し、猶予終了時に段階的終了処理を開始する
 
 cleanupの各同期操作は個別に`try/catch`し、一部の復元失敗で残りのcleanupを中断してはならない。
 
-500ms、1500ms、2000msの各段階timerは、登録時点から固定時間だけ待つのではなく、`delay = Math.max(0, shutdownStartedAt + offset - clock.monotonicNow())`で残り時間を求めて登録する。cleanup自体に時間がかかっても「shutdown開始から」の上限を後ろへずらしてはならない。
+500ms、1500msの各段階timerは、登録時点から固定時間だけ待つのではなく、`delay = Math.max(0, terminationStartedAt + offset - clock.monotonicNow())`で残り時間を求めて登録する。強制終了timerは`shutdownDeadline`、完了通知の猶予timerは`shutdownStartedAt + COMPLETION_GRACE_MS`を基準に同様に求める。cleanup自体に時間がかかっても各基準時刻からの上限を後ろへずらしてはならない。
+
+### 完了通知の猶予
+
+完了終了は、最後のBREAKの終了を知らせる音・通知そのものが目的の一部であるため、中断系の終了と区別する。手順6〜8の端末復元とサマリ出力は猶予を待たずに行い、子プロセスの段階的終了だけを猶予終了まで遅らせる。
+
+1. 手順11の時点で`activeOperations`に完了通知操作がなければ、猶予を設けず直ちに猶予終了とする。最後のBREAKをskipした場合、`--no-sound`かつ通知を起動しない場合がこれにあたる
+2. 完了通知操作があれば、`shutdownStartedAt + COMPLETION_GRACE_MS`を期限とする猶予timerを`unref()`して登録する。完了通知操作は§8のとおりフォールバック候補とベルへ進んでよい
+3. 次のいずれかが最初に起きた時点で猶予終了とする。すべての完了通知操作が`activeOperations`から除去される、猶予timerが発火する、または猶予中に`requestShutdown()`が再度呼ばれる（後続シグナル、`uncaughtException`、`unhandledRejection`など）
+4. 猶予終了は1回だけ処理する。猶予timerを解除し、残っている完了通知操作の`cancel()`を呼んでから`terminationStartedAt = clock.monotonicNow()`を保存し、追跡中の子プロセスへ終了要求を送って段階的終了処理を開始する
+5. 猶予中の後続`requestShutdown()`は猶予を打ち切るだけで、決定済みの終了理由、終了コード`0`、サマリ出力を変更しない
+
+猶予中は端末をすでに復元しているため、ユーザーの`Ctrl+C`は端末から`SIGINT`として配送され、手順3の後続呼び出しとして猶予を打ち切る。完了通知の子が猶予内に`close`すれば、残存子がない限りイベントループの自然終了で親プロセスはその時点で終了する。
 
 ### shutdown中の出力エラー
 
@@ -700,7 +712,7 @@ shutdown開始時は、通常動作中のstdout `error`リスナーを外す**�
 
 すべてのstdout書き込みは同期throwも`try/catch`して、`error`イベントと同じ`handleStdoutFailure(error)`へ渡す。shutdown開始前は、`error.code === 'EPIPE'`ならサマリなし・終了コード`0`、その他ならサマリなし・終了コード`1`で`requestShutdown()`を呼ぶ。shutdown開始後にフレーム消去、カーソル復元、サマリ書き込みから同期throwまたは`error`が発生しても、最初に決定した終了コードを変更せず、`stdoutUnavailable = true`として以降のstdout書き込みを省略する。
 
-`stream.write()`に起因する`error`イベントは同期的`try/catch`では捕捉できないため、最終書き込み後もshutdown専用リスナーをプロセス終了まで維持する。2秒の期限を守るため、stdoutの`drain`や書き込みcallbackは待たない。
+`stream.write()`に起因する`error`イベントは同期的`try/catch`では捕捉できないため、最終書き込み後もshutdown専用リスナーをプロセス終了まで維持する。`shutdownDeadline`を守るため、stdoutの`drain`や書き込みcallbackは待たない。
 
 stderrには通常動作中から`error`リスナーを置き、エラー時は`stderrUnavailable = true`として以後のベルと診断を省略する。stderrはタイマーの通常ログ先ではないため、このエラーだけではshutdownや終了コード変更を行わない。引数エラーの診断書き込みで同期例外またはstderrエラーが発生した場合も、既定の終了コード`2`を維持する。
 
@@ -708,20 +720,20 @@ stderrにもfatal診断を書き込む前からshutdown専用`error`リスナー
 
 ### 子プロセスの終了と親プロセスの上限
 
-shutdown開始時に、全再生・通知操作を先にキャンセルしてから`activeChildren`を処理する。
+段階的終了処理は、全再生・通知操作をキャンセルした後の`terminationStartedAt`から`activeChildren`を処理する。完了終了以外では`terminationStartedAt`はshutdown開始時刻と等しく、完了終了では完了通知の猶予終了時刻となる。
 
-1. shutdown開始直後、まだ`close`していない全子へ`kill()`を1回送る
-2. 500ms後、まだ`close`していない子へ`kill('SIGKILL')`を1回送る
-3. shutdown開始から1500ms後も`close`していない子は、親側のstdin / stdout / stderr pipeをdestroyし、`child.unref()`してイベントループから切り離す
-4. shutdown開始から2000ms後も親が生存していれば、強制終了timerが`process.exit(exitCode)`を呼ぶ
+1. `terminationStartedAt`の直後、まだ`close`していない全子へ`kill()`を1回送る
+2. `terminationStartedAt`から500ms後、まだ`close`していない子へ`kill('SIGKILL')`を1回送る
+3. `terminationStartedAt`から1500ms後も`close`していない子は、親側のstdin / stdout / stderr pipeをdestroyし、`child.unref()`してイベントループから切り離す
+4. `shutdownDeadline`に達しても親が生存していれば、強制終了timerが`process.exit(exitCode)`を呼ぶ
 
 各段階のtimerは前述の絶対offsetに対して登録し、`unref()`する。全子が早期に`close`した場合は500ms / 1500msのtimerを解除し、自然終了を妨げない。`activeChildren`からの削除は`close`受信時だけ行い、`kill()`または`unref()`しただけでは終了済みとして記録しない。
 
-POSIXの`kill()`は対象プロセスへsignalを送るだけで子孫プロセスまでは終了しない。Windowsの`child.kill()`も`taskkill /T`相当のプロセスツリー終了ではない。OSまたは対象プロセスが終了要求を受け付けない場合、2秒後も子プロセスがOS上に残る可能性を明示的に許容する。その場合でも、イベントループが応答する限り親プロセスは期限時に終了する。
+POSIXの`kill()`は対象プロセスへsignalを送るだけで子孫プロセスまでは終了しない。Windowsの`child.kill()`も`taskkill /T`相当のプロセスツリー終了ではない。OSまたは対象プロセスが終了要求を受け付けない場合、`shutdownDeadline`後も子プロセスがOS上に残る可能性を明示的に許容する。その場合でも、イベントループが応答する限り親プロセスは期限時に終了する。
 
 | 終了経路                                   | 終了コード | サマリ                                           |
 | ------------------------------------------ | ---------: | ------------------------------------------------ |
-| 全ループ完了（最後のBREAKの終了）          |          0 | 出力する                                         |
+| 全ループ完了（最後のBREAKの終了）          |          0 | 出力する（完了通知の猶予を待たずに出力）         |
 | 開始確認でNG / Ctrl+C / stdin終端          |          0 | 出力しない（`⏹️ Work was not started.`を出力）   |
 | `q`                                        |          0 | 出力する                                         |
 | raw mode中のCtrl+C / `SIGINT`              |        130 | 出力する                                         |
