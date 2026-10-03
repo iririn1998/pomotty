@@ -816,9 +816,18 @@ shutdown中に解除するのはUI、tick、キー復号器、resizeなど通常
 
 音・通知要求ごとに操作オブジェクトを作成し、`activeOperations`で追跡する。操作結果は`success`、`failure`、`cancelled`の3種類とし、`cancelled`を通常の失敗として扱ってはならない。`Operation`は冪等な`cancel()`と、解除関数を返す`onCancel(callback)`を持つ。既にcancel済みの操作へ登録したcallbackは登録中に同期的に1回呼ばれる。
 
-各再生・通知試行はspawn前にcancel callbackを登録し、callback内でonceガード付きの`finish('cancelled')`を同期的に呼ぶ。`finish()`は通常timeoutとcancel callbackを解除する。shutdown開始時は全操作の`cancel()`を呼ぶ。`spawn()`の直前、子プロセスの`error` / `close` / timeout処理、Promise解決後、Linuxの次候補へ進む直前、最終ベルを出す直前に`shuttingDown`または操作のcancel状態を確認する。`failure`の場合だけ次候補またはベルへ進み、`cancelled`の場合は何も開始せず終了する。
+`Operation`は作成時に固定する読み取り専用の`completionNotice: boolean`を持つ。最後のBREAKの自然終了で`finished`へ遷移する遷移処理が要求した音・通知操作だけを`true`とし、それ以外はすべて`false`とする。完了通知操作は§7の完了通知の猶予中だけshutdown開始後も継続を許され、猶予終了時に`cancel()`される。
 
-共通`spawnTracked()`はshutdown開始後の呼び出しを`cancelled`として拒否する。子をspawnした直後にキャンセル済みと判明した場合は、その子を`activeChildren`へ登録し、内部の`error` / `close`安全リスナーを登録したうえで直ちにkillし、子を呼び出し側へ公開せず`cancelled`を返す。フォールバックは開始しない。
+操作の継続可否は次の`isOperationCancelled()`だけで判定し、`shuttingDown`を直接参照しない。
+
+```ts
+const isOperationCancelled = (operation: Operation) =>
+  operation.cancelled || (shuttingDown && !operation.completionNotice);
+```
+
+各再生・通知試行はspawn前にcancel callbackを登録し、callback内でonceガード付きの`finish('cancelled')`を同期的に呼ぶ。`finish()`は通常timeoutとcancel callbackを解除する。shutdown開始時は§7の手順3に従い、完了終了では完了通知操作を除く全操作、それ以外では全操作の`cancel()`を呼ぶ。`spawn()`の直前、子プロセスの`error` / `close` / timeout処理、Promise解決後、Linuxの次候補へ進む直前、最終ベルを出す直前に`isOperationCancelled(operation)`を確認する。`failure`の場合だけ次候補またはベルへ進み、`cancelled`の場合は何も開始せず終了する。
+
+共通`spawnTracked()`は`isOperationCancelled(operation)`が真となる呼び出しを`cancelled`として拒否する。したがってshutdown開始後は、猶予中の完了通知操作以外の起動をすべて拒否する。子をspawnした直後にキャンセル済みと判明した場合は、その子を`activeChildren`へ登録し、内部の`error` / `close`安全リスナーを登録したうえで直ちにkillし、子を呼び出し側へ公開せず`cancelled`を返す。フォールバックは開始しない。
 
 通常時は再生・通知の候補チェーンが最終結果へ達した時点で、`finally`により操作を`activeOperations`から除去する。cancel callbackにより、kill不能な子が`close`しなくても操作Promiseと候補チェーンは直ちに`cancelled`で完了する。timeout後またはcancel後も`close`していない子は操作とは別に`activeChildren`へ残す。shutdownはcancelした操作Promiseの解決を待たず、追跡中の子と親プロセスの期限を§7で直接管理する。
 
@@ -942,7 +951,7 @@ const runPlayer = (
   options: PlayerOptions = {},
 ) =>
   new Promise<OperationResult>((resolve) => {
-    if (shuttingDown || operation.cancelled) {
+    if (isOperationCancelled(operation)) {
       resolve('cancelled');
       return;
     }
@@ -957,7 +966,7 @@ const runPlayer = (
       settled = true;
       if (timeout) clearTimeout(timeout);
       removeCancelListener();
-      resolve(shuttingDown || operation.cancelled ? 'cancelled' : result);
+      resolve(isOperationCancelled(operation) ? 'cancelled' : result);
     };
 
     removeCancelListener = operation.onCancel(() => finish('cancelled'));
@@ -983,24 +992,24 @@ const runPlayer = (
         finish(code === 0 && signal === null ? 'success' : 'failure');
       });
     } catch {
-      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure');
+      finish(isOperationCancelled(operation) ? 'cancelled' : 'failure');
       return;
     }
 
     timeout = setTimeout(() => {
       child?.kill();
-      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure');
+      finish(isOperationCancelled(operation) ? 'cancelled' : 'failure');
     }, 10_000);
   });
 ```
 
 `PlayerOptions`は`env`だけを許可し、`shell`、`stdio`、`windowsHide`を呼び出し側から上書きできない型にする。通知用の呼び出しを含め、`spawnTracked()`の公開型から生の`stdio`と`shell`を除外する。shutdownによるcancel callbackは子の`close`を待たずPromiseを確定し、子の終了自体は`activeChildren`と§7へ委ねる。
 
-タイムアウト時は後続候補へ進むが、子プロセスは`close`を確認するまで`activeChildren`から除去しない。`kill()`後1秒以内に`close`しなければ強制終了（`kill('SIGKILL')`）を1回試み、その補助timerもshutdownで解除する。shutdown経路での終了手順と上限は§7の「子プロセスの終了と親プロセスの上限」に従う。
+タイムアウト時は後続候補へ進むが、子プロセスは`close`を確認するまで`activeChildren`から除去しない。`kill()`後1秒以内に`close`しなければ強制終了（`kill('SIGKILL')`）を1回試み、その補助timerもshutdownで解除する。完了通知操作の補助timerは猶予終了時のcancelで解除する。shutdown経路での終了手順と上限は§7の「子プロセスの終了と親プロセスの上限」に従う。
 
 音源は§2で起動時に検証済みだが、実行中に削除・置換される可能性がある（TOCTOU）。再生前の再検証は行わず、**通常の再生失敗として同じフォールバック経路で扱う**。検証は起動時の入力ミスを早期に知らせるためのものであり、実行時の保証ではない。
 
-最終フォールバックのベルは、`shuttingDown === false`、操作がcancelされていない、`stderrUnavailable === false`、`interactive === true && process.stderr.isTTY === true`のすべてを満たす場合だけ、stderrへ**1バイトの`\x07`**を1回書く。stdoutには書かず、行単位ログ、CI、パイプ出力ではベルを省略する。`--no-sound`指定時は再生コマンドもベルも実行しない。
+最終フォールバックのベルは、`isOperationCancelled(operation) === false`、`stderrUnavailable === false`、`interactive === true && process.stderr.isTTY === true`のすべてを満たす場合だけ、stderrへ**1バイトの`\x07`**を1回書く。stdoutには書かず、行単位ログ、CI、パイプ出力ではベルを省略する。`--no-sound`指定時は再生コマンドもベルも実行しない。
 
 ### デスクトップ通知
 
@@ -1023,7 +1032,7 @@ titleとbodyはそれぞれ独立したargv要素として渡し、AppleScript�
 | Linux   | `<notifySendPath> -- <title> <body>`（それぞれ独立した引数として渡す） |
 | Windows | **非対応（音のみ）。通知コマンドは起動しない**                         |
 
-通知も音と同様、失敗してもタイマーを継続する。通知子プロセスも`activeChildren`で追跡し、5秒で終了しなければ`kill()`して失敗として確定する。その後1秒以内に`close`しなければ`kill('SIGKILL')`を1回試す。強制終了要求後も`close`しない子は追跡を打ち切らず、shutdown時に§7の対象とする。補助timerはshutdownで解除する。通知には代替コマンドやターミナルベルのフォールバックを設けない。
+通知も音と同様、失敗してもタイマーを継続する。通知子プロセスも`activeChildren`で追跡し、5秒で終了しなければ`kill()`して失敗として確定する。その後1秒以内に`close`しなければ`kill('SIGKILL')`を1回試す。強制終了要求後も`close`しない子は追跡を打ち切らず、shutdown時に§7の対象とする。補助timerはshutdownで解除し、完了通知操作の補助timerは猶予終了時のcancelで解除する。通知には代替コマンドやターミナルベルのフォールバックを設けない。
 
 #### macOS
 
@@ -1065,14 +1074,14 @@ if (spawned.result !== 'success') {
   } else {
     input.once('error', () => {
       child.kill();
-      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure');
+      finish(isOperationCancelled(operation) ? 'cancelled' : 'failure');
     });
 
     try {
       input.end(APPLESCRIPT);
     } catch {
       child.kill();
-      finish(shuttingDown || operation.cancelled ? 'cancelled' : 'failure');
+      finish(isOperationCancelled(operation) ? 'cancelled' : 'failure');
     }
   }
 }
@@ -1080,7 +1089,7 @@ if (spawned.result !== 'success') {
 
 `title` と `body` は正規化済みの文字列であり、`-` で始まっていてもスクリプト引数として扱われる。すべての通知プロセスで`spawnTracked()`が`shell: false`を固定する。
 
-`child.stdin`の`error`は`ChildProcess`本体の`error`とは別イベントであるため、必ず個別に処理する。stdinのEPIPE、`end()`の同期例外、childの`error`、`close`、5秒timeout、操作のcancel callbackは同じonceガードで1回だけ確定する。stdinエラー時も`activeChildren`から即時削除せず、`close`を受け取るまで追跡する。shutdown中のstdinエラーは`cancelled`として扱い、追加処理を開始しない。
+`child.stdin`の`error`は`ChildProcess`本体の`error`とは別イベントであるため、必ず個別に処理する。stdinのEPIPE、`end()`の同期例外、childの`error`、`close`、5秒timeout、操作のcancel callbackは同じonceガードで1回だけ確定する。stdinエラー時も`activeChildren`から即時削除せず、`close`を受け取るまで追跡する。`isOperationCancelled(operation)`が真の間のstdinエラーは`cancelled`として扱い、追加処理を開始しない。
 
 macOS通知はbest effortとする。`osascript`の終了コード`0`はスクリプトが受理されたことだけを表し、通知の実表示や権限付与を保証しない。通知設定へ表示される主体はスクリプトの実行形態とmacOS版に依存するため、Terminal.app、iTerm2、VS Codeなど特定のホストへ固定しない。[Appleの通知スクリプト説明](https://developer.apple.com/library/archive/documentation/LanguagesUtilities/Conceptual/MacAutomationScriptingGuide/DisplayNotifications.html)に沿い、READMEとhelpでは「最初の通知試行後にシステム設定 > 通知で関連する通知元を確認する」と案内する。アプリから表示成否を区別できないため、検知や再試行は行わない。
 
