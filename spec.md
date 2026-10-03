@@ -1106,15 +1106,18 @@ macOS通知はbest effortとする。`osascript`の終了コード`0`はスク�
 - 再生・通知プロセスがハングしてもタイマーは継続し、規定時間後に終了要求と強制終了要求を行う。OS上の終了自体は保証せず、kill不能な子はshutdown時に§7で切り離せる
 - 通常の再生・通知子はshutdownで終了する。kill不能な子がOS上に残り得る場合も、§7の規則で親プロセスは期限時に終了する
 - `paplay`実行中にshutdownした場合、Promiseが`cancelled`となり、`aplay`とベルへ進まない
-- shutdown開始後の`spawnTracked()`は子を起動せず、ベルも出さない。spawn直後の競合で得た子は追跡して直ちにkillする
+- shutdown開始後の`spawnTracked()`は、猶予中の完了通知操作を除き子を起動せず、ベルも出さない。spawn直後の競合で得た子は追跡して直ちにkillする
+- 完了通知の猶予中は、完了通知操作の`paplay`失敗後に`aplay`を試し、全候補失敗時はTTYでベルを1回出力できる。猶予終了後は`cancelled`となり、次候補とベルへ進まない
+- `completionNotice === true`の操作は最後のBREAKの自然終了に由来するものだけで、それ以前のWORK終了音などはshutdown開始時に直ちにcancelされる
 - `--volume 0.5` のとき、`paplay` へ渡す引数が `--volume=32768` になる
 - `aplay` へフォールバックした場合、引数に音量指定が含まれない
 - 起動時に検証した音源が実行中に削除・置換されても、通常の再生失敗としてフォールバックし、タイマーは継続する
 - `DISPLAY`と`WAYLAND_DISPLAY`が両方`undefined`、両方空文字列、または片方が`undefined`でもう片方が空文字列のLinuxでは`notify-send`が起動されず、片方に空でない値があれば起動を試す
 - `osascript` へ渡す引数配列が `['-', title, body]` であり、`--` を含まない
-- `osascript`のstdinがEPIPEになってもonceガードが`failure`を1回だけ確定し、タイマーは継続する。shutdown中なら`cancelled`となる
+- `osascript`のstdinがEPIPEになってもonceガードが`failure`を1回だけ確定し、タイマーは継続する。`isOperationCancelled(operation)`が真なら`cancelled`となる
 - タスクなしではtitleが厳密に`pomotty`、タスクありでは`pomotty — <正規化済みtask>`となる
 - WORK終了本文の分数が`--break`の値と一致し、最後のBREAKの終了本文が`Pomodoro complete.`となる
+- 最後のBREAKをskipした場合は通知子プロセスと再生子プロセスのどちらも起動されない
 - `<a>`、`<img>`、`&`を含むタスク名が通知bodyへ入らない
 - cwd、相対PATH要素、または`node_modules/.bin`に同名コマンドを置いても実行されず、全OSで`spawn()`の第1引数が検証済み絶対パスとなる
 - 呼び出し側のオプションから`shell: true`を注入できない
