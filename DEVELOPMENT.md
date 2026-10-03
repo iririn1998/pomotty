@@ -9,10 +9,17 @@ For installation and usage, see the [user README](./README.md).
 ```shell
 pnpm install --frozen-lockfile
 pnpm start
+pnpm typecheck
 pnpm test
 pnpm lint
 pnpm format:check
 ```
+
+`pnpm check` runs the type check, build, and tests in that order. Tests use
+Vitest, and imports across `src/` use the `#src/*` subpath imports defined in
+`package.json`, so `node src/cli.ts` also runs the CLI without building it.
+CI runs these checks on macOS, Ubuntu, and Windows with Node.js 22.18.x and
+24.11.x, and on Ubuntu with the latest Node.js 24 and current releases.
 
 ## Releasing
 
@@ -31,10 +38,11 @@ pnpm version patch
 git push --follow-tags
 ```
 
-Tests, linting, and formatting checks run before publishing, and the project is
-built when the package is created. The package includes the CLI, notification
-sounds, README, and package.json. To check the package contents locally, run
-`pnpm publish --dry-run --no-git-checks`.
+The Release workflow runs linting and formatting checks before publishing, and
+creating the package runs `pnpm check` (type check, build, and tests) through
+`prepack`. The package includes the CLI, notification sounds, README.md,
+README.ja.md, LICENSE, and package.json. To check the package contents locally,
+run `pnpm publish --dry-run --no-git-checks`.
 
 npm authentication uses
 [trusted publishing](https://docs.npmjs.com/trusted-publishers), so no npm token

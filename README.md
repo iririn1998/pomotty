@@ -50,6 +50,9 @@ Different notification sounds play when work and break sessions end. Sound
 playback uses `afplay` on macOS, `paplay` or `aplay` on Linux, and PowerShell on
 Windows. If audio playback is unavailable, the timer falls back to different
 numbers of terminal bells for work and break notifications.
+Playback commands are resolved to absolute paths once at startup. On Linux, only
+absolute directories in `PATH` are searched, and commands under the working
+directory or `node_modules/.bin` are never used.
 
 For development and npm publishing instructions, see the [development guide](./DEVELOPMENT.md).
 

@@ -1135,18 +1135,21 @@ macOS通知はbest effortとする。`osascript`の終了コード`0`はスク�
   "version": "1.0.0",
   "description": "A zero-runtime-dependency Pomodoro timer for the terminal.",
   "type": "module",
+  "imports": { "#src/*": "./src/*" },
   "bin": { "pomotty": "./dist/cli.js" },
   "files": ["dist/cli.js", "assets/*.wav"],
   "engines": { "node": "^22.18.0 || >=24.11.0" },
+  "devEngines": { "packageManager": { "name": "pnpm", "onFail": "error" } },
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc --noEmit",
-    "test": "npm run test:unit",
-    "test:unit": "node --test \"src/**/*.test.ts\"",
-    "test:package": "node --test \"test/package/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --dir src",
+    "test:package": "vitest run --dir test/package",
+    "lint": "oxlint . --deny-warnings --report-unused-disable-directives-severity=error",
+    "format:check": "oxfmt --check",
     "verify:wav": "node scripts/verify-wav.mjs",
-    "check": "npm run typecheck && npm run build && npm run test:unit && npm run verify:wav",
-    "prepack": "npm run check",
+    "check": "pnpm typecheck && pnpm build && pnpm test && pnpm verify:wav",
+    "prepack": "pnpm check",
     "smoke:package": "node scripts/smoke-package.mjs",
     "verify:package": "node scripts/verify-package.mjs"
   },
@@ -1155,56 +1158,59 @@ macOS通知はbest effortとする。`osascript`の終了コード`0`はスク�
   "dependencies": {},
   "devDependencies": {
     "@types/node": "22.20.1",
-    "tsdown": "0.22.14",
-    "typescript": "7.0.2"
+    "oxfmt": "^0.61.0",
+    "oxlint": "^1.76.0",
+    "tsdown": "^0.23.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }
 ```
 
 パッケージ名と`bin`名を`pomotty`に統一する。これにより`npx pomotty`でパッケージを取得して起動でき、グローバルインストール時も`pomotty`コマンドとして実行できる。`dependencies`は空のままとし、ビルドとテストに必要なものだけを`devDependencies`へ置く。`postinstall`は定義しない。
 
-`devDependencies`は`package-lock.json`で間接依存も固定し、CIとリリースで`npm ci`を使用する。上記バージョンは仕様確定時の固定値であり、更新は個別の依存更新としてCIを通して行う。
+パッケージ管理にはpnpmを使用し、`devEngines`で他のパッケージマネージャーによる操作を拒否する。`devDependencies`は`pnpm-lock.yaml`で間接依存も含めて解決結果を固定し、CIとリリースで`pnpm install --frozen-lockfile`を使用する。`@types/node`はサポート下限のNode.js 22系に合わせて`22.20.1`へ厳密に固定し、そのほかのツールは範囲指定のままlockfileで固定する。更新は個別の依存更新としてCIを通して行う。テストランナーはvitest、lintはoxlint、formatはoxfmtを使用する（§11）。
 
 Node.jsの要件は、公開後のCLI実行、ビルド、型チェック、テストのすべてで`^22.18.0 || >=24.11.0`に統一する。Node.js 22系では22.18.0以上、Node.js 24系では24.11.0以上を必要とし、23.xおよび24.0〜24.10はサポート対象外とする。
 
-22.18.0を下限とする理由は、テストで使うTypeScript型削除実行と引用符付きglobによる対象限定を利用でき、実行・開発・CIの下限を1つに揃えられるためである。`package.json`の`engines`、README、CI、tarballスモークテストはすべて同じ範囲を記載し、22.0系を対象とする説明やジョブを残さない。バンドル出力のターゲットは`node22`のままとするが、公開物の動作保証下限は22.18.0である。
+22.18.0を下限とする理由は、Node.jsのTypeScript型削除実行が既定で有効になり、`node src/cli.ts`でビルドせずにCLIを起動できるため、実行・開発・CIの下限を1つに揃えられるためである。`package.json`の`engines`、README、CI、tarballスモークテストはすべて同じ範囲を記載し、22.0系を対象とする説明やジョブを残さない。バンドル出力のターゲットは`node22`のままとするが、公開物の動作保証下限は22.18.0である。
 
 `license`、`repository`、`author`は所有者が正式な値を決定して公開前に追加する。特に`license`と`repository`が未設定の状態では公開しない。`pomotty`名の空きは予約できないため、公開直前にnpm registryで再確認する。
 
-`files`にREADMEとLICENSEを書いていないのは意図的である。npmは`package.json`、`README`、`LICENSE`を`files`の指定に関わらず常に同梱するため、重複して書く必要がない。公開物の受け入れ条件でこの3点の存在を確認する。
+`files`にREADMEとLICENSEを書いていないのは意図的である。npmとpnpmは`package.json`、`README*`、`LICENSE`を`files`の指定に関わらず常に同梱するため、重複して書く必要がない。英語版の`README.md`と日本語版の`README.ja.md`はどちらも`README*`として同梱される。公開物の受け入れ条件でこれらの存在を確認する。
 
 READMEには`npx pomotty`の起動例、主要オプション、統一したNode.js要件、OS別機能表、「デスクトップ通知はmacOS / Linuxのみ、Windowsは音のみ」の制約、`--volume`が`afplay`と`paplay`でのみ有効であること、`--sound-*`が非圧縮PCMのwavを要求すること（Windows）、macOS通知はbest effortであり最初の試行後に通知設定で関連する通知元を確認すること、サマリの`Timer-credited time`の意味、ライセンスを記載する。選択したSPDXライセンスと一致する`LICENSE`ファイルを同梱する。
 
 ### テストとpack検証の分離
 
-`node --test`を引数なしで実行すると`test/`以下の`.test.ts`を再帰的に発見する。このため、`npm pack`を起動するパッケージ検証テストを通常の単体テストと同じ探索対象に置いたまま、`prepack → check → node --test`と呼び出してはならない。
+vitestを探索ディレクトリの指定なしで実行すると、`test/`を含むリポジトリ全体の`.test.ts`を再帰的に発見する。このため、`pnpm pack`を起動するパッケージ検証テストを通常の単体テストと同じ探索対象に置いたまま、`prepack → check → vitest run`と呼び出してはならない。
 
 - `src/**/*.test.ts`は対象実装と同じディレクトリに置き、時計、TTY、子プロセス等をフェイク化した単体・コンポーネントテストだけを含む
 - `test/package/**/*.test.ts`は、生成済みtarballのファイル構成、metadata、インストール結果、wav、ランタイム依存だけを検証し、実時間を使うCLI起動スモークは実行しない
 - 実装の単体テストは`timer.ts`に対する`timer.test.ts`のように、対象と同じベース名を使用する
-- `test:unit`と`test:package`は引用符付きglobで探索対象を明示し、互いのテストを実行しない
-- `prepack`は`check`だけを呼び、`verify:package`、`test:package`、`smoke:package`、`npm pack`、`npm publish`を直接・間接に呼ばない
-- `verify:package`だけがトップレベルから`npm pack`を1回起動し、生成後に`test:package`と`smoke:package`を実行する
+- `test`と`test:package`は`vitest run --dir <dir>`で探索対象を明示し、互いのテストを実行しない
+- `prepack`は`check`だけを呼び、`verify:package`、`test:package`、`smoke:package`、`pnpm pack`、`npm publish`を直接・間接に呼ばない
+- `verify:package`だけがトップレベルから`pnpm pack`を1回起動し、生成後に`test:package`と`smoke:package`を実行する
 - `prepare`と`prepublishOnly`は定義しない
 
 許可する呼び出し関係は次だけとする。
 
 ```text
 verify:package
-  └─ npm pack
+  └─ pnpm pack
        └─ prepack
             └─ check
                  ├─ typecheck
                  ├─ build
-                 ├─ test:unit
+                 ├─ test
                  └─ verify:wav
   ├─ test:package [POMOTTY_TARBALL=<生成済みtgz>]
   └─ smoke:package <生成済みtgz>
 ```
 
-`npm pack`は`prepack`を起動するため、`prepack`から`verify:package`へ戻る経路が1つでもあれば再帰する。スクリプト呼び出しグラフをテストで固定する。
+`pnpm pack`は`prepack`を起動するため、`prepack`から`verify:package`へ戻る経路が1つでもあれば再帰する。スクリプト呼び出しグラフをテストで固定する。
 
-Windowsを含む全OSで、検証スクリプトからnpm CLIを起動するときに裸の`npm`や`npm.cmd`を`spawn()`してはならない。`npm run`が設定した`process.env.npm_execpath`が絶対パスかつ読み取り可能な通常ファイルであることを確認し、`spawn(process.execPath, [npmExecPath, ...args], { shell: false })`で起動する。`npm_execpath`がない場合は、検証スクリプトを直接実行せず`npm run`経由で起動するよう診断して失敗する。
+Windowsを含む全OSで、検証スクリプトからパッケージマネージャーのCLIを起動するときに裸の`pnpm`、`npm`、`pnpm.cmd`、`npm.cmd`を`spawn()`してはならない。`pnpm run`が設定した`process.env.npm_execpath`が絶対パスかつ読み取り可能な通常ファイルであることを確認し、`spawn(process.execPath, [npmExecPath, ...args], { shell: false })`で起動する。`npm_execpath`がない場合は、検証スクリプトを直接実行せず`pnpm run`経由で起動するよう診断して失敗する。利用者のインストールを再現する`npm install`、`npm exec`、`npm ls`と、Trusted Publishingに使う`npm publish`もリポジトリ外の一時ディレクトリで同じ規則に従って起動する。
 
 ### ビルド
 
@@ -1231,7 +1237,7 @@ export default defineConfig({
 
 シェバンは`banner`だけで付与する。`src/cli.ts`の先頭には**シェバンを書かない**。両方にあるとバンドル出力の1行目と2行目に二重に現れ、2行目がJavaScriptの構文エラーになる。
 
-TypeScriptはNode.js ESMとNode.jsの型削除実行の両方で同じimportを解決できるようにする。相対importは`.ts`拡張子を明記し、`enum`、パラメータプロパティ、namespaceなど型削除だけで実行できないTypeScript構文は使用しない。
+TypeScriptはNode.js ESMとNode.jsの型削除実行の両方で同じimportを解決できるようにする。相対importは`.ts`拡張子を明記し、`enum`、パラメータプロパティ、namespaceなど型削除だけで実行できないTypeScript構文は使用しない。`src/`配下を機能ディレクトリの外から参照する場合は、`package.json`の`imports`で定義した`#src/*`（例: `#src/timer/timer.ts`）を使う。`tsconfig.json`の`paths`やバンドラー・テストランナー固有のエイリアスは、Node.jsの型削除実行が解決できないため使用しない。`imports`はNode.js、tsc、vitest、tsdownが同じ規則で解決する。
 
 ```json
 {
@@ -1265,11 +1271,12 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 
 リリース候補では作業ツリーからの直接実行を合格根拠にせず、`scripts/verify-package.mjs`が作成した**1個の実tarball**を以後の検証単位とする。
 
-1. clean checkoutで`npm ci`を実行する
-2. `npm run verify:package -- --output-dir <release-dir> --tag <dist-tag>`を実行する。`<release-dir>`は開始時に存在しないか空でなければならず、既存のtgzまたはmanifestがあれば失敗する。同スクリプトは`npm pack --json --pack-destination <release-dir>`をちょうど1回起動し、JSON結果が1パッケージ・1個のtgzを示すことを確認する
-3. tgzのtarヘッダを読み、PAX / GNU long-name情報を解決した後の正規化済みパスで、次の厳密な6ファイルだけを含むことを確認する。6エントリは一意な通常ファイルでなければならない。絶対パス、空要素、`.`、`..`、バックスラッシュ、NUL、重複パス、symlink、hardlink、device、FIFOを拒否する。ディレクトリエントリは`package/`配下だけを許可し、通常ファイル数には含めない
+1. clean checkoutで`pnpm install --frozen-lockfile`を実行する
+2. `pnpm verify:package --output-dir <release-dir> --tag <dist-tag>`を実行する。`<release-dir>`は開始時に存在しないか空でなければならず、既存のtgzまたはmanifestがあれば失敗する。同スクリプトは`pnpm pack --json --pack-destination <release-dir>`をちょうど1回起動し、JSON結果が1パッケージ・1個のtgzを示すことを確認する
+3. tgzのtarヘッダを読み、PAX / GNU long-name情報を解決した後の正規化済みパスで、次の厳密な7ファイルだけを含むことを確認する。7エントリは一意な通常ファイルでなければならない。絶対パス、空要素、`.`、`..`、バックスラッシュ、NUL、重複パス、symlink、hardlink、device、FIFOを拒否する。ディレクトリエントリは`package/`配下だけを許可し、通常ファイル数には含めない
    - `package/package.json`
    - `package/README.md`
+   - `package/README.ja.md`
    - `package/LICENSE`
    - `package/dist/cli.js`
    - `package/assets/work-end.wav`
@@ -1283,9 +1290,9 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 10. `npm publish --dry-run --ignore-scripts --access public --tag <dist-tag> <tgz>`が成功し、公開予定のファイル一覧、metadata、dist-tagが前項までの結果と一致することを確認する
 11. tgzのSHA-256を計算し、`artifactFile`（tgzのbasename）、package名、version、SHA-256、`gitCommit`、`distTag`、Node.jsバージョン、npmバージョンを含むJSON manifestを出力する。生成ジョブ内の絶対パスは診断ログだけに使い、manifestへ保存しない
 
-生成したtgzとmanifestは検証後に削除・再生成せず、CI artifactとしてOS別スモークジョブとpublishジョブへ渡す。artifactへ保存するのは`npm pack --json`が返した厳密な1ファイルと対応manifestだけとし、releaseディレクトリ全体をwildcardでアップロードしない。後続ジョブはartifact展開ディレクトリと`artifactFile`からローカル絶対パスを再構成してSHA-256を照合する。
+生成したtgzとmanifestは検証後に削除・再生成せず、CI artifactとしてOS別スモークジョブとpublishジョブへ渡す。artifactへ保存するのは`pnpm pack --json`が返した厳密な1ファイルと対応manifestだけとし、releaseディレクトリ全体をwildcardでアップロードしない。後続ジョブはartifact展開ディレクトリと`artifactFile`からローカル絶対パスを再構成してSHA-256を照合する。
 
-`test:package`には環境変数`POMOTTY_TARBALL`、`smoke:package`には第1引数として、各ジョブで再構成した絶対tgzパスを渡す。Node.jsテストランナーのglob引数とtgzパスが混ざらないよう、`npm run test:package -- <tgz>`という呼び方は禁止する。途中の検証に失敗した場合はmanifestを成功物として出力しない。
+`test:package`には環境変数`POMOTTY_TARBALL`、`smoke:package`には第1引数として、各ジョブで再構成した絶対tgzパスを渡す。テストランナーの引数とtgzパスが混ざらないよう、`pnpm test:package <tgz>`という呼び方は禁止する。途中の検証に失敗した場合はmanifestを成功物として出力しない。
 
 ### tarballスモークテスト
 
@@ -1304,7 +1311,7 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 
 ### 公開手順
 
-公開する対象は、`verify:package`と全OSのtarballスモークテストに合格した**同一SHA-256のtgz**だけとする。公開ジョブで作業ツリーから再度`npm pack`してはならず、引数なしの`npm publish`も使用しない。
+公開する対象は、`verify:package`と全OSのtarballスモークテストに合格した**同一SHA-256のtgz**だけとする。公開ジョブで作業ツリーから再度`pnpm pack`してはならず、引数なしの`npm publish`も使用しない。
 
 1. packジョブが保存したtgzと検証manifestを取得し、artifact展開先と`artifactFile`からtgzの絶対パスを再構成する
 2. tgzのSHA-256を再計算し、manifestと一致すること、およびmanifestの`gitCommit`がリリース対象commitと一致することを確認する
@@ -1374,7 +1381,7 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 ├── tsdown.config.ts
 ├── tsconfig.json
 ├── package.json
-├── package-lock.json
+├── pnpm-lock.yaml
 ├── README.md
 └── LICENSE
 ```
@@ -1387,11 +1394,11 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 
 ## 11. テスト方針
 
-テストランナーはNode.js標準の`node:test`を使用し、テストランナー自体の追加依存は持たない。消去可能なTypeScript構文だけを使う`.test.ts`を直接実行し、`tsc --noEmit`による型チェックも別途必須とする。
+テストランナーはvitestを使用する（`devDependencies`のみで、ランタイム依存には含めない）。vitestは型を消去して実行するだけで型検査を行わないため、`pnpm typecheck`（`tsc -p tsconfig.json`）による型チェックも別途必須とする。テストも実装と同じく消去可能なTypeScript構文と`#src/*`のimportだけを使い、vitest固有のエイリアス設定に依存しない。
 
-単体テストと、`npm pack`を起動するパッケージテストは探索対象を分離する。`node --test`を引数なしで実行してはならず、単体テストは`node --test "src/**/*.test.ts"`、パッケージテストは`node --test "test/package/**/*.test.ts"`として明示する。globはシェル展開へ依存させず、引用符を付けてNode.jsテストランナーへ渡す。`prepack`から実行されるのは単体テストだけであり、パッケージテストは生成済みtgzを渡された場合だけ実行する。
+単体テストと、`pnpm pack`を起動するパッケージテストは探索対象を分離する。探索ディレクトリを指定せずにvitestを実行してはならず、単体テストは`vitest run --dir src`、パッケージテストは`vitest run --dir test/package`として明示する。`prepack`から実行されるのは単体テストだけであり、パッケージテストは生成済みtgzを渡された場合だけ実行する。
 
-単体テストでは待ち時間を実際に消費しない。壁時計、単調時計、timer、子プロセス生成、`process.exit`、TTY属性、端末幅、stdin / stdout / stderrを注入可能にし、擬似時計とフェイクで決定的に検証する。実時間を使うのは§9のtarballスモークに設けた短い起動確認だけとする。
+単体テストでは待ち時間を実際に消費しない。壁時計、単調時計、timer、子プロセス生成、`process.exit`、TTY属性、端末幅、stdin / stdout / stderrを注入可能にし、擬似時計とフェイクで決定的に検証する。実時間を使うのは、§9のtarballスモークに設けた短い起動確認と、`src/cli.test.ts`で`node src/cli.ts`を実際に起動して、stdin終端、stdoutのEPIPE、引数エラーなど偽の端末では通らない経路を確認する短命なテストだけとする。後者はタイマーの自然終了を待たない。
 
 | 分類               | 必須の検証                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1410,21 +1417,21 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 | 音・通知           | OS別の引数配列、`spawnTracked`判別共用体とstdioプロファイル、厳密なtitle / body、`osascript`本体とstdinのエラー、`error` / `close`競合、非ゼロ終了、5秒 / 10秒timeoutと1秒後の強制終了要求、Linuxの試行順、volume換算、DISPLAY / WAYLAND_DISPLAYの未定義・空文字列、1バイトのTTYベル、Windows通知なし、macOS表示のbest effort、再生の並行、shutdown時cancel Promiseの即時完了とフォールバック禁止、完了通知操作の猶予中の継続 |
 | 終了処理           | 全終了コードとSIGQUIT / SIGBREAK方針、サマリ有無とタイマー完了換算時間、cleanupと同一Promiseの冪等性、単調時計による500 / 1500 / 2000ms絶対期限、変更した端末状態だけの同期復元、shutdown専用stdout / stderrリスナー、後続signal、子の段階終了、kill不能な子の切り離し、2000ms強制終了、完了終了の3000ms完了通知猶予と5000ms強制終了・猶予中の後続signal、最終BREAKのskipで通知しないこと、shutdown後のspawn禁止              |
 | 同梱wav            | RIFF / WAVE、little-endianサイズ、chunk境界とpadding、PCM format 1、mono、44100Hz、16bit、blockAlign 2、byteRate 88200、data非空、0.5〜1.5秒、非無音、2音源差、再生成とのバイト一致。RIFFサイズ不一致、8バイト未満header、宣言サイズ超過、奇数chunkのpadding欠落、重複`fmt `、空`data`、audioFormat 3を拒否                                                                                                                   |
-| packライフサイクル | `prepack`が`check`だけを呼び、packageテスト・`npm pack`を呼ばないこと。`verify:package`からのpackが再帰せず1回で完了すること                                                                                                                                                                                                                                                                                                  |
-| tarball            | `npm pack --json`の一覧が厳密に6通常ファイルであること、PAX解決後のpath traversal・重複・link・特殊file拒否、シェバン、外部runtime importなし、metadata / LICENSE、通常インストール、runtime依存ゼロ、インストール後wav検証、異なるcwd                                                                                                                                                                                        |
+| packライフサイクル | `prepack`が`check`だけを呼び、packageテスト・`pnpm pack`を呼ばないこと。`verify:package`からのpackが再帰せず1回で完了すること                                                                                                                                                                                                                                                                                                 |
+| tarball            | `pnpm pack --json`の一覧が厳密に7通常ファイルであること、PAX解決後のpath traversal・重複・link・特殊file拒否、シェバン、外部runtime importなし、metadata / LICENSE、通常インストール、runtime依存ゼロ、インストール後wav検証、異なるcwd                                                                                                                                                                                       |
 | tarballスモーク    | npm execによるbin shimのhelp / version / 不正引数、異なるcwd、直接Nodeでの非TTY起動ログ、ANSIなし、起動後1秒の生存、POSIXのSIGTERM終了、Windowsの直接子cleanup、処理別timeout                                                                                                                                                                                                                                                 |
-| 公開artifact       | pack、各OSスモーク、publishが同一SHA-256のtgzを使うこと。publishが`npm pack`を実行せず、明示したtgzへ`npm publish --ignore-scripts`を実行すること                                                                                                                                                                                                                                                                             |
+| 公開artifact       | pack、各OSスモーク、publishが同一SHA-256のtgzを使うこと。publishが`pnpm pack`を実行せず、明示したtgzへ`npm publish --ignore-scripts`を実行すること                                                                                                                                                                                                                                                                            |
 
 CIはソース品質、tgz生成、tgzスモーク、公開を別ジョブに分ける。
 
 | ジョブ             | ランナー                 | Node.js          | 実行内容                                                                                                                                                                           |
 | ------------------ | ------------------------ | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| quality-boundary   | macOS / Ubuntu / Windows | `22.18.x`        | `npm ci` → `npm run check`                                                                                                                                                         |
-| quality-boundary   | macOS / Ubuntu / Windows | 厳密な`24.11.x`  | `npm ci` → `npm run check`                                                                                                                                                         |
-| quality-latest24   | Ubuntu                   | 最新24系         | `npm ci` → `npm run check`                                                                                                                                                         |
-| quality-current    | Ubuntu                   | 現行の最新安定版 | `npm ci` → `npm run check`                                                                                                                                                         |
-| pack               | Ubuntu                   | `22.18.x`        | `npm ci` → `npm run verify:package -- --output-dir release --tag <dist-tag>` → tgz・manifestをartifactとして保存                                                                   |
-| smoke-tgz-boundary | macOS / Ubuntu / Windows | `22.18.x`        | 同一commitをcheckout → artifact取得 → commit / SHA-256照合 → `npm run smoke:package -- <tgz>`                                                                                      |
+| quality-boundary   | macOS / Ubuntu / Windows | `22.18.x`        | `pnpm install --frozen-lockfile` → `pnpm check`、`pnpm lint`、`pnpm format:check`                                                                                                  |
+| quality-boundary   | macOS / Ubuntu / Windows | 厳密な`24.11.x`  | `pnpm install --frozen-lockfile` → `pnpm check`、`pnpm lint`、`pnpm format:check`                                                                                                  |
+| quality-latest24   | Ubuntu                   | 最新24系         | `pnpm install --frozen-lockfile` → `pnpm check`、`pnpm lint`、`pnpm format:check`                                                                                                  |
+| quality-current    | Ubuntu                   | 現行の最新安定版 | `pnpm install --frozen-lockfile` → `pnpm check`、`pnpm lint`、`pnpm format:check`                                                                                                  |
+| pack               | Ubuntu                   | `22.18.x`        | `pnpm install --frozen-lockfile` → `pnpm verify:package --output-dir release --tag <dist-tag>` → tgz・manifestをartifactとして保存                                                 |
+| smoke-tgz-boundary | macOS / Ubuntu / Windows | `22.18.x`        | 同一commitをcheckout → artifact取得 → commit / SHA-256照合 → `pnpm smoke:package <tgz>`                                                                                            |
 | smoke-tgz-boundary | macOS / Ubuntu / Windows | 厳密な`24.11.x`  | 同上                                                                                                                                                                               |
 | smoke-latest24     | Ubuntu                   | 最新24系         | 同上                                                                                                                                                                               |
 | smoke-current      | Ubuntu                   | 現行の最新安定版 | 同上                                                                                                                                                                               |
@@ -1432,7 +1439,7 @@ CIはソース品質、tgz生成、tgzスモーク、公開を別ジョブに分
 
 Node.js 22.0系のジョブは設けず、実行・開発要件の下限である22.18.xへ統一する。23.xと24.0〜24.10は`engines`の範囲外なのでCIへ含めない。
 
-packジョブだけがtgzを生成する。smokeジョブとpublishジョブはpackジョブと同じcommitをcheckoutして同じCI artifactを取得し、manifestの`gitCommit`とSHA-256が一致することを確認する。smoke用ハーネスはcheckoutした`scripts/smoke-package.mjs`を使うが、後続ジョブでは`npm ci`、ビルド、`npm pack`を実行せず、検証済みtgzを再生成しない。publishジョブはすべてのquality・smokeジョブに依存させ、リリースタグとtgz内のversionが一致しない場合、commitまたはSHA-256が異なる場合は公開しない。
+packジョブだけがtgzを生成する。smokeジョブとpublishジョブはpackジョブと同じcommitをcheckoutして同じCI artifactを取得し、manifestの`gitCommit`とSHA-256が一致することを確認する。smoke用ハーネスはcheckoutした`scripts/smoke-package.mjs`を使うが、後続ジョブでは`pnpm install`、ビルド、`pnpm pack`を実行せず、検証済みtgzを再生成しない。publishジョブはすべてのquality・smokeジョブに依存させ、リリースタグとtgz内のversionが一致しない場合、commitまたはSHA-256が異なる場合は公開しない。
 
 `@types/node`は`22.20.1`に固定するため、Node.js 24以上のランナーでは実行環境より古い型定義でテストする。新しいAPIを使う場合は型が追いつかないことがあるので、その場合は型定義の更新を個別のPRで行う。実行環境と型定義のこのズレは意図的に許容する。
 
