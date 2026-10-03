@@ -1020,9 +1020,10 @@ macOS / Linux では音と同時に発火させる。音は聴覚、通知は視
 macOSとLinuxで同一の論理タイトル・本文を使用する。正規化後のタスク名がなければ`title = "pomotty"`、あれば`title = "pomotty — " + task`とする。
 
 - WORK自然終了時の本文は`"Nice work. Take a " + breakMinutes + "-minute break."`とする。`breakMinutes`は`--break`の値である
-- BREAK自然終了時の本文は、次のWORKへ進む場合は`"Break is over. Time to get back to work."`、最後のBREAKでタイマーを終了する場合は`"Pomodoro complete."`とする
+- BREAK自然終了時の本文は、次のWORKへ進む場合は`"Break is over. Time to get back to work."`、最後のBREAKでタイマーを終了する場合は`"Pomodoro complete."`とする。後者は完了通知操作であり、§7の完了通知の猶予内で表示要求を完了させる
+- 最後のBREAKをskipして終了した場合は、`Pomodoro complete.`の通知も休憩終了音も発生させない
 - ユーザー由来のタスク名はtitleだけに含め、bodyには含めない。freedesktop通知のbodyはmarkupとして解釈され得るため、ユーザー由来文字列をLinuxのbodyへ入れない
-- skip、`--no-notify`、Windows、shutdown開始後は通知子プロセスを起動しない
+- skip、`--no-notify`、Windows、およびshutdown開始後（猶予中の完了通知操作を除く）は通知子プロセスを起動しない
 
 titleとbodyはそれぞれ独立したargv要素として渡し、AppleScriptコードまたはシェル文字列へ補間しない。
 
