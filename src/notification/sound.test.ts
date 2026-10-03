@@ -1,12 +1,13 @@
 import type { SoundProcess, SpawnSoundProcess } from './sound.ts';
 import { expect, test } from 'vitest';
-import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { playCompletionSound } from './sound.ts';
 import { readFile } from 'node:fs/promises';
 
 const LAST_ARGUMENT_INDEX = -1,
   RIFF_END_INDEX = 4,
   RIFF_START_INDEX = 0,
+  SOUND_DIRECTORY = new URL('../../assets/', import.meta.url),
   inactiveProcess: SoundProcess = {
     onClose: Boolean,
     onError: Boolean,
@@ -24,19 +25,27 @@ test('作業完了と休憩完了で異なる音源を再生する', () => {
       return inactiveProcess;
     };
 
-  playCompletionSound('work', { platform: 'darwin', spawnProcess });
-  playCompletionSound('break', { platform: 'darwin', spawnProcess });
+  playCompletionSound('work', {
+    platform: 'darwin',
+    soundDirectory: SOUND_DIRECTORY,
+    spawnProcess,
+  });
+  playCompletionSound('break', {
+    platform: 'darwin',
+    soundDirectory: SOUND_DIRECTORY,
+    spawnProcess,
+  });
 
-  expect(soundFiles.map((soundFile) => path.basename(soundFile))).toEqual([
-    'work-end.wav',
-    'break-end.wav',
+  expect(soundFiles).toEqual([
+    fileURLToPath(new URL('work-end.wav', SOUND_DIRECTORY)),
+    fileURLToPath(new URL('break-end.wav', SOUND_DIRECTORY)),
   ]);
 });
 
 test('同梱する2つの通知音は異なるPCM WAVEデータである', async () => {
   const [workSound, breakSound] = await Promise.all([
-    readFile(new URL('../../assets/work-end.wav', import.meta.url)),
-    readFile(new URL('../../assets/break-end.wav', import.meta.url)),
+    readFile(new URL('work-end.wav', SOUND_DIRECTORY)),
+    readFile(new URL('break-end.wav', SOUND_DIRECTORY)),
   ]);
 
   expect(workSound.subarray(RIFF_START_INDEX, RIFF_END_INDEX).toString('ascii')).toBe('RIFF');
@@ -50,8 +59,8 @@ test('音声コマンドがない環境でも異なるベルで通知する', ()
       notifications.push(output);
     };
 
-  playCompletionSound('work', { platform: 'aix', writeFallback });
-  playCompletionSound('break', { platform: 'aix', writeFallback });
+  playCompletionSound('work', { platform: 'aix', soundDirectory: SOUND_DIRECTORY, writeFallback });
+  playCompletionSound('break', { platform: 'aix', soundDirectory: SOUND_DIRECTORY, writeFallback });
 
   expect(notifications).toEqual(['\u0007', '\u0007\u0007']);
 });

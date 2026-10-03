@@ -48,6 +48,13 @@ type PlayCompletionSoundParameters = {
   /** 再生方法の判定に使うOSです。 */
   readonly platform?: NodeJS.Platform;
 
+  /**
+   * 同梱音源を置いたディレクトリのURLです。
+   *
+   * バンドル後は実装ファイルの位置が変わるため、エントリポイントから渡します。
+   */
+  readonly soundDirectory: URL;
+
   /** 音声再生プロセスを起動する処理です。 */
   readonly spawnProcess?: SpawnSoundProcess;
 
@@ -93,8 +100,8 @@ const FIRST_COMMAND_INDEX = 0,
     };
   },
   /** フェーズに対応する同梱音源のパスを返します。 */
-  soundFileFor = (phase: TimerPhase): string =>
-    fileURLToPath(new URL(`../../assets/${phase}-end.wav`, import.meta.url)),
+  soundFileFor = (soundDirectory: URL, phase: TimerPhase): string =>
+    fileURLToPath(new URL(`${phase}-end.wav`, soundDirectory)),
   /** Windowsの再生処理へ音源パスを渡す環境変数を作成します。 */
   soundEnvironmentFor = (soundFile: string): NodeJS.ProcessEnv => {
     const environment = structuredClone(process.env);
@@ -190,13 +197,14 @@ const FIRST_COMMAND_INDEX = 0,
     phase: TimerPhase,
     {
       platform = process.platform,
+      soundDirectory,
       spawnProcess = spawnSoundProcess,
       writeFallback = (output) => {
         process.stderr.write(output);
       },
-    }: PlayCompletionSoundParameters = {},
+    }: PlayCompletionSoundParameters,
   ): void => {
-    const commands = commandsFor(platform, soundFileFor(phase)),
+    const commands = commandsFor(platform, soundFileFor(soundDirectory, phase)),
       fallback = (): void => {
         writeFallback(FALLBACK_SOUNDS[phase]);
       };

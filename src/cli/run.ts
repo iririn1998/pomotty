@@ -5,7 +5,6 @@ import { confirmWorkStart } from '@/terminal/input.ts';
 import { createCliOutput } from '@/terminal/render.ts';
 import { createDiagnosticWriter } from '@/diagnostics/writer.ts';
 import { parseCliArguments } from '@/cli/parse-arguments.ts';
-import { playCompletionSound } from '@/notification/sound.ts';
 import process from 'node:process';
 
 /** CLIの標準出力へ文字列を書き込む処理です。 */
@@ -23,7 +22,7 @@ type RunCliParameters = {
   readonly confirmStart?: () => Promise<boolean>;
 
   /** フェーズ完了音を再生する処理です。 */
-  readonly playSound?: (phase: TimerPhase) => void;
+  readonly playSound: (phase: TimerPhase) => void;
 
   /** 指定時間だけ待機する処理です。 */
   readonly wait?: Wait;
@@ -68,11 +67,11 @@ const CLI_ARGUMENTS_START_INDEX = 2,
   runCli = async ({
     arguments_ = process.argv.slice(CLI_ARGUMENTS_START_INDEX),
     confirmStart = confirmWorkStart,
-    playSound = playCompletionSound,
+    playSound,
     wait,
     writeError = createDiagnosticWriter(),
     writeOutput = emitStandardOutput,
-  }: RunCliParameters = {}): Promise<number> => {
+  }: RunCliParameters): Promise<number> => {
     const parsedArguments = parseCliArguments(arguments_);
 
     if (parsedArguments.kind === 'error') {
