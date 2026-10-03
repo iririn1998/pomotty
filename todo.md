@@ -178,11 +178,11 @@
   - [ ] 各試行を10秒でtimeoutし、1秒後に強制終了を1回試す
   - [ ] 同時再生要求は前の再生を止めず並行させる
   - [ ] 全候補失敗時だけinteractiveかつstderr TTYへ1byteのbellを出す
-  - [ ] `--no-sound` とshutdown中は再生もbellも行わない
+  - [ ] `--no-sound` とshutdown中（完了通知の猶予中の完了通知操作を除く）は再生もbellも行わない
 - [ ] 自然終了時だけmacOS / Linuxの通知を音と並行して開始する
   - [ ] titleを `pomotty` または `pomotty — <sanitized task>` とする
   - [ ] WORK終了bodyへ実際の次休憩分数、休憩終了bodyへ固定文言を使う
-  - [ ] taskをbodyへ入れず、skip・Windows・`--no-notify`・shutdown中は起動しない
+  - [ ] taskをbodyへ入れず、skip（最終BREAKのskipを含む）・Windows・`--no-notify`・shutdown中（完了通知操作を除く）は起動しない
   - [ ] Linuxは `notify-send -- <title> <body>` を使う
   - [ ] macOSは固定AppleScriptを `osascript - <title> <body>` のstdinへ渡し、stdin errorも追跡する
   - [ ] 通知を5秒でtimeoutし、1秒後に強制終了を1回試す。通知のfallbackは設けない
@@ -195,10 +195,12 @@
   - [ ] 2回目以降は同一Promiseを返し、cleanupを重複実行しない
   - [ ] Promiseはrejectせず、cleanupと段階timer登録完了時にresolveする
 - [ ] shutdownを仕様の順序で実行する
-  - [ ] `shuttingDown` と単調時計基準の2000ms期限を最初に固定する
+  - [ ] `shuttingDown` と単調時計基準の強制終了期限（完了終了は5000ms、それ以外は2000ms）を最初に固定する
   - [ ] operation cancel → 通常timer/listener解除 → frame消去・端末復元 → summary → diagnostic → stdin復元 → exitCode → child終了要求の順にする
   - [ ] 各同期cleanupを個別にbest effortで実行する
-- [ ] 子プロセスをshutdown開始から0ms kill、500ms SIGKILL、1500ms pipe破棄・unref、2000ms親強制終了の絶対期限で処理する
+- [ ] 完了終了では最後のBREAKの音・通知（`completionNotice`）をcancelせず、全確定・3000ms・後続 `requestShutdown()` の最初の時点まで待つ
+  - [ ] 端末復元とsummaryは猶予を待たずに行い、猶予終了時に残りの完了通知操作をcancelする
+- [ ] 子プロセスを `terminationStartedAt` から0ms kill、500ms SIGKILL、1500ms pipe破棄・unref、`shutdownDeadline` で親強制終了の絶対期限で処理する
   - [ ] cleanup時間で期限を後ろ倒しにしない
   - [ ] close時だけ追跡集合から除き、全child終了時は段階timerを解除する
 - [ ] stdout / stderr error処理を通常時とshutdown時で安全に切り替える
