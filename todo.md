@@ -10,9 +10,9 @@
 
 ## 0. 公開前に決める事項
 
-- [ ] SPDXライセンスを選び、`package.json` の `license` と正規テンプレートの `LICENSE` を一致させる
-- [ ] `repository` URLと`author`の正式な値を決める
-- [ ] 公開直前にnpm registryで `pomotty` というパッケージ名が利用可能か再確認する
+- [x] SPDXライセンスを選び、`package.json` の `license` と正規テンプレートの `LICENSE` を一致させる（MIT）
+- [x] `repository` URLと`author`の正式な値を決める
+- [ ] 公開直前にnpm registryで `pomotty` というパッケージ名が利用可能か再確認する（値の設定だけでは完了扱いにしない）
 - [ ] Unicode 15.1.0固定の書記素分割・East Asian Width・Emojiデータの実装方法を決め、ランタイム依存ゼロとライセンス条件を満たす
 
 ## 1. プロジェクト基盤
@@ -20,16 +20,18 @@
 - [x] パッケージ管理をpnpmへ移行する
   - [x] `package-lock.json` から `pnpm-lock.yaml` へ移行し、CIとリリースで `pnpm install --frozen-lockfile` を使う
 - [ ] `package.json` を公開仕様へ更新する
-  - [ ] `description`、`keywords`、`bin`、`files`、`engines`、`publishConfig`を設定する
-  - [ ] Node.js要件を `^22.18.0 || >=24.11.0` に統一する
-  - [ ] `dependencies`を空に保ち、`postinstall`、`prepare`、`prepublishOnly`を定義しない
-  - [ ] `@types/node@22.20.1`、`tsdown@0.22.14`、`typescript@7.0.2`を固定する
-  - [ ] `build`、`typecheck`、`test:unit`、`test:package`、`verify:wav`、`check`、`prepack`、`verify:package`、`smoke:package`を定義する
-- [ ] `tsconfig.json` をNodeNext・strict・noEmit・`.ts` import対応で追加する
+  - [x] `description`、`keywords`、`bin`、`files`、`engines`、`publishConfig`を設定する
+  - [x] Node.js要件を `^22.18.0 || >=24.11.0` に統一する（`engines`、README、CIの22.18.x・24.11.x）
+  - [x] `dependencies`を空に保ち、`postinstall`、`prepare`、`prepublishOnly`を定義しない
+  - [x] `@types/node@22.20.1`を厳密に固定し、そのほかの`devDependencies`を`pnpm-lock.yaml`で固定する
+  - [ ] `build`、`typecheck`、`test`、`test:package`、`verify:wav`、`check`、`prepack`、`verify:package`、`smoke:package`を定義する
+    - [x] `build`、`typecheck`、`test`（`vitest run --dir src`）、`check`、`prepack`（`check`を呼ぶ）
+    - [ ] `test:package`、`verify:wav`、`verify:package`、`smoke:package`
+- [x] `tsconfig.json` をNodeNext・strict・noEmit・`.ts` import対応で追加する
 - [x] `tsdown.config.ts` を追加し、`src/cli.ts` をNode 22向けESMの `dist/cli.js` 1ファイルへバンドルする
   - [x] シェバンはtsdownのbannerだけで付与する
   - [x] hash、型定義、source mapを無効にする
-  - [ ] Node.jsの型削除実行に非対応のTypeScript構文を使わない
+  - [x] Node.jsの型削除実行に非対応のTypeScript構文を使わない（`#src/*`の`imports`を使い、`src/cli.test.ts`が`node src/cli.ts`を直接起動して確認する）
 - [ ] `src/`の機能別ディレクトリ、`test/package/`、`assets/`、`scripts/`の構成を作る
   - [ ] 単体・コンポーネントテストを対象実装と同じディレクトリへ同じベース名で配置する
   - [ ] 共有する定数と型を所有機能の`constants.ts`と`types.ts`へ置き、実装固有のものは実装ファイル内に残す
@@ -55,7 +57,7 @@
   - [ ] ユーザー由来のargv、パス、例外文字列を未加工で診断へ出さない
     - [x] argv（未知のオプション）
     - [ ] 音源パス（`--sound-work` / `--sound-break` が未実装）
-    - [ ] 例外文字列（§9の終了処理が未実装）
+    - [x] 例外文字列（`src/cli.ts`で安全に文字列化してエスケープする）
 - [ ] Unicode幅、書記素省略、タスク正規化、診断エスケープの境界・攻撃文字列テストを追加する
 
 ## 3. CLI引数と起動前検証
@@ -79,7 +81,7 @@
   - [ ] 同梱音源は `import.meta.url` 基準で解決する
 - [ ] 規範どおりのhelp文字列と `pomotty <version>\n` をstdoutへ厳密に出力する
   - [ ] versionは同梱 `package.json` から読み、失敗時は内部エラーにする
-  - [ ] 最初のstdout書込み前にerror listenerを登録し、EPIPEは0、それ以外は1で終了する
+  - [x] 最初のstdout書込み前にerror listenerを登録し、EPIPEは0、それ以外は1で終了する
   - [ ] help / versionではANSI、サマリ、診断を出さない
 - [ ] 不正入力を `escapeDiagnostic()` 済みの2行診断1回と終了コード2へ集約する
   - [x] stderrの同期throw・errorでも終了コード2を維持する
@@ -90,15 +92,15 @@
 
 - [ ] `src/timer/timer.ts` に `work` / `break` の状態、`cycle`、不変条件を実装する
 - [ ] 自然終了とskipを別の遷移として実装する
-  - [ ] WORK自然終了だけ `completedPomodoros` を増やす
+  - [x] WORK自然終了だけ `completedPomodoros` を増やす
   - [ ] BREAK終了（自然終了・skip）時に `cycle < loopCount` なら `cycle` を増やしてWORKへ進む
   - [ ] 最後のBREAK終了（自然終了・skip）で次フェーズを開始せず完了終了する
   - [ ] skipでは音・通知を発生させず、遷移先を全時間・実行状態で開始する
-- [ ] `endsAt` を真実の情報源にし、250ms intervalは更新契機としてだけ使う
+- [x] `endsAt` を真実の情報源にし、250ms intervalは更新契機としてだけ使う
 - [ ] `settleExpiredPhase(now)` を期限到達確定の唯一の入口として実装する
-  - [ ] `now >= endsAt` で現在フェーズを1回だけ精算する
-  - [ ] 遷移先の期限を渡された `now + duration` とし、処理中に時刻を再取得しない
-  - [ ] 長時間遅延後もcatch-upせず、1フェーズだけ進める
+  - [x] `now >= endsAt` で現在フェーズを1回だけ精算する
+  - [x] 遷移先の期限を渡された `now + duration` とし、処理中に時刻を再取得しない
+  - [x] 長時間遅延後もcatch-upせず、1フェーズだけ進める
 - [ ] 同期区間だけを守る `transitioning` guardを実装し、例外時も `finally` で解除する
 - [ ] 一時停止・再開を `remainingMs` と同一キーイベントの `now` で実装する
 - [ ] 手動操作ごとに時刻を1回取得し、期限精算後に同じ操作を新フェーズへ適用する
@@ -131,7 +133,7 @@
 - [ ] 非TTYでは起動時とフェーズ遷移時だけ行単位ログを出す
   - [ ] ローカル時刻、フェーズ、時間、正規化済みtaskのJSON suffixを規定形式にする
   - [ ] stdinを監視せず、ANSI・色・cursor操作・bell・raw modeを無効にする
-  - [ ] stdout EPIPEはサマリなしの0、それ以外のstdout errorは1とする
+  - [x] stdout EPIPEはサマリなしの0、それ以外のstdout errorは1とする
 - [ ] 3レイアウト、境界幅、時間境界、Unicode幅、省略、差分描画、resize、色、非TTYログを単体テストする
 
 ## 6. キー入力
@@ -153,32 +155,33 @@
 ## 7. 安全なOSコマンド解決
 
 - [ ] `src/platform/commands.ts` に起動時1回だけの実行file解決を実装する
-  - [ ] macOSは `/usr/bin/afplay` と `/usr/bin/osascript` だけを検証する
-  - [ ] Windowsは絶対 `SystemRoot` と固定PowerShell候補をrealpathし、cwd・`node_modules/.bin`配下を拒否する
-  - [ ] Linuxは絶対PATH要素だけをNode.js内で探索し、空・相対・cwd配下・`node_modules/.bin`・symlink迂回を拒否する
-  - [ ] LinuxのPATH未設定時だけ `/usr/local/bin`、`/usr/bin`、`/bin` を探索する
-  - [ ] 実行可能な通常fileのrealpathだけを保持し、起動後に再解決しない
+  - [ ] macOSは `/usr/bin/afplay` と `/usr/bin/osascript` だけを検証する（`afplay`は実装済み。`osascript`は通知とともに未実装）
+  - [x] Windowsは絶対 `SystemRoot` と固定PowerShell候補をrealpathし、cwd・`node_modules/.bin`配下を拒否する
+  - [x] Linuxは絶対PATH要素だけをNode.js内で探索し、空・相対・cwd配下・`node_modules/.bin`・symlink迂回を拒否する
+  - [x] LinuxのPATH未設定時だけ `/usr/local/bin`、`/usr/bin`、`/bin` を探索する
+  - [x] 実行可能な通常fileのrealpathだけを保持し、起動後に再解決しない
 - [ ] Linuxのdesktop session有無を起動時に1回判定する
   - [ ] `DISPLAY` と `WAYLAND_DISPLAY` が両方undefinedまたは空なら通知を成功扱いでskipする
-- [ ] 解決規則、悪意あるPATH、symlink、cwd変更、Windows候補を単体テストする
+- [x] 解決規則、悪意あるPATH、symlink、cwd変更、Windows候補を単体テストする
 
 ## 8. 音・デスクトップ通知
 
-- [ ] `src/notification/operation.ts` に `Operation` と `activeOperations` / `activeChildren` の追跡を実装する
-  - [ ] 結果を `success` / `failure` / `cancelled` に分け、cancelをfailure fallbackへ流さない
-  - [ ] cancel callbackでPromiseを子のclose待ちなしに確定する
+- [x] `src/notification/operation.ts` に `Operation` と `activeOperations` / `activeChildren` の追跡を実装する
+  - [x] 結果を `success` / `failure` / `cancelled` に分け、cancelをfailure fallbackへ流さない
+  - [x] cancel callbackでPromiseを子のclose待ちなしに確定する
 - [ ] 絶対command pathと固定stdio profileだけを受ける `spawnTracked()` を実装する
-  - [ ] `shell: false`、`windowsHide: true`を内部固定し、生のshell・stdio optionを公開しない
-  - [ ] spawn直後のcancel競合では子を追跡・killし、呼出元へ公開しない
-  - [ ] childのerror / closeを安全に一度だけ処理する
+  - [x] `shell: false`、`windowsHide: true`を内部固定し、生のshell・stdio optionを公開しない
+  - [x] spawn直後のcancel競合では子を追跡・killし、呼出元へ公開しない
+  - [x] childのerror / closeを安全に一度だけ処理する
+  - [ ] 通知用の`stdin-pipe` stdio profileを追加する
 - [ ] OS別の非同期音再生を実装する
   - [ ] macOS: `afplay -v <volume> <absolute-file>`
   - [ ] Linux: `paplay --volume=<0..65536> <file>` → `aplay <file>`
-  - [ ] Windows: 固定PowerShell scriptへ音源pathを環境変数で渡す
-  - [ ] 各試行を10秒でtimeoutし、1秒後に強制終了を1回試す
-  - [ ] 同時再生要求は前の再生を止めず並行させる
+  - [x] Windows: 固定PowerShell scriptへ音源pathを環境変数で渡す
+  - [x] 各試行を10秒でtimeoutし、1秒後に強制終了を1回試す
+  - [x] 同時再生要求は前の再生を止めず並行させる
   - [ ] 全候補失敗時だけinteractiveかつstderr TTYへ1byteのbellを出す
-  - [ ] `--no-sound` とshutdown中（完了通知の猶予中の完了通知操作を除く）は再生もbellも行わない
+  - [ ] `--no-sound` とshutdown中（完了通知の猶予中の完了通知操作を除く）は再生もbellも行わない（shutdown中は実装済み。`--no-sound`は未実装）
 - [ ] 自然終了時だけmacOS / Linuxの通知を音と並行して開始する
   - [ ] titleを `pomotty` または `pomotty — <sanitized task>` とする
   - [ ] WORK終了bodyへ実際の次休憩分数、休憩終了bodyへ固定文言を使う
@@ -195,14 +198,15 @@
   - [ ] 2回目以降は同一Promiseを返し、cleanupを重複実行しない
   - [ ] Promiseはrejectせず、cleanupと段階timer登録完了時にresolveする
 - [ ] shutdownを仕様の順序で実行する
-  - [ ] `shuttingDown` と単調時計基準の強制終了期限（完了終了は5000ms、それ以外は2000ms）を最初に固定する
+  - [ ] `shuttingDown` と単調時計基準の強制終了期限（完了終了は5000ms、それ以外は2000ms）を最初に固定する（期限は`src/cli/run.ts`で実装済み。単調時計の注入は未実装）
   - [ ] operation cancel → 通常timer/listener解除 → frame消去・端末復元 → summary → diagnostic → stdin復元 → exitCode → child終了要求の順にする
   - [ ] 各同期cleanupを個別にbest effortで実行する
 - [ ] 完了終了では最後のBREAKの音・通知（`completionNotice`）をcancelせず、全確定・3000ms・後続 `requestShutdown()` の最初の時点まで待つ
+  - [x] 全確定または3000msの早い方まで待つ（後続シグナルによる打ち切りはシグナル処理とともに未実装）
   - [ ] 端末復元とsummaryは猶予を待たずに行い、猶予終了時に残りの完了通知操作をcancelする
-- [ ] 子プロセスを `terminationStartedAt` から0ms kill、500ms SIGKILL、1500ms pipe破棄・unref、`shutdownDeadline` で親強制終了の絶対期限で処理する
-  - [ ] cleanup時間で期限を後ろ倒しにしない
-  - [ ] close時だけ追跡集合から除き、全child終了時は段階timerを解除する
+- [x] 子プロセスを `terminationStartedAt` から0ms kill、500ms SIGKILL、1500ms pipe破棄・unref、`shutdownDeadline` で親強制終了の絶対期限で処理する
+  - [x] cleanup時間で期限を後ろ倒しにしない
+  - [x] close時だけ追跡集合から除き、全child終了時は段階timerを解除する
 - [ ] stdout / stderr error処理を通常時とshutdown時で安全に切り替える
   - [ ] shutdown専用listenerを通常listener解除前に登録し、再帰shutdownとcode変更を防ぐ
   - [ ] `drain` やwrite callbackを待たない
@@ -219,9 +223,10 @@
 - [ ] 引数検証 → platform解決 → 表示mode決定 → interactive初期化 → 初期state → 初回表示の順で組み立てる
 - [ ] tick、手動操作、phase遷移、音・通知、描画、shutdownを依存注入可能な境界で接続する
 - [ ] stdout / stderr / stdin、clock、timer、spawn、TTY、columns、process exitをテストで差し替え可能にする
-- [x] 起動時にロゴと開始確認メニュー（OK / NG）を1回だけ表示し、NG・Ctrl+C・stdin終端ではタイマーを開始せず終了コード0で終了する
+- [x] 起動時にロゴと開始確認メニュー（OK / NG）を1回だけ表示し、NG・Ctrl+C・stdin終端ではタイマーを開始せず終了コード0で終了する（stdin終端は`src/cli.test.ts`の実CLIテストで確認する）
 - [x] `--loop` で指定した回数だけWORKとBREAKを繰り返し、最後のBREAK完了後に終了する
 - [ ] 起動失敗時も、変更済みの端末状態とlistenerを確実にcleanupする
+  - [x] 開始確認の初回描画に失敗してもraw modeとflowing状態を復元する
 
 ## 11. 同梱wav
 
@@ -229,7 +234,7 @@
   - [ ] 44.1kHz・16bit・mono・PCM RIFF WAVEを決定的に生成する
   - [ ] work終了音は低め、break終了音は高めの異なる2音とし、両端にfadeを付ける
   - [ ] 各音を0.5〜1.5秒にする
-- [ ] `assets/work-end.wav` と `assets/break-end.wav` を生成してcommit対象にする
+- [x] `assets/work-end.wav` と `assets/break-end.wav` を生成してcommit対象にする
 - [ ] `scripts/verify-wav.mjs` にRIFF chunk parserと完全検証を実装する
   - [ ] RIFF/WAVE size、chunk境界・padding、一意な `fmt ` / `data`、PCM formatを検証する
   - [ ] mono、44100Hz、16bit、blockAlign 2、byteRate 88200、長さ、非無音、2音の差を検証する
@@ -239,21 +244,22 @@
 
 ## 12. 単体・コンポーネントテスト完備
 
-- [ ] Node.js標準 `node:test` だけをtest runnerに使う
+- [x] test runnerにvitestを使い、`#src/*`の`imports`だけでimportを解決する（エイリアス設定に依存しない）
 - [ ] `src/**/*.test.ts` と `test/package/**/*.test.ts` の探索を厳密に分離する
 - [ ] 単体テストでは実時間を待たず、偽時計・偽timer・偽stream・偽child processを使う
 - [ ] `spec.md` §2〜§9の受け入れ条件と§11の必須検証を、対応するtest名から追跡できるようにする
-- [ ] `prepack → check` が単体テストだけを実行し、package testや `npm pack` へ再帰しないことを固定testにする
-- [ ] `npm run typecheck`、`npm run build`、`npm run test:unit`、`npm run verify:wav` を通す
-- [ ] lintとformat checkを通す
+- [ ] `prepack → check` が単体テストだけを実行し、package testや `pnpm pack` へ再帰しないことを固定testにする
+- [ ] `pnpm typecheck`、`pnpm build`、`pnpm test`、`pnpm verify:wav` を通す
+  - [x] `pnpm typecheck`、`pnpm build`、`pnpm test`をCIで実行する
+- [x] lintとformat checkを通す
 
 ## 13. tarball検証とスモーク
 
 - [ ] `scripts/verify-package.mjs` を実装する
-  - [ ] 空の出力dirに `npm pack --json` をちょうど1回実行する
-  - [ ] `npm_execpath` の絶対fileを `process.execPath` 経由で起動し、裸のnpm commandをspawnしない
+  - [ ] 空の出力dirに `pnpm pack --json` をちょうど1回実行する
+  - [ ] `npm_execpath` の絶対fileを `process.execPath` 経由で起動し、裸のpnpm / npm commandをspawnしない
   - [ ] PAX / GNU long-name解決後のtar entryを検査し、path traversal、重複、link、特殊fileを拒否する
-  - [ ] tarballの通常fileを package.json、README、LICENSE、dist/cli.js、2 wavの厳密な6個に限定する
+  - [ ] tarballの通常fileを package.json、README.md、README.ja.md、LICENSE、dist/cli.js、2 wavの厳密な7個に限定する（CIの`package`ジョブで一覧を確認済み。tarヘッダの完全検証は未実装）
   - [ ] metadata、LICENSE、シェバン、runtime import、runtime依存ゼロ、install後wav、別cwdでのasset解決を検証する
   - [ ] `npm publish --dry-run --ignore-scripts` を明示tgzに対して検証する
   - [ ] tgzのSHA-256、artifactFile、package/version、git commit、dist tag、Node/npm versionのmanifestを出力する
@@ -281,14 +287,15 @@
 ## 15. CI・リリース
 
 - [ ] quality、pack、tgz smoke、publishを別jobにしたCI workflowを追加する
-- [ ] quality matrixをmacOS / Ubuntu / WindowsのNode 22.18.x・24.11.x境界で実行する
-- [ ] Ubuntuでlatest 24系とcurrent stableのquality jobを実行する
+- [x] quality matrixをmacOS / Ubuntu / WindowsのNode 22.18.x・24.11.x境界で実行する
+- [x] Ubuntuでlatest 24系とcurrent stableのquality jobを実行する
+- [x] GitHub Actionsを完全なコミットSHAで固定する
 - [ ] pack jobだけがNode 22.18.xでtgzとmanifestを生成・保存する
 - [ ] 全smoke jobが同一commit・同一SHA-256のartifactを再生成せず検証する
 - [ ] publish jobを全quality / smoke成功後のrelease tag時だけ実行する
   - [ ] tag、tgz内version、git commit、SHA-256、package名、license、repository、dist tagを照合する
   - [ ] `npm publish --ignore-scripts --access public --tag <distTag> <verified-tarball.tgz>` だけを使う
-  - [ ] publish jobで `npm pack` や引数なし `npm publish` を実行しない
+  - [ ] publish jobで `pnpm pack` や引数なし `npm publish` を実行しない
 - [ ] release candidateごとにmacOS / Linux / Windowsで実機音声を確認する
   - [ ] macOS / Linuxは通知も目視確認し、macOSは通知設定上の関連通知元も確認する
   - [ ] Windowsは音のみで通知processが起動しないことを確認する

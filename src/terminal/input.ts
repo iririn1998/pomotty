@@ -23,10 +23,37 @@ type SelectionTerminal = {
   readonly write: (output: string) => void;
 };
 
+/** 選択画面が読み取る入力ストリームです。 */
+type SelectionInput = NodeJS.ReadableStream & {
+  /** Raw modeが有効かを示します。 */
+  readonly isRaw?: boolean;
+
+  /** TTYかを示します。 */
+  readonly isTTY?: boolean;
+
+  /** Flowing状態を示します。 */
+  readonly readableFlowing?: boolean | null;
+
+  /** Raw modeを切り替えます。 */
+  readonly setRawMode?: (mode: boolean) => unknown;
+};
+
+/** 選択画面用のターミナル操作を作成するときの値です。 */
+type SelectionTerminalParameters = {
+  /** キー入力を読み取るストリームです。 */
+  readonly input?: SelectionInput;
+
+  /** 確認を打ち切るシグナルです。中断時は確定前の終端として扱います。 */
+  readonly signal?: AbortSignal;
+
+  /** 選択画面を出力する処理です。 */
+  readonly write?: (output: string) => void;
+};
+
 /** 作業開始確認時に差し替えられる処理を定義します。 */
-type ConfirmWorkStartParameters = {
+type ConfirmWorkStartParameters = SelectionTerminalParameters & {
   /** 選択画面用のターミナル操作を作成します。 */
-  readonly createTerminal?: () => SelectionTerminal;
+  readonly createTerminal?: (parameters: SelectionTerminalParameters) => SelectionTerminal;
 };
 
 const CHOICES = ['OK', 'NG'] as const,
@@ -37,6 +64,8 @@ const CHOICES = ['OK', 'NG'] as const,
   MOVE_KEY_NAMES = new Set(['down', 'up']),
   NEXT_INDEX_OFFSET = 1,
   REDRAW_SEQUENCE = `\r\u001B[${CHOICES.length}A\u001B[J`,
+  /** 確定前の終端として扱うstdinのイベントです。 */
+  STDIN_CLOSE_EVENTS = ['end', 'close'],
   SELECTION_QUESTION = 'Start working? (Use ↑/↓ to select, Enter to confirm)',
   /** キーイベントの値を選択操作用の形式へ変換します。 */
   keyFrom = (value: unknown): SelectionKey => {
@@ -56,22 +85,42 @@ const CHOICES = ['OK', 'NG'] as const,
 
     return { ctrl: ctrl === true, name: normalizedName };
   },
-  /** 現在の標準入出力から選択画面用のターミナル操作を作成します。 */
-  createSelectionTerminal = (): SelectionTerminal => {
-    emitKeypressEvents(process.stdin);
+  /**
+   * 標準入出力から選択画面用のターミナル操作を作成します。
+   *
+   * stdinの`end`または`close`、あるいは`signal`の中断でキー入力の待機を
+   * 終えるため、確定前にstdinが終端してもPromiseが未解決のまま残りません。
+   */
+  createSelectionTerminal = ({
+    input = process.stdin,
+    signal,
+    write = (output) => {
+      process.stdout.write(output);
+    },
+  }: SelectionTerminalParameters = {}): SelectionTerminal => {
+    emitKeypressEvents(input);
 
-    const inputWasFlowing = process.stdin.readableFlowing === true,
-      keypressEvents = on(process.stdin, 'keypress'),
-      rawModeWasEnabled = process.stdin.isRaw === true,
-      supportsRawMode = process.stdin.isTTY === true;
+    const inputWasFlowing = input.readableFlowing === true,
+      keypressEvents = on(input, 'keypress', { close: STDIN_CLOSE_EVENTS }),
+      rawModeWasEnabled = input.isRaw === true,
+      supportsRawMode = input.isTTY === true && typeof input.setRawMode === 'function',
+      stopListening = (): void => {
+        void keypressEvents.return?.();
+      };
     let restored = false;
 
+    signal?.addEventListener('abort', stopListening, { once: true });
+
+    if (signal?.aborted) {
+      stopListening();
+    }
+
     if (supportsRawMode && !rawModeWasEnabled) {
-      process.stdin.setRawMode(true);
+      input.setRawMode?.(true);
     }
 
     if (!inputWasFlowing) {
-      process.stdin.resume();
+      input.resume();
     }
 
     return {
@@ -90,23 +139,18 @@ const CHOICES = ['OK', 'NG'] as const,
         }
 
         restored = true;
-        const stopListening = keypressEvents.return;
-
-        if (stopListening) {
-          await stopListening.call(keypressEvents);
-        }
+        signal?.removeEventListener('abort', stopListening);
+        await keypressEvents.return?.();
 
         if (supportsRawMode && !rawModeWasEnabled) {
-          process.stdin.setRawMode(false);
+          input.setRawMode?.(false);
         }
 
         if (!inputWasFlowing) {
-          process.stdin.pause();
+          input.pause();
         }
       },
-      write: (output) => {
-        process.stdout.write(output);
-      },
+      write,
     };
   },
   /** 選択中の項目へ表示するマーカーを返します。 */
@@ -156,16 +200,22 @@ const CHOICES = ['OK', 'NG'] as const,
 
     return selectedIndex;
   },
-  /** 上下キーでOKまたはNGを選び、作業を開始するか確認します。 */
+  /**
+   * 上下キーでOKまたはNGを選び、作業を開始するか確認します。
+   *
+   * NG、Ctrl+C、確定前のstdin終端、`signal`の中断では`false`を返します。
+   * 初回描画を含むすべての出力を`try`内で行い、失敗しても端末状態を復元します。
+   */
   confirmWorkStart = async ({
     createTerminal = createSelectionTerminal,
+    ...terminalParameters
   }: ConfirmWorkStartParameters = {}): Promise<boolean> => {
-    const terminal = createTerminal();
+    const terminal = createTerminal(terminalParameters);
     let selectedIndex = FIRST_CHOICE_INDEX;
 
-    terminal.write(renderSelection(selectedIndex));
-
     try {
+      terminal.write(renderSelection(selectedIndex));
+
       for (;;) {
         const key = await terminal.nextKey(),
           selection = handleKey(key, selectedIndex, terminal);
@@ -181,5 +231,11 @@ const CHOICES = ['OK', 'NG'] as const,
     }
   };
 
-export { confirmWorkStart };
-export type { ConfirmWorkStartParameters, SelectionKey, SelectionTerminal };
+export { confirmWorkStart, createSelectionTerminal };
+export type {
+  ConfirmWorkStartParameters,
+  SelectionInput,
+  SelectionKey,
+  SelectionTerminal,
+  SelectionTerminalParameters,
+};

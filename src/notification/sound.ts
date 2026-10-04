@@ -1,40 +1,15 @@
-import type { TimerPhase } from '@/timer/timer.ts';
+import type { Operation, OperationTracker, SpawnChild } from './operation.ts';
+import type { PlayerCommands } from '#src/platform/commands.ts';
+import type { TimerPhase } from '#src/timer/timer.ts';
+import { createDiagnosticWriter } from '#src/diagnostics/writer.ts';
+import { createOperationTracker } from './operation.ts';
 import { fileURLToPath } from 'node:url';
 import process from 'node:process';
-import { spawn } from 'node:child_process';
-
-/** 音声再生プロセスから監視するイベントを定義します。 */
-type SoundProcess = {
-  /** プロセス終了時の処理を登録します。 */
-  readonly onClose: (listener: (code: number | null) => void) => void;
-
-  /** プロセスエラー時の処理を登録します。 */
-  readonly onError: (listener: () => void) => void;
-};
-
-/** 音声再生プロセスへ渡す固定オプションです。 */
-type SoundProcessOptions = {
-  /** 子プロセスへ渡す環境変数です。 */
-  readonly env?: NodeJS.ProcessEnv;
-
-  /** 標準入出力を使用しない指定です。 */
-  readonly stdio: 'ignore';
-
-  /** Windowsで子プロセスのウィンドウを隠す指定です。 */
-  readonly windowsHide: true;
-};
-
-/** 音声再生プロセスを起動する処理です。 */
-type SpawnSoundProcess = (
-  command: string,
-  commandArguments: readonly string[],
-  options: SoundProcessOptions,
-) => SoundProcess;
 
 /** 実行する音声コマンドと引数です。 */
 type SoundCommand = {
-  /** 実行するコマンドです。 */
-  readonly command: string;
+  /** 起動時に解決済みのコマンドの絶対パスです。 */
+  readonly commandPath: string;
 
   /** コマンドへ渡す引数です。 */
   readonly commandArguments: readonly string[];
@@ -43,10 +18,28 @@ type SoundCommand = {
   readonly env?: NodeJS.ProcessEnv;
 };
 
-/** 完了音の再生時に差し替えられる処理を定義します。 */
-type PlayCompletionSoundParameters = {
-  /** 再生方法の判定に使うOSです。 */
-  readonly platform?: NodeJS.Platform;
+/** 完了音の再生要求に付ける情報です。 */
+type PlayOptions = {
+  /** 最後の休憩の自然終了に由来する完了通知なら`true`です。 */
+  readonly completionNotice?: boolean;
+};
+
+/** 完了音を再生し、終了時に子プロセスを片付ける処理です。 */
+type SoundPlayer = {
+  /** フェーズに対応する完了音を非同期で再生します。 */
+  readonly play: (phase: TimerPhase, options?: PlayOptions) => void;
+
+  /** 再生を打ち切り、子プロセスへ終了要求を送ります。 */
+  readonly shutdown: (options: { readonly complete: boolean }) => Promise<void>;
+};
+
+/** 完了音の再生に必要な値と差し替えられる処理です。 */
+type CreateSoundPlayerParameters = {
+  /** 起動時に解決済みの再生コマンドです。 */
+  readonly commands: PlayerCommands;
+
+  /** 子プロセスへ引き継ぐ環境変数です。 */
+  readonly environment?: NodeJS.ProcessEnv;
 
   /**
    * 同梱音源を置いたディレクトリのURLです。
@@ -56,166 +49,108 @@ type PlayCompletionSoundParameters = {
   readonly soundDirectory: URL;
 
   /** 音声再生プロセスを起動する処理です。 */
-  readonly spawnProcess?: SpawnSoundProcess;
+  readonly spawnChild?: SpawnChild;
+
+  /** 子プロセスと操作の追跡処理です。指定時は`spawnChild`より優先します。 */
+  readonly tracker?: OperationTracker;
 
   /** 再生できない場合にベルを書き込む処理です。 */
   readonly writeFallback?: (output: string) => void;
 };
 
-/** 音声コマンドを順番に試すための値です。 */
-type RunSoundCommandsParameters = {
-  /** 実行候補のコマンド一覧です。 */
-  readonly commands: readonly SoundCommand[];
-
-  /** 全候補が失敗した場合の処理です。 */
-  readonly fallback: () => void;
-
-  /** 次に実行する候補の位置です。 */
-  readonly index: number;
-
-  /** 音声再生プロセスを起動する処理です。 */
-  readonly spawnProcess: SpawnSoundProcess;
-};
-
-const FIRST_COMMAND_INDEX = 0,
-  NEXT_COMMAND_OFFSET = 1,
-  SUCCESS_EXIT_CODE = 0,
-  FALLBACK_SOUNDS = { break: '\u0007\u0007', work: '\u0007' } as const,
+const FALLBACK_SOUNDS = { break: '\u0007\u0007', work: '\u0007' } as const,
   WINDOWS_SOUND_SCRIPT = [
     '$player = New-Object System.Media.SoundPlayer',
     '$player.SoundLocation = $env:POMOTTY_SOUND_FILE',
     '$player.PlaySync()',
   ].join('; '),
-  /** Node.jsの子プロセスを監視用インターフェースで包みます。 */
-  spawnSoundProcess: SpawnSoundProcess = (command, commandArguments, options) => {
-    const child = spawn(command, [...commandArguments], options);
-
-    return {
-      onClose: (listener) => {
-        child.once('close', listener);
-      },
-      onError: (listener) => {
-        child.once('error', listener);
-      },
-    };
-  },
   /** フェーズに対応する同梱音源のパスを返します。 */
   soundFileFor = (soundDirectory: URL, phase: TimerPhase): string =>
     fileURLToPath(new URL(`${phase}-end.wav`, soundDirectory)),
-  /** Windowsの再生処理へ音源パスを渡す環境変数を作成します。 */
-  soundEnvironmentFor = (soundFile: string): NodeJS.ProcessEnv => {
-    const environment = structuredClone(process.env);
+  /**
+   * 解決済みのコマンドから再生候補を試行順に返します。
+   *
+   * 音源パスはPowerShellのコードへ補間せず、環境変数で渡します。
+   */
+  commandsFor = (
+    commands: PlayerCommands,
+    soundFile: string,
+    environment: NodeJS.ProcessEnv,
+  ): readonly SoundCommand[] => {
+    const candidates: SoundCommand[] = [];
 
-    environment.POMOTTY_SOUND_FILE = soundFile;
-    return environment;
-  },
-  /** OSに応じた音声コマンドの候補を返します。 */
-  commandsFor = (platform: NodeJS.Platform, soundFile: string): readonly SoundCommand[] => {
-    switch (platform) {
-      case 'darwin': {
-        return [{ command: '/usr/bin/afplay', commandArguments: [soundFile] }];
-      }
-      case 'linux': {
-        return [
-          { command: 'paplay', commandArguments: [soundFile] },
-          { command: 'aplay', commandArguments: [soundFile] },
-        ];
-      }
-      case 'win32': {
-        return [
-          {
-            command: 'powershell.exe',
-            commandArguments: ['-NoProfile', '-NonInteractive', '-Command', WINDOWS_SOUND_SCRIPT],
-            env: soundEnvironmentFor(soundFile),
-          },
-        ];
-      }
-      default: {
-        return [];
+    for (const commandPath of [commands.afplay, commands.paplay, commands.aplay]) {
+      if (commandPath !== undefined) {
+        candidates.push({ commandArguments: [soundFile], commandPath });
       }
     }
+
+    if (commands.powershell !== undefined) {
+      candidates.push({
+        commandArguments: ['-NoProfile', '-NonInteractive', '-Command', WINDOWS_SOUND_SCRIPT],
+        commandPath: commands.powershell,
+        env: { ...environment, POMOTTY_SOUND_FILE: soundFile },
+      });
+    }
+
+    return candidates;
   },
-  /** プロセスの失敗を一度だけ通知します。 */
-  observeFailure = (child: SoundProcess, onFailure: () => void): void => {
-    let settled = false;
-    const failOnce = (): void => {
-      if (settled) {
+  /** 再生候補を成功するまで順番に試し、全候補が失敗した場合だけベルを鳴らします。 */
+  runSoundCommands = async (
+    operation: Operation,
+    tracker: OperationTracker,
+    candidates: readonly SoundCommand[],
+    fallback: () => void,
+  ): Promise<void> => {
+    for (const candidate of candidates) {
+      // 前の候補が失敗した場合だけ次の候補を試すため、順番に待機します。
+      // oxlint-disable-next-line no-await-in-loop
+      const result = await tracker.runChild(
+        operation,
+        candidate.commandPath,
+        candidate.commandArguments,
+        { env: candidate.env },
+      );
+
+      if (result !== 'failure' || tracker.isOperationCancelled(operation)) {
         return;
       }
-
-      settled = true;
-      onFailure();
-    };
-
-    child.onError(failOnce);
-    child.onClose((code) => {
-      if (code !== SUCCESS_EXIT_CODE) {
-        failOnce();
-      }
-    });
-  },
-  /** 音声コマンドを成功するまで順番に試します。 */
-  runSoundCommands = ({
-    commands,
-    fallback,
-    index,
-    spawnProcess,
-  }: RunSoundCommandsParameters): void => {
-    const soundCommand = commands.at(index),
-      tryNextCommand = (): void => {
-        runSoundCommands({
-          commands,
-          fallback,
-          index: index + NEXT_COMMAND_OFFSET,
-          spawnProcess,
-        });
-      };
-
-    if (!soundCommand) {
-      fallback();
-      return;
     }
 
-    try {
-      const child = spawnProcess(soundCommand.command, soundCommand.commandArguments, {
-        env: soundCommand.env,
-        stdio: 'ignore',
-        windowsHide: true,
-      });
-      observeFailure(child, tryNextCommand);
-    } catch {
-      tryNextCommand();
+    if (!tracker.isOperationCancelled(operation)) {
+      fallback();
     }
   },
   /**
-   * フェーズに対応する完了音を非同期で再生します。
+   * 完了音の再生処理を作成します。
    *
    * OSの再生コマンドが使えない場合は、作業完了を1回、休憩完了を2回の
-   * ターミナルベルで鳴らし分けます。再生完了はタイマー進行を妨げません。
+   * ターミナルベルで鳴らし分けます。各再生は10秒で打ち切り、再生完了は
+   * タイマー進行を妨げません。
+   *
+   * @param parameters 解決済みコマンド、音源の場所、差し替える処理。
+   * @returns 再生と終了処理。
    */
-  playCompletionSound = (
-    phase: TimerPhase,
-    {
-      platform = process.platform,
-      soundDirectory,
-      spawnProcess = spawnSoundProcess,
-      writeFallback = (output) => {
-        process.stderr.write(output);
-      },
-    }: PlayCompletionSoundParameters,
-  ): void => {
-    const commands = commandsFor(platform, soundFileFor(soundDirectory, phase)),
-      fallback = (): void => {
-        writeFallback(FALLBACK_SOUNDS[phase]);
-      };
+  createSoundPlayer = ({
+    commands,
+    environment = process.env,
+    soundDirectory,
+    spawnChild,
+    tracker = createOperationTracker(spawnChild),
+    writeFallback = createDiagnosticWriter(),
+  }: CreateSoundPlayerParameters): SoundPlayer => ({
+    play: (phase, { completionNotice = false } = {}) => {
+      const candidates = commandsFor(commands, soundFileFor(soundDirectory, phase), environment),
+        fallback = (): void => {
+          writeFallback(FALLBACK_SOUNDS[phase]);
+        };
 
-    runSoundCommands({
-      commands,
-      fallback,
-      index: FIRST_COMMAND_INDEX,
-      spawnProcess,
-    });
-  };
+      tracker.startOperation(completionNotice, (operation) =>
+        runSoundCommands(operation, tracker, candidates, fallback),
+      );
+    },
+    shutdown: (options) => tracker.shutdown(options),
+  });
 
-export { playCompletionSound };
-export type { PlayCompletionSoundParameters, SoundProcess, SoundProcessOptions, SpawnSoundProcess };
+export { createSoundPlayer };
+export type { CreateSoundPlayerParameters, PlayOptions, SoundPlayer };
