@@ -86,6 +86,14 @@ type RunPomodoroTimerParameters = Partial<Omit<TimerSettings, 'loopCount'>> & {
 
   /** フェーズが自然終了したときに呼び出す処理です。 */
   readonly onPhaseCompleted?: (phase: TimerPhase, completion: PhaseCompletion) => void;
+
+  /**
+   * 現在の状態を描画できる時点ごとに呼び出す処理です。
+   *
+   * 最初のフェーズ開始直後と、タイマーを終了しない各tickの後に呼び出します。
+   * `now`は状態の判定に使った時刻で、残り時間の算出に使えます。
+   */
+  readonly onTick?: (state: TimerState, now: number) => void;
 };
 
 const DEFAULT_BREAK_DURATION_MINUTES = 5,
@@ -191,11 +199,14 @@ const DEFAULT_BREAK_DURATION_MINUTES = 5,
     signal,
     onPhaseStarted,
     onPhaseCompleted,
+    onTick,
   }: RunPomodoroTimerParameters): Promise<TimerResult> => {
-    const settings = { breakDurationMs, loopCount, workDurationMs };
-    let state = createInitialState(settings, now());
+    const settings = { breakDurationMs, loopCount, workDurationMs },
+      startedAt = now();
+    let state = createInitialState(settings, startedAt);
 
     onPhaseStarted?.(state.phase, durationFor(state.phase, settings));
+    onTick?.(state, startedAt);
 
     for (;;) {
       // 各tickを順番に待機するため、ループ内でawaitします。
@@ -218,6 +229,8 @@ const DEFAULT_BREAK_DURATION_MINUTES = 5,
 
         onPhaseStarted?.(state.phase, durationFor(state.phase, settings));
       }
+
+      onTick?.(state, currentTime);
     }
   };
 

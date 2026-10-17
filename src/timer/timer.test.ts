@@ -210,6 +210,33 @@ test('最後のサイクル以外の休憩完了でサイクルを進め、作�
   ).toMatchObject({ completedPhase: 'break', final: true });
 });
 
+test('開始直後と、終了しない各tickの後に現在の状態と判定時刻を通知する', async () => {
+  const clock = createFakeClock(),
+    ticks: string[] = [];
+
+  await runPomodoroTimer({
+    breakDurationMs: TICK_INTERVAL_MS,
+    loopCount: 1,
+    now: clock.now,
+    onPhaseCompleted: (phase) => {
+      ticks.push(`completed:${phase}`);
+    },
+    onTick: (state, now) => {
+      ticks.push(`${state.phase}:${state.cycle}:${state.endsAt - now}:${now - START_TIME}`);
+    },
+    sleep: clock.sleep,
+    workDurationMs: 2 * TICK_INTERVAL_MS,
+  });
+
+  expect(ticks).toEqual([
+    'work:1:500:0',
+    'work:1:250:250',
+    'completed:work',
+    'break:1:250:500',
+    'completed:break',
+  ]);
+});
+
 test('中断されるとフェーズを完了せずに終了する', async () => {
   const controller = new AbortController(),
     clock = createFakeClock(),

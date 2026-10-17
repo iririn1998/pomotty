@@ -1,8 +1,14 @@
-import { COMPLETION_SHUTDOWN_DEADLINE_MS, SHUTDOWN_DEADLINE_MS, runCli } from './run.ts';
+import {
+  COMPLETION_SHUTDOWN_DEADLINE_MS,
+  INTERRUPTED_EXIT_CODE,
+  SHUTDOWN_DEADLINE_MS,
+  runCli,
+} from './run.ts';
 import type { ConfirmStartParameters, RunCliParameters } from './run.ts';
 import { DEFAULT_BREAK_DURATION_MS, DEFAULT_WORK_DURATION_MS } from '#src/timer/timer.ts';
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import { LOGO } from '#src/terminal/constants.ts';
 import type { OutputStream } from '#src/terminal/output.ts';
 import type { SoundPlayer } from '#src/notification/sound.ts';
@@ -368,4 +374,165 @@ test('実行中の例外では再生処理を終了してから例外を伝え�
     'shutdown:abort',
     `schedule-exit:1:${SHUTDOWN_DEADLINE_MS}`,
   ]);
+});
+
+/** TTYとして振る舞い、raw modeの切り替えを記録する標準入力を作成します。 */
+const createTtyInput = (): PassThrough & { readonly rawModes: boolean[] } => {
+  const rawModes: boolean[] = [];
+
+  return Object.assign(new PassThrough(), {
+    isTTY: true,
+    rawModes,
+    setRawMode(this: PassThrough, mode: boolean) {
+      rawModes.push(mode);
+      return this;
+    },
+  });
+};
+
+describe('残り時間の画面', () => {
+  /** 列数を持つ端末として振る舞う偽の標準出力を作成します。 */
+  const createTerminalStdout = (): FakeStdout & {
+    columns: number;
+    readonly resize: () => void;
+  } => {
+    const stdout = createStdout(),
+      listeners: (() => void)[] = [];
+
+    return {
+      ...stdout,
+      columns: 80,
+      isTTY: true,
+      off: (_event, listener) => {
+        listeners.splice(listeners.indexOf(listener), 1);
+      },
+      on: (event, listener) => {
+        if (event === 'resize') {
+          listeners.push(listener);
+          return stdout;
+        }
+
+        return stdout.on(event, listener);
+      },
+      resize: () => {
+        for (const listener of listeners) {
+          listener();
+        }
+      },
+    };
+  };
+
+  test('画面を同じ位置へ描き直し、フェーズの完了だけを行として残す', async () => {
+    const stdin = createTtyInput(),
+      stdout = createTerminalStdout(),
+      harness = createHarness(
+        ['--work', '1', '--break', '1', '--loop', '1'],
+        { color: false, interactive: true, stdin },
+        stdout,
+      ),
+      exitCode = await runCli(harness.parameters),
+      output = stdout.output();
+
+    expect(exitCode).toBe(0);
+    expect(
+      output.startsWith(`${LOGO}\n\u001B[2K  🍅 WORK                      Cycle 1 / 1\n`),
+    ).toBe(true);
+    expect(output).toContain('\u001B[2K          ████      ██████ ██████\n');
+    expect(output).toContain('\u001B[2K  0:01 elapsed       1%         1:00 total\n');
+    expect(output).toContain('✅ Work complete.\n\u001B[2K  ☕ BREAK');
+    expect(output).toContain('\u001B[13A\u001B[2K  🍅 WORK');
+    expect(output).not.toContain('\u001B[31m');
+    expect(output).not.toContain('started');
+    expect(output.endsWith('✅ Break complete.\n🎉 Pomodoro complete.\n')).toBe(true);
+    expect(stdin.rawModes).toEqual([true, false]);
+    expect(harness.events).toEqual([
+      'create-sound-player',
+      'confirm',
+      'play:work',
+      'play:break:completion-notice',
+      'set-exit-code:0',
+      'shutdown:complete',
+      `schedule-exit:0:${COMPLETION_SHUTDOWN_DEADLINE_MS}`,
+    ]);
+  });
+
+  test('色が有効な場合は作業を赤、休憩を緑で表示する', async () => {
+    const stdout = createTerminalStdout(),
+      harness = createHarness(
+        ['--work', '1', '--break', '1', '--loop', '1'],
+        { color: true, interactive: true, stdin: createTtyInput() },
+        stdout,
+      );
+
+    await runCli(harness.parameters);
+
+    expect(stdout.output()).toContain('\u001B[31m🍅 WORK\u001B[39m');
+    expect(stdout.output()).toContain('\u001B[32m☕ BREAK\u001B[39m');
+  });
+
+  test('Ctrl+Cでタイマーを中断し、終了コード130で終了する', async () => {
+    const stdin = createTtyInput(),
+      harness = createHarness(
+        [],
+        {
+          color: false,
+          interactive: true,
+          sleep: () => {
+            stdin.emit('keypress', '\u0003', { ctrl: true, name: 'c' });
+            return Promise.resolve();
+          },
+          stdin,
+        },
+        createTerminalStdout(),
+      ),
+      exitCode = await runCli(harness.parameters);
+
+    expect(exitCode).toBe(INTERRUPTED_EXIT_CODE);
+    expect(stdin.rawModes).toEqual([true, false]);
+    expect(harness.events).toEqual([
+      'create-sound-player',
+      'confirm',
+      `set-exit-code:${INTERRUPTED_EXIT_CODE}`,
+      'shutdown:abort',
+      `schedule-exit:${INTERRUPTED_EXIT_CODE}:${SHUTDOWN_DEADLINE_MS}`,
+    ]);
+  });
+
+  test('端末幅が変わると旧画面を消さずに新しい幅の画面を追記する', async () => {
+    const stdout = createTerminalStdout();
+    let resized = false;
+    const harness = createHarness(
+      [],
+      {
+        color: false,
+        interactive: true,
+        sleep: () => {
+          if (!resized) {
+            resized = true;
+            stdout.columns = 30;
+            stdout.resize();
+          }
+
+          return Promise.reject(new Error('stop'));
+        },
+        stdin: createTtyInput(),
+      },
+      stdout,
+    );
+
+    await expect(runCli(harness.parameters)).rejects.toThrow('stop');
+    expect(stdout.output()).toContain(
+      '      work 15:00      break 5:00\n\u001B[2K🍅 WORK  1/3\n\u001B[2K15:00 left · 0%\n',
+    );
+  });
+
+  test('標準出力が端末でない場合はフェーズの開始と完了を1行ずつ出力する', async () => {
+    const result = await runCliFor(['--work', '1', '--break', '1', '--loop', '1'], {
+      stdin: createTtyInput(),
+    });
+
+    expect(result.output).toBe(
+      `${LOGO}\n🍅 Work started (1 min)\n✅ Work complete.\n☕ Break started (1 min)\n✅ Break complete.\n🎉 Pomodoro complete.\n`,
+    );
+  });
 });

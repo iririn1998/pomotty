@@ -40,6 +40,35 @@ pomotty --loop 5
 pomotty --work=25 --break=5 --loop=2
 ```
 
+While the timer runs, the remaining time is shown in large digits and updated in
+place. Below it are a progress bar for the current phase (elapsed time, percentage,
+and total time) and a timeline showing the work and break progress of each cycle.
+
+```text
+  🍅 WORK                      Cycle 2 / 3
+
+          ██████    ██  ██ ██████
+          ██  ██ ██ ██  ██     ██
+          ██████    ██████ ██████
+          ██  ██ ██     ██ ██
+          ██████        ██ ██████
+
+  ━━━━━━━━━━━━━━━━────────────────────────
+  6:18 elapsed      42%        15:00 total
+
+  #1  ███████████████ █████  ✓
+  #2  ██████▎░░░░░░░░ ░░░░░  ◀ now
+  #3  ░░░░░░░░░░░░░░░ ░░░░░
+      work 15:00      break 5:00
+```
+
+Work is shown in red and breaks in green. Set `NO_COLOR` to a non-empty value to
+disable colors. In narrow terminals, the timer switches to a compact view with only
+the remaining time, percentage, and bar, or to a single line. Press Ctrl+C to stop
+the timer; it exits with code 130. When standard input or output is not a terminal
+(for example, a pipe or redirect), the timer prints one line when each phase starts
+and finishes.
+
 To see the available options, run:
 
 ```shell

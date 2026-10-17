@@ -134,7 +134,10 @@ export default defineConfig({
         'src/notification/operation.ts',
         'src/notification/sound.ts',
         'src/platform/commands.ts',
+        'src/cli/progress-view.ts',
+        'src/terminal/inline-renderer.ts',
         'src/terminal/input.ts',
+        'src/terminal/interrupt-key.ts',
         'src/terminal/output.ts',
         'src/timer/timer.ts',
       ],
@@ -163,6 +166,19 @@ export default defineConfig({
         'promise/no-multiple-resolved': 'off',
         'promise/prefer-await-to-callbacks': 'off',
         'promise/prefer-await-to-then': 'off',
+      },
+    },
+    {
+      // タイマー画面の部品です。定数を画面上の並び順で宣言し、型と値のimportを分けます。
+      files: [
+        'src/terminal/clock.ts',
+        'src/terminal/frame-line.ts',
+        'src/terminal/timeline.ts',
+        'src/terminal/timer-view.ts',
+      ],
+      rules: {
+        'no-duplicate-imports': 'off',
+        'sort-vars': 'off',
       },
     },
     {

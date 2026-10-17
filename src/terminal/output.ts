@@ -2,8 +2,17 @@ import process from 'node:process';
 
 /** 標準出力として最低限必要なストリームです。 */
 type OutputStream = {
-  /** 出力先のエラーを受け取るリスナーを登録します。 */
-  readonly on: (event: 'error', listener: (error: unknown) => void) => unknown;
+  /** 端末の列数です。TTYでない場合は提供されません。 */
+  readonly columns?: number;
+
+  /** 端末かを示します。 */
+  readonly isTTY?: boolean;
+
+  /** 出力先のエラー、または端末幅の変更を受け取るリスナーを登録します。 */
+  readonly on: (event: 'error' | 'resize', listener: (error?: unknown) => void) => unknown;
+
+  /** 登録したリスナーを解除します。 */
+  readonly off?: (event: 'resize', listener: () => void) => unknown;
 
   /** 文字列を書き込みます。 */
   readonly write: (output: string) => unknown;

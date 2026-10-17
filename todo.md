@@ -111,25 +111,30 @@
 
 ## 5. 表示と非TTYログ
 
-- [ ] 起動時にinteractive判定を1回行う
-  - [ ] stdin/stdoutがTTYかつ `TERM !== 'dumb'` の場合だけinteractiveにする
-  - [ ] 空でない `NO_COLOR` では色だけを無効にする
-- [ ] 残り時間を `ceil(ms / 1000)` で `M:SS` / `H:MM:SS` に整形する
-- [ ] 経過率、30セルbar、サイクル進捗、pause表示を実装する
+- [x] 起動時にinteractive判定を1回行う
+  - [x] stdin/stdoutがTTYかつ `TERM !== 'dumb'` の場合だけinteractiveにする
+  - [x] 空でない `NO_COLOR` では色だけを無効にする
+- [x] 残り時間を `ceil(ms / 1000)` で `M:SS` / `H:MM:SS` に整形する
+- [x] 大きな数字の残り時間、40セルの経過バー、経過・割合・合計、サイクルごとのタイムラインを表示する（`src/terminal/timer-view.ts`）
+  - [x] 標準が収まらない幅ではcompact、20セル未満ではminimalにする
+  - [x] 全物理行を `max(1, columns - 1)` セル以内へ省略する
+  - [x] WORKをSGR 31、BREAKをSGR 32で着色し、各部分直後にSGR 39で戻す
+  - [x] Ctrl+Cをraw modeのキーイベントとして受け、終了コード130で終了する
+- [ ] 仕様のレイアウト（30セルbar、`●○`のサイクル進捗、pause表示）と上記の実装をそろえる
   - [ ] 60列以上は標準、30〜59列はcompact、29列以下はminimalにする
   - [ ] 標準かつloopCount≤12だけ `●○` で現在の `cycle` を表し、それ以外は数値形式にする
   - [ ] タスクと全物理行を `max(1, columns - 1)` セル以内へ省略する
   - [ ] 色は規定部分だけSGR 31/32で着色し、各部分直後にSGR 39で戻す
-- [ ] `node:readline` でインライン描画を実装する
-  - [ ] 初回はそのまま描画し、以後は旧フレームの各行だけを移動・消去する
-  - [ ] 最終行を含む全行へ改行を1個付け、カーソルを次行の列0に置く
-  - [ ] 論理フレームと色状態が同一ならstdoutへ書かない
-  - [ ] resize時は旧フレームを上移動・消去せず、新フレームを追記して以後それだけを追跡する
-  - [ ] 代替画面と画面末尾全消去を使わない
+- [x] インライン描画を実装する（`src/terminal/inline-renderer.ts`。`node:readline`ではなくCSIを直接書き込む）
+  - [x] 初回はそのまま描画し、以後は旧フレームの各行だけを移動・消去する
+  - [x] 最終行を含む全行へ改行を1個付け、カーソルを次行の列0に置く
+  - [x] 論理フレームと色状態が同一ならstdoutへ書かない
+  - [x] resize時は旧フレームを上移動・消去せず、新フレームを追記して以後それだけを追跡する
+  - [x] 代替画面と画面末尾全消去を使わない
 - [ ] raw modeとcursorの変更状態を個別に追跡し、同期的な `restoreTerminalSync()` を実装する
   - [ ] interactive初期化時だけ `process.on('exit', ...)` を1回登録する
   - [ ] 同期復元にはstdout fdへの同期writerを使い、冪等かつbest effortにする
-  - [ ] 非TTYではANSIを一切出さない
+  - [x] 非TTYではANSIを一切出さない
 - [ ] 非TTYでは起動時とフェーズ遷移時だけ行単位ログを出す
   - [ ] ローカル時刻、フェーズ、時間、正規化済みtaskのJSON suffixを規定形式にする
   - [ ] stdinを監視せず、ANSI・色・cursor操作・bell・raw modeを無効にする
