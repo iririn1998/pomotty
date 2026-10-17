@@ -1,5 +1,5 @@
 import type { FrameLine, FrameSegment } from './frame-line.ts';
-import type { TimerPhase, TimerSettings, TimerState } from '#src/timer/timer.ts';
+import type { TimerPhase, TimerSettings, TimerState } from '#src/timer/state.ts';
 import { cellWidth, lineWidth, truncateLine } from './frame-line.ts';
 import { formatClock, progressFor } from './clock.ts';
 import type { PhaseProgress } from './clock.ts';
@@ -71,6 +71,25 @@ const BAR_WIDTH = 40,
   LINE_EMPTY = '─',
   PHASE_ICONS = { break: '☕', work: '🍅' } as const,
   PHASE_LABELS = { break: 'BREAK', work: 'WORK' } as const,
+  PAUSED_LABEL = 'PAUSED',
+  /** 標準の画面に表示するキー操作の案内です。一時停止中はspaceの動作を再開と表示します。 */
+  KEY_GUIDES = {
+    paused: '[space] resume   [s] skip   [q] quit',
+    running: '[space] pause   [s] skip   [q] quit',
+  } as const,
+  /** コンパクト表示に表示するキー操作の案内です。 */
+  COMPACT_KEY_GUIDES = {
+    paused: '[sp]resume [s]skip [q]quit',
+    running: '[sp]pause [s]skip [q]quit',
+  } as const,
+  /** 一時停止中かでキー操作の案内を選びます。 */
+  keyGuideKind = (state: TimerState): 'paused' | 'running' => {
+    if (state.paused) {
+      return 'paused';
+    }
+
+    return 'running';
+  },
   /** 指定セル数の空白を返します。 */
   spaces = (cells: number): string => ' '.repeat(Math.max(NO_CELLS, cells)),
   /** 大きな数字の1ピクセルを2セルの文字列へ変換します。 */
@@ -128,19 +147,32 @@ const BAR_WIDTH = 40,
     return `${left}${spaces(leftGap)}${center}${spaces(rightGap)}${right}`;
   },
   /** フェーズのアイコンと名前の表示片です。 */
-  phaseSegment = (phase: TimerPhase): FrameSegment => ({
-    text: `${PHASE_ICONS[phase]} ${PHASE_LABELS[phase]}`,
-    tone: phase,
-  }),
+  phaseSegment = ({ paused, phase }: TimerState): FrameSegment => {
+    const label = `${PHASE_ICONS[phase]} ${PHASE_LABELS[phase]}`;
+
+    if (paused) {
+      return { text: `${label} ${PAUSED_LABEL}`, tone: phase };
+    }
+
+    return { text: label, tone: phase };
+  },
+  /** 1行表示のフェーズ名です。一時停止中は幅を節約するため`PAUSED`だけを表示します。 */
+  minimalPhaseLabel = ({ paused, phase }: TimerState): string => {
+    if (paused) {
+      return PAUSED_LABEL;
+    }
+
+    return PHASE_LABELS[phase];
+  },
   /** フェーズ名とサイクル番号をバーの幅の両端へ並べた見出し行です。 */
   createHeader = (state: TimerState, settings: TimerSettings): FrameLine => {
-    const phase = phaseSegment(state.phase),
+    const phase = phaseSegment(state),
       cycle = `Cycle ${state.cycle} / ${settings.loopCount}`,
       gap = Math.max(MIN_GAP, BAR_WIDTH - cellWidth(phase.text) - cellWidth(cycle));
 
     return [{ text: INDENT }, phase, { text: `${spaces(gap)}${cycle}` }];
   },
-  /** 大きな数字、経過バー、サイクルのタイムラインを並べた標準の画面です。 */
+  /** 大きな数字、経過バー、サイクルのタイムライン、キー操作の案内を並べた標準の画面です。 */
   createFullFrame = ({ progress, settings, state }: LayoutParameters): readonly FrameLine[] => [
     createHeader(state, settings),
     [],
@@ -158,6 +190,8 @@ const BAR_WIDTH = 40,
     ],
     [],
     ...createTimeline(state, settings, progress.ratio),
+    [],
+    [{ text: `${INDENT}${KEY_GUIDES[keyGuideKind(state)]}` }],
   ],
   /** 大きな数字とタイムラインを省いた、狭い端末向けの画面です。 */
   createCompactFrame = ({
@@ -166,14 +200,15 @@ const BAR_WIDTH = 40,
     state,
     width,
   }: LayoutParameters): readonly FrameLine[] => [
-    [phaseSegment(state.phase), { text: `${spaces(MIN_GAP)}${state.cycle}/${settings.loopCount}` }],
+    [phaseSegment(state), { text: `${spaces(MIN_GAP)}${state.cycle}/${settings.loopCount}` }],
     [{ text: `${formatClock(progress.remainingSeconds)} left · ${progress.percent}%` }],
     createLineBar(progress.percent, Math.min(BAR_WIDTH, width), state.phase),
+    [{ text: COMPACT_KEY_GUIDES[keyGuideKind(state)] }],
   ],
   /** 1行だけの画面です。 */
   createMinimalFrame = ({ progress, settings, state }: LayoutParameters): readonly FrameLine[] => [
     [
-      { text: PHASE_LABELS[state.phase], tone: state.phase },
+      { text: minimalPhaseLabel(state), tone: state.phase },
       { text: ` ${formatClock(progress.remainingSeconds)} ${state.cycle}/${settings.loopCount}` },
     ],
   ],

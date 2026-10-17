@@ -1,4 +1,4 @@
-import type { TimerPhase } from '#src/timer/timer.ts';
+import type { TimerPhase } from '#src/timer/state.ts';
 
 /** 表示行を構成する文字列片です。`tone`がある場合だけ色を付けます。 */
 type FrameSegment = {

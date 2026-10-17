@@ -1,5 +1,5 @@
 import type { FrameLine, FrameSegment } from './frame-line.ts';
-import type { TimerPhase, TimerSettings, TimerState } from '#src/timer/timer.ts';
+import type { TimerPhase, TimerSettings, TimerState } from '#src/timer/state.ts';
 import { cellWidth } from './frame-line.ts';
 import { formatDuration } from './clock.ts';
 
@@ -19,7 +19,7 @@ type CycleStatus = {
 type TimelineCells = Readonly<Record<TimerPhase, number>>;
 
 const BLOCK = '█',
-  EMPTY_CELL = '░',
+  EMPTY_CELL = '·',
   /** 1セルの充填を8段階で表す文字です。先頭は未充填です。 */
   EIGHTH_BLOCKS = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉'],
   EIGHTHS_PER_CELL = 8,

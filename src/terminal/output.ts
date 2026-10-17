@@ -8,6 +8,9 @@ type OutputStream = {
   /** 端末かを示します。 */
   readonly isTTY?: boolean;
 
+  /** ファイル記述子です。終了時にカーソルを同期的に戻すために使います。 */
+  readonly fd?: number;
+
   /** 出力先のエラー、または端末幅の変更を受け取るリスナーを登録します。 */
   readonly on: (event: 'error' | 'resize', listener: (error?: unknown) => void) => unknown;
 

@@ -1,4 +1,5 @@
-import type { TimerPhase, TimerSettings, TimerState } from '#src/timer/timer.ts';
+import type { TimerPhase, TimerSettings, TimerState } from '#src/timer/state.ts';
+import { remainingMsAt } from '#src/timer/state.ts';
 
 /** 現在のフェーズの進み具合です。 */
 type PhaseProgress = {
@@ -62,11 +63,12 @@ const MILLISECONDS_PER_SECOND = 1000,
    *
    * 残り時間は`ceil(ms / 1000)`の表示秒とし、残り1msでも`0:01`と表示します。
    * 経過時間は表示上の合計と一致するよう、長さの表示秒から残りの表示秒を引きます。
+   * 一時停止中は一時停止した時点の残り時間を使います。
    * 時計が戻って残り時間が長さを超えた場合も、経過率は0に留めます。
    */
   progressFor = (state: TimerState, now: number, settings: TimerSettings): PhaseProgress => {
     const durationMs = durationFor(state.phase, settings),
-      remainingMs = Math.max(NO_TIME, state.endsAt - now),
+      remainingMs = remainingMsAt(state, now),
       ratio = Math.min(MAX_RATIO, Math.max(MIN_RATIO, (durationMs - remainingMs) / durationMs)),
       remainingSeconds = toDisplaySeconds(remainingMs),
       totalSeconds = toDisplaySeconds(durationMs);

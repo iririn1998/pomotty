@@ -93,19 +93,19 @@
 - [ ] `src/timer/timer.ts` に `work` / `break` の状態、`cycle`、不変条件を実装する
 - [ ] 自然終了とskipを別の遷移として実装する
   - [x] WORK自然終了だけ `completedPomodoros` を増やす
-  - [ ] BREAK終了（自然終了・skip）時に `cycle < loopCount` なら `cycle` を増やしてWORKへ進む
-  - [ ] 最後のBREAK終了（自然終了・skip）で次フェーズを開始せず完了終了する
-  - [ ] skipでは音・通知を発生させず、遷移先を全時間・実行状態で開始する
+  - [x] BREAK終了（自然終了・skip）時に `cycle < loopCount` なら `cycle` を増やしてWORKへ進む
+  - [x] 最後のBREAK終了（自然終了・skip）で次フェーズを開始せず完了終了する
+  - [x] skipでは音・通知を発生させず、遷移先を全時間・実行状態で開始する
 - [x] `endsAt` を真実の情報源にし、250ms intervalは更新契機としてだけ使う
 - [ ] `settleExpiredPhase(now)` を期限到達確定の唯一の入口として実装する
   - [x] `now >= endsAt` で現在フェーズを1回だけ精算する
   - [x] 遷移先の期限を渡された `now + duration` とし、処理中に時刻を再取得しない
   - [x] 長時間遅延後もcatch-upせず、1フェーズだけ進める
 - [ ] 同期区間だけを守る `transitioning` guardを実装し、例外時も `finally` で解除する
-- [ ] 一時停止・再開を `remainingMs` と同一キーイベントの `now` で実装する
-- [ ] 手動操作ごとに時刻を1回取得し、期限精算後に同じ操作を新フェーズへ適用する
-  - [ ] `now === endsAt` ではspace / skip / quitより自然終了を優先する
-  - [ ] OS signal、出力・stdin error、内部エラーでは期限精算しない
+- [x] 一時停止・再開を `remainingMs` と同一キーイベントの `now` で実装する（`src/timer/state.ts`）
+- [x] 手動操作ごとに時刻を1回取得し、期限精算後に同じ操作を新フェーズへ適用する（`TimerControls`）
+  - [x] `now === endsAt` ではspace / skip / quitより自然終了を優先する
+  - [x] OS signal、出力・stdin error、内部エラーでは期限精算しない
 - [ ] 起動時刻を初回表示直前に1回取得し、初期WORKを音・通知なしで開始する
 - [ ] 偽時計で全遷移、loop=1、最終BREAKでの終了、pause、skip、tick遅延、sleep、時計変更、配送順、再入、例外解除を単体テストする
 
@@ -120,7 +120,8 @@
   - [x] 全物理行を `max(1, columns - 1)` セル以内へ省略する
   - [x] WORKをSGR 31、BREAKをSGR 32で着色し、各部分直後にSGR 39で戻す
   - [x] Ctrl+Cをraw modeのキーイベントとして受け、終了コード130で終了する
-- [ ] 仕様のレイアウト（30セルbar、`●○`のサイクル進捗、pause表示）と上記の実装をそろえる
+- [x] 一時停止中は `PAUSED` とresumeのキー案内を表示する
+- [ ] 仕様のレイアウト（30セルbar、`●○`のサイクル進捗）と上記の実装をそろえる
   - [ ] 60列以上は標準、30〜59列はcompact、29列以下はminimalにする
   - [ ] 標準かつloopCount≤12だけ `●○` で現在の `cycle` を表し、それ以外は数値形式にする
   - [ ] タスクと全物理行を `max(1, columns - 1)` セル以内へ省略する
@@ -132,8 +133,9 @@
   - [x] resize時は旧フレームを上移動・消去せず、新フレームを追記して以後それだけを追跡する
   - [x] 代替画面と画面末尾全消去を使わない
 - [ ] raw modeとcursorの変更状態を個別に追跡し、同期的な `restoreTerminalSync()` を実装する
-  - [ ] interactive初期化時だけ `process.on('exit', ...)` を1回登録する
-  - [ ] 同期復元にはstdout fdへの同期writerを使い、冪等かつbest effortにする
+  - [x] カーソルを隠している間だけ `process.on('exit', ...)` を登録し、stdout fdへ同期的に表示を戻す（`src/terminal/terminal-guard.ts`）
+  - [ ] raw modeも同期的な終了保険で戻す
+  - [x] SIGINT / SIGTERM / SIGHUPで通常の終了処理を通し、端末を戻してから終了コード130 / 143 / 129で終了する
   - [x] 非TTYではANSIを一切出さない
 - [ ] 非TTYでは起動時とフェーズ遷移時だけ行単位ログを出す
   - [ ] ローカル時刻、フェーズ、時間、正規化済みtaskのJSON suffixを規定形式にする
@@ -150,10 +152,10 @@
 - [ ] 規定の順序でinteractive stdinを初期化する
   - [ ] 元のraw / flowing状態を記録後、同期終了保険、raw mode、decoder接続、必要時resumeの順にする
   - [ ] アプリが変更したraw / flowing状態だけをcleanupで戻す
-- [ ] 復号済みkeyの `name` / `ctrl` / `meta` / `shift` だけで操作を判定する
-  - [ ] space、s/S、q/Q、Ctrl+Cを受理する
-  - [ ] Ctrl+S、Alt+q、function key、矢印、mouse、`Ctrl+D` / `Ctrl+Z` / `Ctrl+\` を無視する
-  - [ ] key repeatや同一chunk内の複数操作を間引かず、shutdown後だけ無視する
+- [x] 復号済みkeyの `name` / `ctrl` / `meta` / `shift` だけで操作を判定する（`src/terminal/timer-keys.ts`。`node:readline`のkeypress復号を利用）
+  - [x] space、s/S、q/Q、Ctrl+Cを受理する
+  - [x] Ctrl+S、Alt+q、function key、矢印、mouse、`Ctrl+D` / `Ctrl+Z` / `Ctrl+\` を無視する
+  - [x] key repeatや同一chunk内の複数操作を間引かず、shutdown後だけ無視する
 - [ ] stdin error / endを規定のshutdown理由へ集約する
 - [ ] split sequence、timeout、64バイト、複数key、順序、修飾key、stdin end/errorを単体テストする
 

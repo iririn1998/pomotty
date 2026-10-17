@@ -137,8 +137,10 @@ export default defineConfig({
         'src/cli/progress-view.ts',
         'src/terminal/inline-renderer.ts',
         'src/terminal/input.ts',
-        'src/terminal/interrupt-key.ts',
         'src/terminal/output.ts',
+        'src/terminal/terminal-guard.ts',
+        'src/terminal/timer-keys.ts',
+        'src/timer/state.ts',
         'src/timer/timer.ts',
       ],
       rules: {
@@ -183,7 +185,8 @@ export default defineConfig({
     },
     {
       // 外部コマンドは端末初期化前に1回だけ同期的に解決します。
-      files: ['src/platform/commands.ts'],
+      // 隠したカーソルは、プロセスのexitイベントで同期的に表示し直します。
+      files: ['src/platform/commands.ts', 'src/terminal/terminal-guard.ts'],
       rules: {
         'node/no-sync': 'off',
       },

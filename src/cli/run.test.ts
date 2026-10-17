@@ -11,6 +11,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { LOGO } from '#src/terminal/constants.ts';
 import type { OutputStream } from '#src/terminal/output.ts';
+import type { ProcessEvents } from '#src/terminal/terminal-guard.ts';
 import type { SoundPlayer } from '#src/notification/sound.ts';
 
 type FakeStdout = OutputStream & {
@@ -390,9 +391,8 @@ const createTtyInput = (): PassThrough & { readonly rawModes: boolean[] } => {
   });
 };
 
-describe('残り時間の画面', () => {
-  /** 列数を持つ端末として振る舞う偽の標準出力を作成します。 */
-  const createTerminalStdout = (): FakeStdout & {
+/** 列数を持つ端末として振る舞う偽の標準出力を作成します。 */
+const createTerminalStdout = (): FakeStdout & {
     columns: number;
     readonly resize: () => void;
   } => {
@@ -420,32 +420,109 @@ describe('残り時間の画面', () => {
         }
       },
     };
+  },
+  /** 登録されたリスナーを記録し、イベントを発生させられる偽のプロセスを作成します。 */
+  createProcessEvents = (): ProcessEvents & {
+    readonly emit: (event: string) => void;
+    readonly listenerCount: () => number;
+  } => {
+    const emitter = new EventEmitter();
+
+    return {
+      emit: (event) => {
+        emitter.emit(event);
+      },
+      listenerCount: () =>
+        emitter.eventNames().reduce((count, event) => count + emitter.listenerCount(event), 0),
+      off: (event, listener) => emitter.off(event, listener),
+      on: (event, listener) => emitter.on(event, listener),
+    };
   };
 
+type InteractiveRun = {
+  readonly events: readonly string[];
+  readonly exitCode: number;
+  readonly output: string;
+  readonly processEvents: ReturnType<typeof createProcessEvents>;
+  readonly stdin: ReturnType<typeof createTtyInput>;
+};
+
+/** 端末として振る舞う標準入出力で、指定した回の待機の直前にキーを押しながら実行します。 */
+const runInteractive = async (
+  arguments_: readonly string[],
+  keysBySleep: ReadonlyMap<number, string> = new Map(),
+  overrides: Partial<RunCliParameters> = {},
+): Promise<InteractiveRun> => {
+  const stdin = createTtyInput(),
+    stdout = createTerminalStdout(),
+    processEvents = createProcessEvents();
+  let sleepCount = 0,
+    currentTime = 0;
+  const harness = createHarness(
+      arguments_,
+      {
+        color: false,
+        interactive: true,
+        now: () => currentTime,
+        processEvents,
+        sleep: (durationMs) => {
+          const keys = keysBySleep.get(sleepCount);
+
+          sleepCount += 1;
+
+          if (keys !== undefined) {
+            stdin.write(keys);
+          }
+
+          // キーの復号を待ってから時刻を進めます。
+          return new Promise((resolve) => {
+            setImmediate(() => {
+              currentTime += durationMs;
+              resolve();
+            });
+          });
+        },
+        stdin,
+        ...overrides,
+      },
+      stdout,
+    ),
+    exitCode = await runCli(harness.parameters);
+
+  return { events: harness.events, exitCode, output: stdout.output(), processEvents, stdin };
+};
+
+describe('残り時間の画面', () => {
+  const HIDE_CURSOR = '\u001B[?25l',
+    SHOW_CURSOR = '\u001B[?25h';
+
   test('画面を同じ位置へ描き直し、フェーズの完了だけを行として残す', async () => {
-    const stdin = createTtyInput(),
-      stdout = createTerminalStdout(),
-      harness = createHarness(
-        ['--work', '1', '--break', '1', '--loop', '1'],
-        { color: false, interactive: true, stdin },
-        stdout,
-      ),
-      exitCode = await runCli(harness.parameters),
-      output = stdout.output();
+    const { events, exitCode, output, processEvents, stdin } = await runInteractive([
+      '--work',
+      '1',
+      '--break',
+      '1',
+      '--loop',
+      '1',
+    ]);
 
     expect(exitCode).toBe(0);
     expect(
-      output.startsWith(`${LOGO}\n\u001B[2K  🍅 WORK                      Cycle 1 / 1\n`),
+      output.startsWith(
+        `${LOGO}\n${HIDE_CURSOR}\u001B[2K  🍅 WORK                      Cycle 1 / 1\n`,
+      ),
     ).toBe(true);
     expect(output).toContain('\u001B[2K          ████      ██████ ██████\n');
     expect(output).toContain('\u001B[2K  0:01 elapsed       1%         1:00 total\n');
+    expect(output).toContain('\u001B[2K  [space] pause   [s] skip   [q] quit\n');
     expect(output).toContain('✅ Work complete.\n\u001B[2K  ☕ BREAK');
-    expect(output).toContain('\u001B[13A\u001B[2K  🍅 WORK');
+    expect(output).toContain('\u001B[15A\u001B[2K  🍅 WORK');
     expect(output).not.toContain('\u001B[31m');
     expect(output).not.toContain('started');
-    expect(output.endsWith('✅ Break complete.\n🎉 Pomodoro complete.\n')).toBe(true);
+    expect(output.endsWith(`✅ Break complete.\n${SHOW_CURSOR}🎉 Pomodoro complete.\n`)).toBe(true);
     expect(stdin.rawModes).toEqual([true, false]);
-    expect(harness.events).toEqual([
+    expect(processEvents.listenerCount()).toBe(0);
+    expect(events).toEqual([
       'create-sound-player',
       'confirm',
       'play:work',
@@ -457,28 +534,93 @@ describe('残り時間の画面', () => {
   });
 
   test('色が有効な場合は作業を赤、休憩を緑で表示する', async () => {
-    const stdout = createTerminalStdout(),
-      harness = createHarness(
-        ['--work', '1', '--break', '1', '--loop', '1'],
-        { color: true, interactive: true, stdin: createTtyInput() },
-        stdout,
-      );
+    const { output } = await runInteractive(
+      ['--work', '1', '--break', '1', '--loop', '1'],
+      new Map(),
+      { color: true },
+    );
 
-    await runCli(harness.parameters);
-
-    expect(stdout.output()).toContain('\u001B[31m🍅 WORK\u001B[39m');
-    expect(stdout.output()).toContain('\u001B[32m☕ BREAK\u001B[39m');
+    expect(output).toContain('\u001B[31m🍅 WORK\u001B[39m');
+    expect(output).toContain('\u001B[32m☕ BREAK\u001B[39m');
   });
 
-  test('Ctrl+Cでタイマーを中断し、終了コード130で終了する', async () => {
+  test('spaceで一時停止を表示し、もう一度押すと再開して完了する', async () => {
+    const { output } = await runInteractive(
+      ['--work', '1', '--break', '1', '--loop', '1'],
+      new Map([
+        [4, ' '],
+        [44, ' '],
+      ]),
+    );
+
+    expect(output).toContain('\u001B[2K  🍅 WORK PAUSED               Cycle 1 / 1\n');
+    expect(output).toContain('\u001B[2K  [space] resume   [s] skip   [q] quit\n');
+    expect(output).toContain('\u001B[2K  0:01 elapsed       1%         1:00 total\n');
+    expect(output).toContain('✅ Work complete.');
+  });
+
+  test('sでフェーズをskipし、音を鳴らさずにskipした行を残す', async () => {
+    const { events, exitCode, output } = await runInteractive(
+      ['--work', '1', '--break', '1', '--loop', '1'],
+      new Map([
+        [1, 's'],
+        [3, 'S'],
+      ]),
+    );
+
+    expect(exitCode).toBe(0);
+    expect(output).toContain('⏩ Work skipped.\n');
+    expect(output).toContain('⏩ Break skipped.\n');
+    expect(output).not.toContain('complete.\n\u001B');
+    expect(events).toEqual([
+      'create-sound-player',
+      'confirm',
+      'set-exit-code:0',
+      'shutdown:complete',
+      `schedule-exit:0:${COMPLETION_SHUTDOWN_DEADLINE_MS}`,
+    ]);
+  });
+
+  test.each([
+    { exitCode: INTERRUPTED_EXIT_CODE, key: '\u0003', name: 'Ctrl+C' },
+    { exitCode: 0, key: 'q', name: 'q' },
+  ])(
+    '$nameでタイマーを止め、端末を元に戻して終了コード$exitCodeで終了する',
+    async ({ exitCode, key }) => {
+      const result = await runInteractive([], new Map([[1, key]]));
+
+      expect(result.exitCode).toBe(exitCode);
+      expect(result.output.endsWith(SHOW_CURSOR)).toBe(true);
+      expect(result.stdin.rawModes).toEqual([true, false]);
+      expect(result.processEvents.listenerCount()).toBe(0);
+      expect(result.events).toEqual([
+        'create-sound-player',
+        'confirm',
+        `set-exit-code:${exitCode}`,
+        'shutdown:abort',
+        `schedule-exit:${exitCode}:${SHUTDOWN_DEADLINE_MS}`,
+      ]);
+    },
+  );
+
+  test('期限到達済みの最後の休憩でqを押すと、終了より完了を優先する', async () => {
+    let currentTime = 0;
     const stdin = createTtyInput(),
       harness = createHarness(
-        [],
+        ['--work', '1', '--break', '1', '--loop', '1'],
         {
           color: false,
           interactive: true,
+          now: () => currentTime,
+          processEvents: createProcessEvents(),
           sleep: () => {
-            stdin.emit('keypress', '\u0003', { ctrl: true, name: 'c' });
+            // 1回目の待機で作業の期限を過ぎ、2回目の待機で休憩の期限を過ぎてからqを押す
+            currentTime += MINUTE_MS;
+
+            if (currentTime > MINUTE_MS) {
+              stdin.emit('keypress', 'q', { name: 'q' });
+            }
+
             return Promise.resolve();
           },
           stdin,
@@ -487,15 +629,69 @@ describe('残り時間の画面', () => {
       ),
       exitCode = await runCli(harness.parameters);
 
-    expect(exitCode).toBe(INTERRUPTED_EXIT_CODE);
-    expect(stdin.rawModes).toEqual([true, false]);
+    expect(exitCode).toBe(0);
     expect(harness.events).toEqual([
       'create-sound-player',
       'confirm',
-      `set-exit-code:${INTERRUPTED_EXIT_CODE}`,
-      'shutdown:abort',
-      `schedule-exit:${INTERRUPTED_EXIT_CODE}:${SHUTDOWN_DEADLINE_MS}`,
+      'play:work',
+      'play:break:completion-notice',
+      'set-exit-code:0',
+      'shutdown:complete',
+      `schedule-exit:0:${COMPLETION_SHUTDOWN_DEADLINE_MS}`,
     ]);
+  });
+
+  test.each([
+    { exitCode: 129, signal: 'SIGHUP' },
+    { exitCode: 130, signal: 'SIGINT' },
+    { exitCode: 143, signal: 'SIGTERM' },
+  ])(
+    '$signalを受け取ると端末を元に戻して終了コード$exitCodeで終了する',
+    async ({ exitCode, signal }) => {
+      const processEvents = createProcessEvents(),
+        harness = createHarness(
+          [],
+          {
+            color: false,
+            interactive: true,
+            processEvents,
+            sleep: () => {
+              processEvents.emit(signal);
+              return Promise.resolve();
+            },
+            stdin: createTtyInput(),
+          },
+          createTerminalStdout(),
+        ),
+        result = await runCli(harness.parameters);
+
+      expect(result).toBe(exitCode);
+      expect(processEvents.listenerCount()).toBe(0);
+      expect(harness.events).toContain(`set-exit-code:${exitCode}`);
+    },
+  );
+
+  test('終了処理を経ずにプロセスが終了するときはカーソルを同期的に戻す', async () => {
+    const processEvents = createProcessEvents(),
+      stdout = Object.assign(createTerminalStdout(), { fd: -1 }),
+      harness = createHarness(
+        [],
+        {
+          color: false,
+          interactive: true,
+          processEvents,
+          sleep: () => {
+            // 書き込めないfdでも例外にせず、exitの保険を実行できる
+            processEvents.emit('exit');
+            return Promise.reject(new Error('stop'));
+          },
+          stdin: createTtyInput(),
+        },
+        stdout,
+      );
+
+    await expect(runCli(harness.parameters)).rejects.toThrow('stop');
+    expect(processEvents.listenerCount()).toBe(0);
   });
 
   test('端末幅が変わると旧画面を消さずに新しい幅の画面を追記する', async () => {
@@ -506,6 +702,7 @@ describe('残り時間の画面', () => {
       {
         color: false,
         interactive: true,
+        processEvents: createProcessEvents(),
         sleep: () => {
           if (!resized) {
             resized = true;
@@ -522,8 +719,21 @@ describe('残り時間の画面', () => {
 
     await expect(runCli(harness.parameters)).rejects.toThrow('stop');
     expect(stdout.output()).toContain(
-      '      work 15:00      break 5:00\n\u001B[2K🍅 WORK  1/3\n\u001B[2K15:00 left · 0%\n',
+      '[q] quit\n\u001B[2K🍅 WORK  1/3\n\u001B[2K15:00 left · 0%\n',
     );
+  });
+
+  test('ロゴが収まらない幅の端末では短い見出しを表示する', async () => {
+    const stdout = Object.assign(createTerminalStdout(), { columns: 40 }),
+      harness = createHarness(
+        [],
+        { confirmStart: () => Promise.resolve(false), interactive: true },
+        stdout,
+      );
+
+    await runCli(harness.parameters);
+
+    expect(stdout.output()).toBe('\n  🍅 pomotty\n\n⏹️ Work was not started.\n');
   });
 
   test('標準出力が端末でない場合はフェーズの開始と完了を1行ずつ出力する', async () => {

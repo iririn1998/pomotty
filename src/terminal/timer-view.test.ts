@@ -1,6 +1,6 @@
 import { cellWidth, stringifyFrameLine } from './frame-line.ts';
 import { createTimerFrame } from './timer-view.ts';
-import type { TimerPhase, TimerSettings } from '#src/timer/timer.ts';
+import type { TimerPhase, TimerSettings } from '#src/timer/state.ts';
 import { describe, expect, test } from 'vitest';
 
 const MINUTE_MS = 60_000,
@@ -14,12 +14,14 @@ const MINUTE_MS = 60_000,
   frameFor = ({
     columns = 80,
     cycle = 1,
+    paused = false,
     phase = 'work',
     remainingMs,
     settings = DEFAULT_SETTINGS,
   }: {
     readonly columns?: number;
     readonly cycle?: number;
+    readonly paused?: boolean;
     readonly phase?: TimerPhase;
     readonly remainingMs: number;
     readonly settings?: TimerSettings;
@@ -28,7 +30,14 @@ const MINUTE_MS = 60_000,
       columns,
       now: NOW,
       settings,
-      state: { completedPomodoros: 0, cycle, endsAt: NOW + remainingMs, phase },
+      state: {
+        completedPomodoros: 0,
+        cycle,
+        endsAt: NOW + remainingMs,
+        paused,
+        phase,
+        remainingMs,
+      },
     }).map((line) => stringifyFrameLine(line, false));
 
 describe('標準の画面', () => {
@@ -46,9 +55,11 @@ describe('標準の画面', () => {
       '  6:18 elapsed      42%        15:00 total',
       '',
       '  #1  ███████████████ █████  ✓',
-      '  #2  ██████▎░░░░░░░░ ░░░░░  ◀ now',
-      '  #3  ░░░░░░░░░░░░░░░ ░░░░░',
+      '  #2  ██████▎········ ·····  ◀ now',
+      '  #3  ··············· ·····',
       '      work 15:00      break 5:00',
+      '',
+      '  [space] pause   [s] skip   [q] quit',
     ]);
   });
 
@@ -58,8 +69,8 @@ describe('標準の画面', () => {
     expect(frame[0]).toBe('  ☕ BREAK                     Cycle 2 / 3');
     expect(frame.slice(11, 14)).toEqual([
       '  #1  ███████████████ █████  ✓',
-      '  #2  ███████████████ ██▌░░  ◀ now',
-      '  #3  ░░░░░░░░░░░░░░░ ░░░░░',
+      '  #2  ███████████████ ██▌··  ◀ now',
+      '  #3  ··············· ·····',
     ]);
   });
 
@@ -77,11 +88,13 @@ describe('標準の画面', () => {
       '      ⋮ 4 done',
       '  #5  ██████████████████ ██  ✓',
       '  #6  ██████████████████ ██  ✓',
-      '  #7  ████▌░░░░░░░░░░░░░ ░░  ◀ now',
-      '  #8  ░░░░░░░░░░░░░░░░░░ ░░',
-      '  #9  ░░░░░░░░░░░░░░░░░░ ░░',
+      '  #7  ████▌············· ··  ◀ now',
+      '  #8  ·················· ··',
+      '  #9  ·················· ··',
       '      ⋮ 11 more',
       '      work 2:00:00       break 10:00',
+      '',
+      '  [space] pause   [s] skip   [q] quit',
     ]);
   });
 
@@ -91,7 +104,7 @@ describe('標準の画面', () => {
       settings: { breakDurationMs: 60 * MINUTE_MS, loopCount: 1, workDurationMs: MINUTE_MS },
     });
 
-    expect(frame.at(-1)).toBe('      work 1:00 · break 1:00:00');
+    expect(frame.at(-3)).toBe('      work 1:00 · break 1:00:00');
   });
 
   test('最後のサイクル付近では表示範囲を末尾へ寄せる', () => {
@@ -121,12 +134,35 @@ describe('標準の画面', () => {
   });
 });
 
+describe('一時停止中の画面', () => {
+  test('一時停止した時点の残り時間を表示し、見出しとキー操作の案内を切り替える', () => {
+    const frame = frameFor({ cycle: 2, paused: true, remainingMs: 8 * MINUTE_MS + 42_000 });
+
+    expect(frame[0]).toBe('  🍅 WORK PAUSED               Cycle 2 / 3');
+    expect(frame[2]).toBe('          ██████    ██  ██ ██████');
+    expect(frame.at(-1)).toBe('  [space] resume   [s] skip   [q] quit');
+  });
+
+  test('コンパクト表示と1行表示でも一時停止を示す', () => {
+    expect(frameFor({ columns: 40, paused: true, remainingMs: MINUTE_MS })).toEqual([
+      '🍅 WORK PAUSED  1/3',
+      '1:00 left · 93%',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━───',
+      '[sp]resume [s]skip [q]quit',
+    ]);
+    expect(frameFor({ columns: 18, paused: true, remainingMs: MINUTE_MS })).toEqual([
+      'PAUSED 1:00 1/3',
+    ]);
+  });
+});
+
 describe('狭い端末の画面', () => {
   test('標準の画面が収まらない場合はコンパクト表示にする', () => {
     expect(frameFor({ columns: 40, cycle: 2, remainingMs: 8 * MINUTE_MS + 42_000 })).toEqual([
       '🍅 WORK  2/3',
       '8:42 left · 42%',
       '━━━━━━━━━━━━━━━━───────────────────────',
+      '[sp]pause [s]skip [q]quit',
     ]);
   });
 
@@ -140,6 +176,6 @@ describe('狭い端末の画面', () => {
   });
 
   test('列数を取得できない場合は80列として扱う', () => {
-    expect(frameFor({ columns: 0, remainingMs: MINUTE_MS })).toHaveLength(15);
+    expect(frameFor({ columns: 0, remainingMs: MINUTE_MS })).toHaveLength(17);
   });
 });

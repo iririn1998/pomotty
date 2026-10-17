@@ -1,6 +1,6 @@
 import type { Operation, OperationTracker, SpawnChild } from './operation.ts';
 import type { PlayerCommands } from '#src/platform/commands.ts';
-import type { TimerPhase } from '#src/timer/timer.ts';
+import type { TimerPhase } from '#src/timer/state.ts';
 import { createDiagnosticWriter } from '#src/diagnostics/writer.ts';
 import { createOperationTracker } from './operation.ts';
 import { fileURLToPath } from 'node:url';

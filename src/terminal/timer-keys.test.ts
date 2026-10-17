@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import { PassThrough } from 'node:stream';
 import { setImmediate as waitForIo } from 'node:timers/promises';
-import { watchInterruptKey } from './interrupt-key.ts';
+import { timerKeyFrom, watchTimerKeys } from './timer-keys.ts';
 
 type FakeInput = PassThrough & {
   readonly isRaw: boolean;
@@ -30,28 +30,49 @@ const createInput = (isTTY: boolean): FakeInput => {
   ) as unknown as FakeInput;
 };
 
+describe('キー操作の判定', () => {
+  test.each([
+    { expected: 'interrupt', key: { ctrl: true, name: 'c' } },
+    { expected: 'toggle-pause', key: { name: 'space' } },
+    { expected: 'skip', key: { name: 's' } },
+    { expected: 'skip', key: { name: 's', shift: true } },
+    { expected: 'quit', key: { name: 'q' } },
+    { expected: 'quit', key: { name: 'q', shift: true } },
+    { expected: undefined, key: { ctrl: true, name: 's' } },
+    { expected: undefined, key: { meta: true, name: 'q' } },
+    { expected: undefined, key: { ctrl: true, meta: true, name: 'c' } },
+    { expected: undefined, key: { name: 'f4' } },
+    { expected: undefined, key: { ctrl: true, name: 'd' } },
+    { expected: undefined, key: undefined },
+  ])('$keyは$expectedとして扱う', ({ expected, key }) => {
+    expect(timerKeyFrom(key)).toBe(expected);
+  });
+});
+
 describe('タイマー実行中のキー監視', () => {
-  test('Ctrl+Cで中断処理を呼び出し、それ以外のキーは無視する', async () => {
+  test('復号したキーを順番に操作として渡し、対応しないキーは無視する', async () => {
     const input = createInput(true),
-      onInterrupt = vi.fn<() => void>(),
-      stop = watchInterruptKey({ input, onInterrupt });
+      keys: string[] = [],
+      stop = watchTimerKeys({
+        input,
+        onKey: (key) => {
+          keys.push(key);
+        },
+      });
 
-    input.write('q');
-    input.write('\r');
-    await waitForIo();
-
-    expect(onInterrupt).not.toHaveBeenCalled();
-
+    // Alt+q、F4（SS3のESC O S）、Enterは操作にしない
+    input.write('a\r\u001Bq\u001BOS');
+    input.write(' sSq');
     input.write('\u0003');
     await waitForIo();
 
-    expect(onInterrupt).toHaveBeenCalledTimes(1);
+    expect(keys).toEqual(['toggle-pause', 'skip', 'skip', 'quit', 'interrupt']);
     stop();
   });
 
   test('TTYでは監視中だけraw modeを有効にし、停止後に元へ戻す', () => {
     const input = createInput(true),
-      stop = watchInterruptKey({ input, onInterrupt: vi.fn<() => void>() });
+      stop = watchTimerKeys({ input, onKey: vi.fn<() => void>() });
 
     expect(input.isRaw).toBe(true);
     expect(input.readableFlowing).toBe(true);
@@ -65,14 +86,14 @@ describe('タイマー実行中のキー監視', () => {
 
   test('非TTYではraw modeを変更せず、停止後はキーを処理しない', async () => {
     const input = createInput(false),
-      onInterrupt = vi.fn<() => void>(),
-      stop = watchInterruptKey({ input, onInterrupt });
+      onKey = vi.fn<() => void>(),
+      stop = watchTimerKeys({ input, onKey });
 
     stop();
     input.write('\u0003');
     await waitForIo();
 
     expect(input.rawModes).toEqual([]);
-    expect(onInterrupt).not.toHaveBeenCalled();
+    expect(onKey).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,5 @@
 import { formatClock, progressFor } from './clock.ts';
-import type { TimerSettings } from '#src/timer/timer.ts';
+import type { TimerSettings } from '#src/timer/state.ts';
 import { describe, expect, test } from 'vitest';
 
 const MINUTE_MS = 60_000,
@@ -23,7 +23,14 @@ describe('時間の書式', () => {
   });
 
   test('残り時間は秒を切り上げ、残り1msでも0:01と表示する', () => {
-    const state = { completedPomodoros: 0, cycle: 1, endsAt: NOW + 1, phase: 'work' as const };
+    const state = {
+      completedPomodoros: 0,
+      cycle: 1,
+      endsAt: NOW + 1,
+      paused: false,
+      phase: 'work' as const,
+      remainingMs: 0,
+    };
 
     expect(progressFor(state, NOW, DEFAULT_SETTINGS)).toMatchObject({
       elapsedSeconds: 899,
@@ -35,7 +42,14 @@ describe('時間の書式', () => {
 
   test('残り3599.5秒は59:59ではなく1:00:00として扱う', () => {
     const settings = { ...DEFAULT_SETTINGS, workDurationMs: 90 * MINUTE_MS },
-      state = { completedPomodoros: 0, cycle: 1, endsAt: NOW + 3_599_500, phase: 'work' as const };
+      state = {
+        completedPomodoros: 0,
+        cycle: 1,
+        endsAt: NOW + 3_599_500,
+        paused: false,
+        phase: 'work' as const,
+        remainingMs: 0,
+      };
 
     expect(formatClock(progressFor(state, NOW, settings).remainingSeconds)).toBe('1:00:00');
   });
@@ -45,7 +59,9 @@ describe('時間の書式', () => {
       completedPomodoros: 0,
       cycle: 1,
       endsAt: NOW + 20 * MINUTE_MS,
+      paused: false,
       phase: 'work' as const,
+      remainingMs: 0,
     };
 
     expect(progressFor(state, NOW, DEFAULT_SETTINGS)).toMatchObject({
