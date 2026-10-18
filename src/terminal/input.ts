@@ -231,7 +231,7 @@ const CHOICES = ['OK', 'NG'] as const,
     }
   };
 
-export { confirmWorkStart, createSelectionTerminal };
+export { CONTROL_C_KEY_NAME, confirmWorkStart, createSelectionTerminal, keyFrom };
 export type {
   ConfirmWorkStartParameters,
   SelectionInput,

@@ -134,8 +134,13 @@ export default defineConfig({
         'src/notification/operation.ts',
         'src/notification/sound.ts',
         'src/platform/commands.ts',
+        'src/cli/progress-view.ts',
+        'src/terminal/inline-renderer.ts',
         'src/terminal/input.ts',
         'src/terminal/output.ts',
+        'src/terminal/terminal-guard.ts',
+        'src/terminal/timer-keys.ts',
+        'src/timer/state.ts',
         'src/timer/timer.ts',
       ],
       rules: {
@@ -166,8 +171,22 @@ export default defineConfig({
       },
     },
     {
+      // タイマー画面の部品です。定数を画面上の並び順で宣言し、型と値のimportを分けます。
+      files: [
+        'src/terminal/clock.ts',
+        'src/terminal/frame-line.ts',
+        'src/terminal/timeline.ts',
+        'src/terminal/timer-view.ts',
+      ],
+      rules: {
+        'no-duplicate-imports': 'off',
+        'sort-vars': 'off',
+      },
+    },
+    {
       // 外部コマンドは端末初期化前に1回だけ同期的に解決します。
-      files: ['src/platform/commands.ts'],
+      // 隠したカーソルは、プロセスのexitイベントで同期的に表示し直します。
+      files: ['src/platform/commands.ts', 'src/terminal/terminal-guard.ts'],
       rules: {
         'node/no-sync': 'off',
       },

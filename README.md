@@ -40,6 +40,51 @@ pomotty --loop 5
 pomotty --work=25 --break=5 --loop=2
 ```
 
+While the timer runs, the remaining time is shown in large digits and updated in
+place. Below it are a progress bar for the current phase (elapsed time, percentage,
+and total time) and a timeline showing the work and break progress of each cycle.
+
+```text
+  🍅 WORK                      Cycle 2 / 3
+
+          ██████    ██  ██ ██████
+          ██  ██ ██ ██  ██     ██
+          ██████    ██████ ██████
+          ██  ██ ██     ██ ██
+          ██████        ██ ██████
+
+  ━━━━━━━━━━━━━━━━────────────────────────
+  6:18 elapsed      42%        15:00 total
+
+  #1  ███████████████ █████  ✓
+  #2  ██████▎········ ·····  ◀ now
+  #3  ··············· ·····
+      work 15:00      break 5:00
+
+  [space] pause   [s] skip   [q] quit
+```
+
+Work is shown in red and breaks in green. Set `NO_COLOR` to a non-empty value to
+disable colors. In narrow terminals, the timer switches to a compact view with only
+the remaining time, percentage, and bar, or to a single line, and the startup logo
+is replaced with a short title.
+
+While the timer runs, you can use these keys:
+
+| Key      | Action                                                                               |
+| -------- | ------------------------------------------------------------------------------------ |
+| `space`  | Pause or resume. Time does not pass while paused                                     |
+| `s`      | Skip the current phase. No sound plays, and skipped work is not counted as completed |
+| `q`      | Stop the timer and exit (exit code 0)                                                |
+| `Ctrl+C` | Stop the timer and exit (exit code 130)                                              |
+
+If the current phase has already reached its end time when you press a key, the
+phase is completed first and the key then applies to the next phase. On `SIGTERM`
+(143) or `SIGHUP` (129), the timer also restores the hidden cursor and the terminal
+input mode before exiting. When standard input or output is not a terminal (for
+example, a pipe or redirect), keys are not read and the timer prints one line when
+each phase starts and finishes.
+
 To see the available options, run:
 
 ```shell

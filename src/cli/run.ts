@@ -1,12 +1,15 @@
 import { MILLISECONDS_PER_MINUTE, runPomodoroTimer } from '#src/timer/timer.ts';
-import type { Now, Sleep, TimerPhase } from '#src/timer/timer.ts';
+import type { Now, Sleep } from '#src/timer/timer.ts';
 import type { OutputStream, WriteOutput } from '#src/terminal/output.ts';
+import type { ProgressViewParameters, StopReason, TimerView } from '#src/cli/progress-view.ts';
 import { createStandardOutput, isBrokenPipe } from '#src/terminal/output.ts';
 import { OPTIONS } from '#src/cli/constants.ts';
+import type { SelectionInput } from '#src/terminal/input.ts';
 import type { SoundPlayer } from '#src/notification/sound.ts';
 import { confirmWorkStart } from '#src/terminal/input.ts';
 import { createCliOutput } from '#src/terminal/render.ts';
 import { createDiagnosticWriter } from '#src/diagnostics/writer.ts';
+import { createProgressView } from '#src/cli/progress-view.ts';
 import { parseCliArguments } from '#src/cli/parse-arguments.ts';
 import process from 'node:process';
 
@@ -47,6 +50,23 @@ type RunCliParameters = {
   /** 標準出力です。 */
   readonly stdout?: OutputStream;
 
+  /** タイマー実行中のキー入力を読み取る標準入力です。 */
+  readonly stdin?: SelectionInput;
+
+  /**
+   * 残り時間の画面を同じ位置へ描き直し、キー操作を受け付けるかを示します。
+   *
+   * 省略時は標準入出力がどちらもTTYで、`TERM`が`dumb`でない場合に有効にします。
+   * 無効の場合はフェーズの開始と完了だけを1行ずつ出力します。
+   */
+  readonly interactive?: boolean;
+
+  /** 画面の表示中に、終了とシグナルのイベントを登録するプロセスです。 */
+  readonly processEvents?: ProgressViewParameters['processEvents'];
+
+  /** 画面に色を付けるかを示します。省略時は`NO_COLOR`から判定します。 */
+  readonly color?: boolean;
+
   /** CLIのエラーを書き込む処理です。 */
   readonly writeError?: WriteError;
 
@@ -59,19 +79,22 @@ type RunCliParameters = {
 
 const CLI_ARGUMENTS_START_INDEX = 2,
   FAILURE_EXIT_CODE = 1,
-  PHASE_ICONS = { break: '☕', work: '🍅' } as const,
-  PHASE_NAMES = { break: 'Break', work: 'Work' } as const,
   SUCCESS_EXIT_CODE = 0,
+  /** Ctrl+Cで中断したときの終了コードです。 */
+  INTERRUPTED_EXIT_CODE = 130,
+  /** タイマーを止めた理由ごとの終了コードです。シグナルは`128 + シグナル番号`です。 */
+  STOP_EXIT_CODES: Readonly<Record<StopReason, number>> = {
+    SIGHUP: 129,
+    SIGINT: INTERRUPTED_EXIT_CODE,
+    SIGTERM: 143,
+    interrupt: INTERRUPTED_EXIT_CODE,
+    quit: SUCCESS_EXIT_CODE,
+  },
   USAGE_ERROR_EXIT_CODE = 2,
   /** 完了終了以外で、終了処理の開始から親プロセスを強制終了するまでの上限です。 */
   SHUTDOWN_DEADLINE_MS = 2000,
   /** 完了終了で、完了通知の猶予を含めて親プロセスを強制終了するまでの上限です。 */
   COMPLETION_SHUTDOWN_DEADLINE_MS = 5000,
-  /** フェーズ開始メッセージを生成します。 */
-  createPhaseStartedOutput = (phase: TimerPhase, durationMs: number): string => {
-    const durationMinutes = durationMs / MILLISECONDS_PER_MINUTE;
-    return `${PHASE_ICONS[phase]} ${PHASE_NAMES[phase]} started (${durationMinutes} min)\n`;
-  },
   /** 出力失敗に対応する終了コードを返します。閉じたパイプは正常終了として扱います。 */
   exitCodeForOutputFailure = (error: unknown): number => {
     if (isBrokenPipe(error)) {
@@ -125,7 +148,11 @@ const CLI_ARGUMENTS_START_INDEX = 2,
     scheduleExit = scheduleProcessExit,
     setExitCode = setProcessExitCode,
     sleep,
+    stdin,
     stdout,
+    interactive,
+    processEvents,
+    color,
     writeError = createDiagnosticWriter(),
   }: RunCliParameters): Promise<number> => {
     const parsedArguments = parseCliArguments(arguments_);
@@ -140,7 +167,9 @@ const CLI_ARGUMENTS_START_INDEX = 2,
     }
 
     const controller = new AbortController();
-    let shutdownExitCode: number | undefined, soundPlayer: SoundPlayer | undefined;
+    let shutdownExitCode: number | undefined,
+      soundPlayer: SoundPlayer | undefined,
+      view: TimerView | undefined;
 
     /**
      * 終了処理を1回だけ開始します。
@@ -173,7 +202,13 @@ const CLI_ARGUMENTS_START_INDEX = 2,
 
     try {
       soundPlayer = createSoundPlayer();
-      writeOutput(createCliOutput({ optionName: '', options: OPTIONS }));
+      writeOutput(
+        createCliOutput({
+          columns: (stdout ?? process.stdout).columns,
+          optionName: '',
+          options: OPTIONS,
+        }),
+      );
 
       if (shutdownExitCode !== undefined) {
         return shutdownExitCode;
@@ -191,21 +226,42 @@ const CLI_ARGUMENTS_START_INDEX = 2,
       }
 
       const player = soundPlayer,
-        result = await runPomodoroTimer({
+        settings = {
           breakDurationMs: parsedArguments.breakDurationMinutes * MILLISECONDS_PER_MINUTE,
           loopCount: parsedArguments.loopCount,
+          workDurationMs: parsedArguments.workDurationMinutes * MILLISECONDS_PER_MINUTE,
+        };
+
+      view = createProgressView({
+        color,
+        interactive,
+        onStop: (reason) => {
+          requestShutdown(STOP_EXIT_CODES[reason], false);
+        },
+        processEvents,
+        settings,
+        stdin,
+        stdout,
+        write: writeOutput,
+      });
+
+      const timerView = view,
+        result = await runPomodoroTimer({
+          ...settings,
+          bindControls: timerView.bindControls,
           now,
           onPhaseCompleted: (phase, { final }) => {
-            writeOutput(`✅ ${PHASE_NAMES[phase]} complete.\n`);
+            timerView.onPhaseCompleted(phase);
             player.play(phase, { completionNotice: final });
           },
-          onPhaseStarted: (phase, durationMs) => {
-            writeOutput(createPhaseStartedOutput(phase, durationMs));
-          },
+          onPhaseSkipped: timerView.onPhaseSkipped,
+          onPhaseStarted: timerView.onPhaseStarted,
+          onTick: timerView.onTick,
           signal: controller.signal,
           sleep,
-          workDurationMs: parsedArguments.workDurationMinutes * MILLISECONDS_PER_MINUTE,
         });
+
+      view.finish();
 
       if (!result.completed) {
         return shutdownExitCode ?? FAILURE_EXIT_CODE;
@@ -214,10 +270,11 @@ const CLI_ARGUMENTS_START_INDEX = 2,
       writeOutput('🎉 Pomodoro complete.\n');
       return requestShutdown(SUCCESS_EXIT_CODE, true);
     } catch (error) {
+      view?.finish();
       requestShutdown(FAILURE_EXIT_CODE, false);
       throw error;
     }
   };
 
-export { COMPLETION_SHUTDOWN_DEADLINE_MS, SHUTDOWN_DEADLINE_MS, runCli };
+export { COMPLETION_SHUTDOWN_DEADLINE_MS, INTERRUPTED_EXIT_CODE, SHUTDOWN_DEADLINE_MS, runCli };
 export type { ConfirmStartParameters, RunCliParameters, WriteError };
