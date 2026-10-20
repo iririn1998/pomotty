@@ -1,4 +1,4 @@
-import { FORCE_KILL_DELAY_MS, PLAYER_TIMEOUT_MS } from './operation.ts';
+import { FORCE_KILL_DELAY_MS, PLAYER_TIMEOUT_MS, createOperationTracker } from './operation.ts';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { PlayerCommands } from '#src/platform/commands.ts';
 import type { SoundPlayer } from './sound.ts';
@@ -7,6 +7,7 @@ import { createFakeSpawner } from './fake-child.test-helper.ts';
 import { createSoundPlayer } from './sound.ts';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
+import process from 'node:process';
 
 const APLAY = '/usr/bin/aplay',
   PAPLAY = '/usr/bin/paplay',
@@ -223,4 +224,152 @@ test('前の再生が終わる前の再生要求は前の再生を止めずに�
 
   expect(spawner.children).toHaveLength(2);
   expect(spawner.children.flatMap(({ signals }) => signals)).toEqual([]);
+});
+
+test('すべての再生コマンドがある場合はafplay、paplay、aplay、PowerShellの順に試す', async () => {
+  const { bells, player, spawner } = createPlayer({
+    afplay: '/usr/bin/afplay',
+    aplay: APLAY,
+    paplay: PAPLAY,
+    powershell: POWERSHELL,
+  });
+
+  player.play('work');
+
+  for (let index = 0; index < 4; index += 1) {
+    spawner.children[index]?.emitClose(1);
+    // oxlint-disable-next-line no-await-in-loop
+    await flush();
+  }
+
+  expect(spawner.children.map(({ commandPath }) => commandPath)).toEqual([
+    '/usr/bin/afplay',
+    PAPLAY,
+    APLAY,
+    POWERSHELL,
+  ]);
+  expect(spawner.children.slice(0, 3).map(({ commandArguments }) => commandArguments)).toEqual([
+    [WORK_SOUND],
+    [WORK_SOUND],
+    [WORK_SOUND],
+  ]);
+  expect(bells).toEqual(['\u0007']);
+});
+
+test('PowerShell以外の再生コマンドには環境変数を指定しない', () => {
+  const { player, spawner } = createPlayer({ afplay: '/usr/bin/afplay' });
+
+  player.play('work');
+
+  expect(spawner.children[0]?.env).toBeUndefined();
+});
+
+test('終了処理の後の再生要求では子プロセスもベルも開始しない', async () => {
+  const { bells, player, spawner } = createPlayer(LINUX_COMMANDS);
+
+  await player.shutdown({ complete: false });
+  player.play('work');
+  await flush();
+
+  expect(spawner.children).toEqual([]);
+  expect(bells).toEqual([]);
+});
+
+test('再生中に終了処理が始まると次の候補もベルも実行しない', async () => {
+  const { bells, player, spawner } = createPlayer(LINUX_COMMANDS);
+
+  player.play('work');
+  await player.shutdown({ complete: false });
+  spawner.children[0]?.emitClose(null, 'SIGTERM');
+  await flush();
+
+  expect(spawner.children).toHaveLength(1);
+  expect(bells).toEqual([]);
+});
+
+test('完了終了中も完了通知の再生は次の候補とベルまで続ける', async () => {
+  const { bells, player, spawner } = createPlayer(LINUX_COMMANDS);
+
+  player.play('break', { completionNotice: true });
+  void player.shutdown({ complete: true });
+  spawner.children[0]?.emitClose(1);
+  await flush();
+  spawner.children[1]?.emitClose(1);
+  await flush();
+
+  expect(spawner.children.map(({ commandPath }) => commandPath)).toEqual([PAPLAY, APLAY]);
+  expect(bells).toEqual(['\u0007\u0007']);
+});
+
+test('完了終了では完了通知でない再生を打ち切り、ベルを鳴らさない', async () => {
+  const { bells, player, spawner } = createPlayer(LINUX_COMMANDS);
+
+  player.play('work');
+  await player.shutdown({ complete: true });
+  spawner.children[0]?.emitClose(1);
+  await flush();
+
+  expect(spawner.children).toHaveLength(1);
+  expect(spawner.children[0]?.signals).toEqual(['SIGTERM']);
+  expect(bells).toEqual([]);
+});
+
+test('追跡処理を指定した場合はその追跡処理で子プロセスを起動し、終了処理を委ねる', async () => {
+  const spawner = createFakeSpawner(),
+    tracker = createOperationTracker(spawner.spawnChild),
+    shutdown = vi.spyOn(tracker, 'shutdown'),
+    unused = createFakeSpawner(),
+    player = createSoundPlayer({
+      commands: { afplay: '/usr/bin/afplay' },
+      soundDirectory: SOUND_DIRECTORY,
+      spawnChild: unused.spawnChild,
+      tracker,
+      writeFallback: vi.fn<() => void>(),
+    });
+
+  player.play('work');
+  await player.shutdown({ complete: true });
+
+  expect(spawner.children).toHaveLength(1);
+  expect(unused.children).toEqual([]);
+  expect(shutdown).toHaveBeenCalledWith({ complete: true });
+});
+
+test('環境変数を省略した場合はプロセスの環境変数をPowerShellへ引き継ぐ', () => {
+  const spawner = createFakeSpawner(),
+    player = createSoundPlayer({
+      commands: { powershell: POWERSHELL },
+      soundDirectory: SOUND_DIRECTORY,
+      spawnChild: spawner.spawnChild,
+      writeFallback: vi.fn<() => void>(),
+    });
+
+  player.play('work');
+
+  expect(spawner.children[0]?.env).toEqual({ ...process.env, POMOTTY_SOUND_FILE: WORK_SOUND });
+});
+
+test('ベルの書き込み処理を省略した場合は標準エラー出力へ書き込む', async () => {
+  const write = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+  try {
+    const player = createSoundPlayer({ commands: {}, soundDirectory: SOUND_DIRECTORY });
+
+    player.play('break');
+    await flush();
+
+    expect(write).toHaveBeenCalledWith('\u0007\u0007');
+  } finally {
+    write.mockRestore();
+  }
+});
+
+test('completionNoticeを省略した再生要求は完了通知として扱わない', async () => {
+  const { bells, player, spawner } = createPlayer(LINUX_COMMANDS);
+
+  player.play('break', {});
+  await player.shutdown({ complete: true });
+
+  expect(spawner.children[0]?.signals).toEqual(['SIGTERM']);
+  expect(bells).toEqual([]);
 });

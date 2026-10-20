@@ -179,3 +179,201 @@ describe('狭い端末の画面', () => {
     expect(frameFor({ columns: 0, remainingMs: MINUTE_MS })).toHaveLength(17);
   });
 });
+
+describe('大きな数字', () => {
+  const LONG_SETTINGS: TimerSettings = {
+      breakDurationMs: 5 * MINUTE_MS,
+      loopCount: 1,
+      workDurationMs: 600 * MINUTE_MS,
+    },
+    bigRowsFor = (remainingSeconds: number): string[] =>
+      frameFor({ remainingMs: remainingSeconds * 1000, settings: LONG_SETTINGS }).slice(2, 7);
+
+  test('1時間以上の残り時間をH:MM:SSで描画し、1から5の字形を使う', () => {
+    expect(bigRowsFor(1 * 3600 + 23 * 60 + 45)).toEqual([
+      '  ████      ██████ ██████    ██  ██ ██████',
+      '    ██   ██     ██     ██ ██ ██  ██ ██',
+      '    ██      ██████ ██████    ██████ ██████',
+      '    ██   ██ ██         ██ ██     ██     ██',
+      '  ██████    ██████ ██████        ██ ██████',
+    ]);
+  });
+
+  test('6、7、8、0の字形を使う', () => {
+    expect(bigRowsFor(6 * 3600 + 7 * 60 + 8)).toEqual([
+      '  ██████    ██████ ██████    ██████ ██████',
+      '  ██     ██ ██  ██     ██ ██ ██  ██ ██  ██',
+      '  ██████    ██  ██     ██    ██  ██ ██████',
+      '  ██  ██ ██ ██  ██     ██ ██ ██  ██ ██  ██',
+      '  ██████    ██████     ██    ██████ ██████',
+    ]);
+  });
+
+  test('9の字形を使う', () => {
+    expect(bigRowsFor(9 * 3600 + 59 * 60 + 9)).toEqual([
+      '  ██████    ██████ ██████    ██████ ██████',
+      '  ██  ██ ██ ██     ██  ██ ██ ██  ██ ██  ██',
+      '  ██████    ██████ ██████    ██  ██ ██████',
+      '      ██ ██     ██     ██ ██ ██  ██     ██',
+      '  ██████    ██████ ██████    ██████ ██████',
+    ]);
+  });
+
+  test('バーより幅の広い残り時間は中央寄せせず、インデントの位置から描画する', () => {
+    const frame = frameFor({
+      remainingMs: 50 * 60 * MINUTE_MS,
+      settings: { breakDurationMs: MINUTE_MS, loopCount: 1, workDurationMs: 100 * 60 * MINUTE_MS },
+    });
+
+    expect(frame[2]).toBe('  ██████ ██████    ██████ ██████    ██████ ██████');
+  });
+
+  test('残り0秒は0:00と表示する', () => {
+    expect(frameFor({ remainingMs: 0 }).slice(2, 7)).toEqual([
+      '          ██████    ██████ ██████',
+      '          ██  ██ ██ ██  ██ ██  ██',
+      '          ██  ██    ██  ██ ██  ██',
+      '          ██  ██ ██ ██  ██ ██  ██',
+      '          ██████    ██████ ██████',
+    ]);
+  });
+});
+
+describe('経過時間の行', () => {
+  test('経過時間、経過率、長さが収まらない場合は最低限の間隔で並べる', () => {
+    const frame = frameFor({
+      remainingMs: 50 * 60 * MINUTE_MS,
+      settings: { breakDurationMs: MINUTE_MS, loopCount: 1, workDurationMs: 200 * 60 * MINUTE_MS },
+    });
+
+    expect(frame[9]).toBe('  150:00:00 elapsed  75%  200:00:00 total');
+  });
+
+  test('経過率0%と100%の経過バーを表示する', () => {
+    expect(frameFor({ remainingMs: 15 * MINUTE_MS }).slice(8, 10)).toEqual([
+      '  ────────────────────────────────────────',
+      '  0:00 elapsed       0%        15:00 total',
+    ]);
+    expect(frameFor({ remainingMs: 0 }).slice(8, 10)).toEqual([
+      '  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '  15:00 elapsed     100%       15:00 total',
+    ]);
+  });
+});
+
+describe('色の指定', () => {
+  test('フェーズ名、大きな数字、経過バーの充填部分にフェーズの色を指定する', () => {
+    const frame = createTimerFrame({
+      columns: 80,
+      now: NOW,
+      settings: DEFAULT_SETTINGS,
+      state: {
+        completedPomodoros: 0,
+        cycle: 1,
+        endsAt: NOW + 5 * MINUTE_MS,
+        paused: false,
+        phase: 'work',
+        remainingMs: 0,
+      },
+    });
+
+    expect(frame.slice(0, 9)).toEqual([
+      [
+        { text: '  ' },
+        { text: '🍅 WORK', tone: 'work' },
+        { text: '                      Cycle 1 / 3' },
+      ],
+      [],
+      [{ text: '          ' }, { text: '██████    ██████ ██████', tone: 'work' }],
+      [{ text: '          ' }, { text: '██     ██ ██  ██ ██  ██', tone: 'work' }],
+      [{ text: '          ' }, { text: '██████    ██  ██ ██  ██', tone: 'work' }],
+      [{ text: '          ' }, { text: '    ██ ██ ██  ██ ██  ██', tone: 'work' }],
+      [{ text: '          ' }, { text: '██████    ██████ ██████', tone: 'work' }],
+      [],
+      [
+        { text: '  ' },
+        { text: '━━━━━━━━━━━━━━━━━━━━━━━━━━', tone: 'work' },
+        { text: '──────────────' },
+      ],
+    ]);
+  });
+
+  test('休憩中はフェーズの色を休憩にする', () => {
+    const [header] = createTimerFrame({
+      columns: 80,
+      now: NOW,
+      settings: DEFAULT_SETTINGS,
+      state: {
+        completedPomodoros: 0,
+        cycle: 1,
+        endsAt: NOW,
+        paused: true,
+        phase: 'break',
+        remainingMs: MINUTE_MS,
+      },
+    });
+
+    expect(header?.[1]).toEqual({ text: '☕ BREAK PAUSED', tone: 'break' });
+  });
+});
+
+describe('画面の切り替え', () => {
+  test('標準の画面がちょうど収まる43列では標準の画面を表示する', () => {
+    expect(frameFor({ columns: 43, remainingMs: 5 * MINUTE_MS })).toHaveLength(17);
+  });
+
+  test('42列では標準の画面が収まらないためコンパクト表示にする', () => {
+    expect(frameFor({ columns: 42, remainingMs: 5 * MINUTE_MS })).toEqual([
+      '🍅 WORK  1/3',
+      '5:00 left · 66%',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━──────────────',
+      '[sp]pause [s]skip [q]quit',
+    ]);
+  });
+
+  test('コンパクト表示では経過バーを端末幅へ縮め、収まらない行を省略する', () => {
+    expect(frameFor({ columns: 21, phase: 'break', remainingMs: 5 * MINUTE_MS })).toEqual([
+      '☕ BREAK  1/3',
+      '5:00 left · 0%',
+      '────────────────────',
+      '[sp]pause [s]skip […',
+    ]);
+  });
+
+  test('20列では1行表示にする', () => {
+    expect(frameFor({ columns: 20, phase: 'break', remainingMs: 5 * MINUTE_MS })).toEqual([
+      'BREAK 5:00 1/3',
+    ]);
+  });
+
+  test('1列では省略記号だけを表示する', () => {
+    expect(frameFor({ columns: 1, remainingMs: 5 * MINUTE_MS })).toEqual(['…']);
+  });
+
+  test('列数が未定義の場合は80列として扱う', () => {
+    const frame = createTimerFrame({
+      now: NOW,
+      settings: DEFAULT_SETTINGS,
+      state: {
+        completedPomodoros: 0,
+        cycle: 1,
+        endsAt: NOW + 5 * MINUTE_MS,
+        paused: false,
+        phase: 'work',
+        remainingMs: 0,
+      },
+    });
+
+    expect(frame).toHaveLength(17);
+  });
+
+  test('どの列数でも各行を端末幅より1セル狭く収める', () => {
+    for (let columns = 2; columns <= 100; columns += 1) {
+      for (const paused of [false, true]) {
+        for (const line of frameFor({ columns, cycle: 2, paused, remainingMs: 8 * MINUTE_MS })) {
+          expect(cellWidth(line)).toBeLessThanOrEqual(columns - 1);
+        }
+      }
+    }
+  });
+});

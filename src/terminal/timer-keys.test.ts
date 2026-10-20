@@ -6,6 +6,7 @@ import { timerKeyFrom, watchTimerKeys } from './timer-keys.ts';
 type FakeInput = PassThrough & {
   readonly isRaw: boolean;
   readonly rawModes: readonly boolean[];
+  readonly setRawMode: (mode: boolean) => PassThrough;
 };
 
 /** TTYとして振る舞い、raw modeの切り替えを記録する入力ストリームを作成します。 */
@@ -95,5 +96,83 @@ describe('タイマー実行中のキー監視', () => {
 
     expect(input.rawModes).toEqual([]);
     expect(onKey).not.toHaveBeenCalled();
+  });
+});
+
+describe('端末の状態の扱い', () => {
+  test('既にraw modeの端末ではraw modeを変更しない', () => {
+    const input = createInput(true);
+
+    input.setRawMode(true);
+
+    const stop = watchTimerKeys({ input, onKey: vi.fn<() => void>() });
+
+    stop();
+
+    expect(input.rawModes).toEqual([true]);
+    expect(input.isRaw).toBe(true);
+  });
+
+  test('既にflowing状態の入力は停止後もflowing状態のままにする', () => {
+    const input = createInput(false);
+
+    input.resume();
+
+    const pause = vi.spyOn(input, 'pause'),
+      stop = watchTimerKeys({ input, onKey: vi.fn<() => void>() });
+
+    stop();
+
+    expect(pause).not.toHaveBeenCalled();
+    expect(input.readableFlowing).toBe(true);
+  });
+
+  test('setRawModeを持たないTTYでもキーを監視できる', async () => {
+    const input = Object.assign(new PassThrough(), { isTTY: true }),
+      keys: string[] = [],
+      stop = watchTimerKeys({
+        input,
+        onKey: (key) => {
+          keys.push(key);
+        },
+      });
+
+    input.write('q');
+    await waitForIo();
+    stop();
+
+    expect(keys).toEqual(['quit']);
+  });
+
+  test('停止しても同じ入力の他のkeypressリスナーは残す', async () => {
+    const input = createInput(false),
+      other = vi.fn<() => void>(),
+      stop = watchTimerKeys({ input, onKey: vi.fn<() => void>() });
+
+    input.on('keypress', other);
+    stop();
+    input.resume();
+    input.write('q');
+    await waitForIo();
+
+    expect(other).toHaveBeenCalledTimes(1);
+  });
+
+  test('非TTYでも監視中はキーを処理する', async () => {
+    const input = createInput(false),
+      keys: string[] = [],
+      stop = watchTimerKeys({
+        input,
+        onKey: (key) => {
+          keys.push(key);
+        },
+      });
+
+    input.write(' ');
+    await waitForIo();
+    stop();
+
+    expect(keys).toEqual(['toggle-pause']);
+    expect(input.rawModes).toEqual([]);
   });
 });

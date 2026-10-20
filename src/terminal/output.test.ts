@@ -92,3 +92,52 @@ test.each([
 ])('EPIPEを判定する: $error', ({ error, expected }) => {
   expect(isBrokenPipe(error)).toBe(expected);
 });
+
+test('同期例外の後は出力先へ書き込みを試みない', () => {
+  let attempts = 0;
+  const stream = createStream(() => {
+      attempts += 1;
+      throw new Error('stream destroyed');
+    }),
+    write = createStandardOutput(() => {
+      // 失敗の内容はこのテストでは確認しません。
+    }, stream);
+
+  write('first');
+  write('second');
+
+  expect(attempts).toBe(1);
+});
+
+test('同期例外の後に発生した非同期のerrorイベントは通知しない', () => {
+  const failures: unknown[] = [],
+    failure = new Error('stream destroyed'),
+    stream = createStream(() => {
+      throw failure;
+    }),
+    write = createStandardOutput((error) => {
+      failures.push(error);
+    }, stream);
+
+  write('first');
+  stream.emitError(new Error('later'));
+
+  expect(failures).toEqual([failure]);
+});
+
+test('書き込みの前でもerrorイベントで以後の書き込みを省略する', () => {
+  const stream = createStream(),
+    write = createStandardOutput(() => {
+      // 失敗の内容はこのテストでは確認しません。
+    }, stream);
+
+  stream.emitError(new Error('closed'));
+  write('after');
+
+  expect(stream.writes).toEqual([]);
+});
+
+test('EPIPEのコードを持つオブジェクトはErrorでなくても閉じたパイプとして扱う', () => {
+  expect(isBrokenPipe({ code: 'EPIPE' })).toBe(true);
+  expect(isBrokenPipe({ code: 'EIO' })).toBe(false);
+});

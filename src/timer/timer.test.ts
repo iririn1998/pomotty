@@ -7,7 +7,7 @@ import {
 } from './timer.ts';
 import { transitionFromTimeout } from './state.ts';
 import type { RunPomodoroTimerParameters, Sleep, TimerControls, TimerResult } from './timer.ts';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
 type FakeClock = {
   readonly elapsed: () => number;
@@ -513,5 +513,304 @@ describe('実行中の操作', () => {
 
     expect(controls?.settle()).toBe(false);
     expect(events).toEqual([]);
+  });
+});
+
+describe('待機と中断', () => {
+  test('各tickでtick間隔と中断シグナルを待機処理へ渡す', async () => {
+    const calls: [number, boolean][] = [],
+      clock = createFakeClock();
+
+    await runPomodoroTimer({
+      breakDurationMs: TICK_INTERVAL_MS,
+      loopCount: 1,
+      now: clock.now,
+      sleep: (durationMs, signal) => {
+        calls.push([durationMs, signal instanceof AbortSignal]);
+        return clock.sleep(durationMs);
+      },
+      workDurationMs: TICK_INTERVAL_MS,
+    });
+
+    expect(calls).toEqual([
+      [TICK_INTERVAL_MS, true],
+      [TICK_INTERVAL_MS, true],
+    ]);
+  });
+
+  test('既定の待機処理は実時間で待ち、中断されると直ちに終了する', async () => {
+    const controller = new AbortController(),
+      startedAt = performance.now(),
+      timer = runPomodoroTimer({ loopCount: 1, signal: controller.signal });
+
+    setTimeout(() => {
+      controller.abort();
+    }, 10);
+
+    expect(await timer).toEqual({ completed: false, completedPomodoros: 0 });
+    // 既定の作業15分を待たずに終了する
+    expect(performance.now() - startedAt).toBeLessThan(5 * SECOND_MS);
+  });
+
+  test('既定の現在時刻はDate.nowを使う', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(START_TIME);
+
+    try {
+      const events: string[] = [],
+        result = await runPomodoroTimer({
+          breakDurationMs: TICK_INTERVAL_MS,
+          loopCount: 1,
+          onPhaseCompleted: (phase) => {
+            events.push(`completed:${phase}:${Date.now() - START_TIME}`);
+          },
+          sleep: (durationMs) => {
+            vi.setSystemTime(Date.now() + durationMs);
+            return Promise.resolve();
+          },
+          workDurationMs: TICK_INTERVAL_MS,
+        });
+
+      expect(result).toEqual({ completed: true, completedPomodoros: 1 });
+      expect(events).toEqual([
+        `completed:work:${TICK_INTERVAL_MS}`,
+        `completed:break:${2 * TICK_INTERVAL_MS}`,
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('開始前に中断済みなら待機せず、最初のフェーズの開始と状態だけを通知して終了する', async () => {
+    const controller = new AbortController(),
+      events: string[] = [];
+    let sleepCount = 0;
+
+    controller.abort();
+
+    const result = await runPomodoroTimer({
+      loopCount: 1,
+      now: () => START_TIME,
+      onPhaseStarted: (phase) => {
+        events.push(`started:${phase}`);
+      },
+      onTick: (state) => {
+        events.push(`tick:${state.phase}`);
+      },
+      signal: controller.signal,
+      sleep: () => {
+        sleepCount += 1;
+        return Promise.resolve();
+      },
+    });
+
+    expect(result).toEqual({ completed: false, completedPomodoros: 0 });
+    expect(events).toEqual(['started:work', 'tick:work']);
+    expect(sleepCount).toBe(0);
+  });
+
+  test('途中で中断した場合は、それまでに自然終了した作業の数を返す', async () => {
+    const controller = new AbortController(),
+      clock = createFakeClock(),
+      result = await runPomodoroTimer({
+        breakDurationMs: CUSTOM_BREAK_DURATION_MS,
+        loopCount: 3,
+        now: clock.now,
+        onPhaseStarted: (phase) => {
+          if (phase === 'break' && clock.elapsed() > CUSTOM_WORK_DURATION_MS) {
+            controller.abort();
+          }
+        },
+        signal: controller.signal,
+        sleep: clock.sleep,
+        workDurationMs: CUSTOM_WORK_DURATION_MS,
+      });
+
+    // 1サイクル目の作業と2サイクル目の作業が完了し、2回目の休憩の開始で中断する
+    expect(result).toEqual({ completed: false, completedPomodoros: 2 });
+  });
+
+  test('最後の休憩の完了ではtickを通知しない', async () => {
+    const clock = createFakeClock(),
+      ticks: string[] = [];
+
+    await runPomodoroTimer({
+      breakDurationMs: TICK_INTERVAL_MS,
+      loopCount: 1,
+      now: clock.now,
+      onTick: (state, now) => {
+        ticks.push(`${state.phase}:${now - START_TIME}`);
+      },
+      sleep: clock.sleep,
+      workDurationMs: TICK_INTERVAL_MS,
+    });
+
+    // 開始直後と、作業の完了後（休憩の開始）のtickだけ
+    expect(ticks).toEqual(['work:0', `break:${TICK_INTERVAL_MS}`]);
+  });
+});
+
+describe('操作と状態の通知', () => {
+  /** 操作を受け取り、外部から待機の完了を制御できるタイマーを開始します。 */
+  const startControlledTimer = (
+    loopCount = 1,
+  ): {
+    readonly clock: FakeClock;
+    readonly controls: () => TimerControls;
+    readonly events: string[];
+    readonly result: Promise<TimerResult>;
+  } => {
+    const clock = createFakeClock(),
+      events: string[] = [];
+    let controls: TimerControls | undefined;
+
+    const result = runPomodoroTimer({
+      bindControls: (bound) => {
+        controls = bound;
+      },
+      breakDurationMs: CUSTOM_BREAK_DURATION_MS,
+      loopCount,
+      now: clock.now,
+      onPhaseCompleted: (phase, { final }) => {
+        events.push(`completed:${phase}${final ? ':final' : ''}`);
+      },
+      onPhaseSkipped: (phase) => {
+        events.push(`skipped:${phase}`);
+      },
+      onPhaseStarted: (phase) => {
+        events.push(`started:${phase}`);
+      },
+      onTick: (state, now) => {
+        events.push(
+          `tick:${state.phase}:${state.cycle}:${state.paused ? 'paused' : 'running'}:${now - START_TIME}`,
+        );
+      },
+      // 中断されるまで待機を終えません。
+      sleep: (_durationMs, signal) =>
+        new Promise((resolve) => {
+          signal?.addEventListener('abort', () => {
+            resolve();
+          });
+        }),
+      workDurationMs: CUSTOM_WORK_DURATION_MS,
+    });
+
+    return {
+      clock,
+      controls: () => {
+        if (controls === undefined) {
+          throw new Error('controls are not bound');
+        }
+
+        return controls;
+      },
+      events,
+      result,
+    };
+  };
+
+  test('タイマーの開始前に操作を受け取る', () => {
+    const { controls } = startControlledTimer();
+
+    expect(controls()).toEqual({
+      settle: expect.any(Function),
+      skip: expect.any(Function),
+      togglePause: expect.any(Function),
+    });
+    controls().skip();
+    controls().skip();
+  });
+
+  test('操作の直後に、操作を適用した時刻の状態を通知する', async () => {
+    const { clock, controls, events, result } = startControlledTimer();
+
+    void clock.sleep(300);
+    controls().togglePause();
+    void clock.sleep(700);
+    controls().togglePause();
+    controls().skip();
+    controls().skip();
+
+    expect(await result).toEqual({ completed: true, completedPomodoros: 0 });
+    expect(events).toEqual([
+      'started:work',
+      'tick:work:1:running:0',
+      'tick:work:1:paused:300',
+      'tick:work:1:running:1000',
+      'skipped:work',
+      'started:break',
+      'tick:break:1:running:1000',
+      'skipped:break',
+    ]);
+  });
+
+  test('最後の休憩をskipすると、待機中のtickを打ち切って完了する', async () => {
+    const { controls, result } = startControlledTimer();
+
+    controls().skip();
+    controls().skip();
+
+    expect(await result).toEqual({ completed: true, completedPomodoros: 0 });
+  });
+
+  test('一時停止中のskipでは、次のフェーズを一時停止せずに全量で開始する', async () => {
+    const { clock, controls, events, result } = startControlledTimer(2);
+
+    controls().togglePause();
+    controls().skip();
+    void clock.sleep(CUSTOM_BREAK_DURATION_MS);
+    // 休憩は一時停止していないため、期限到達済みとして精算される
+    expect(controls().settle()).toBe(false);
+    controls().skip();
+    controls().skip();
+    controls().skip();
+
+    await result;
+
+    expect(events).toEqual([
+      'started:work',
+      'tick:work:1:running:0',
+      'tick:work:1:paused:0',
+      'skipped:work',
+      'started:break',
+      'tick:break:1:running:0',
+      'completed:break',
+      'started:work',
+      'tick:work:2:running:1000',
+      'skipped:work',
+      'started:break',
+      'tick:break:2:running:1000',
+      'skipped:break',
+    ]);
+  });
+
+  test('一時停止中は期限を過ぎても精算しない', async () => {
+    const { clock, controls, events, result } = startControlledTimer();
+
+    controls().togglePause();
+    void clock.sleep(HOUR_MS);
+
+    expect(controls().settle()).toBe(false);
+    expect(events.filter((event) => event.startsWith('completed'))).toEqual([]);
+
+    controls().skip();
+    controls().skip();
+    await result;
+  });
+
+  test('完了後の操作は状態を通知せず、settleはtrueを返す', async () => {
+    const { controls, events, result } = startControlledTimer();
+
+    controls().skip();
+    controls().skip();
+    await result;
+
+    const eventCount = events.length;
+
+    controls().togglePause();
+    controls().skip();
+
+    expect(controls().settle()).toBe(true);
+    expect(events).toHaveLength(eventCount);
   });
 });

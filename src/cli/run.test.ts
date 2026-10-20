@@ -6,13 +6,14 @@ import {
 } from './run.ts';
 import type { ConfirmStartParameters, RunCliParameters } from './run.ts';
 import { DEFAULT_BREAK_DURATION_MS, DEFAULT_WORK_DURATION_MS } from '#src/timer/timer.ts';
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { LOGO } from '#src/terminal/constants.ts';
 import type { OutputStream } from '#src/terminal/output.ts';
 import type { ProcessEvents } from '#src/terminal/terminal-guard.ts';
 import type { SoundPlayer } from '#src/notification/sound.ts';
+import process from 'node:process';
 
 type FakeStdout = OutputStream & {
   readonly emitError: (error: unknown) => void;
@@ -744,5 +745,226 @@ describe('残り時間の画面', () => {
     expect(result.output).toBe(
       `${LOGO}\n🍅 Work started (1 min)\n✅ Work complete.\n☕ Break started (1 min)\n✅ Break complete.\n🎉 Pomodoro complete.\n`,
     );
+  });
+});
+
+describe('起動と終了の詳細', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  test('指定した時間をフェーズの開始メッセージに表示する', async () => {
+    const result = await runCliFor(['--work=2', '--break=1', '--loop=1']);
+
+    expect(result.output).toBe(
+      `${LOGO}\n🍅 Work started (2 min)\n✅ Work complete.\n☕ Break started (1 min)\n✅ Break complete.\n🎉 Pomodoro complete.\n`,
+    );
+  });
+
+  test('ヘルプは不正な引数より優先する', async () => {
+    const result = await runCliFor(['--work', '0', '--unknown', '-h']);
+
+    expect(result).toEqual({
+      elapsedMs: 0,
+      errorOutput: '',
+      events: [],
+      exitCode: 0,
+      output: help,
+    });
+  });
+
+  test.each([
+    { error: brokenPipe(), exitCode: 0, name: 'EPIPE' },
+    { error: new Error('write EIO'), exitCode: 1, name: 'その他のエラー' },
+  ])(
+    'ロゴの書き込みが同期的に$nameで失敗した場合は開始確認を表示せず終了コード$exitCodeで終える',
+    async ({ error, exitCode }) => {
+      const stdout = createStdout(() => {
+          throw error;
+        }),
+        harness = createHarness([], {}, stdout);
+
+      expect(await runCli(harness.parameters)).toBe(exitCode);
+      expect(harness.events).toEqual([
+        'create-sound-player',
+        `set-exit-code:${exitCode}`,
+        'shutdown:abort',
+        `schedule-exit:${exitCode}:${SHUTDOWN_DEADLINE_MS}`,
+      ]);
+    },
+  );
+
+  test('開始確認の後に終了処理が始まっていた場合は、確認結果にかかわらずタイマーを開始しない', async () => {
+    const stdout = createStdout(),
+      harness = createHarness(
+        [],
+        {
+          confirmStart: () => {
+            stdout.emitError(new Error('write EIO'));
+            return Promise.resolve(true);
+          },
+        },
+        stdout,
+      );
+
+    expect(await runCli(harness.parameters)).toBe(1);
+    expect(harness.clock()).toBe(0);
+    expect(harness.events).toEqual([
+      'create-sound-player',
+      'set-exit-code:1',
+      'shutdown:abort',
+      `schedule-exit:1:${SHUTDOWN_DEADLINE_MS}`,
+    ]);
+  });
+
+  test('再生処理の作成に失敗した場合は何も出力せず、終了処理を開始して例外を伝える', async () => {
+    const failure = new Error('cannot resolve commands'),
+      harness = createHarness([], {
+        createSoundPlayer: () => {
+          throw failure;
+        },
+      });
+
+    await expect(runCli(harness.parameters)).rejects.toBe(failure);
+    expect(harness.stdout.output()).toBe('');
+    expect(harness.events).toEqual(['set-exit-code:1', `schedule-exit:1:${SHUTDOWN_DEADLINE_MS}`]);
+  });
+
+  test('タイマー実行中の例外では再生処理を終了してから例外を伝える', async () => {
+    const failure = new Error('timer failed'),
+      harness = createHarness([], { sleep: () => Promise.reject(failure) });
+
+    await expect(runCli(harness.parameters)).rejects.toBe(failure);
+    expect(harness.events).toEqual([
+      'create-sound-player',
+      'confirm',
+      'set-exit-code:1',
+      'shutdown:abort',
+      `schedule-exit:1:${SHUTDOWN_DEADLINE_MS}`,
+    ]);
+  });
+
+  test('作業の完了音は最後の休憩以外で完了通知として扱わない', async () => {
+    const result = await runCliFor(['--loop', '2']);
+
+    expect(result.events.filter((event) => event.startsWith('play:'))).toEqual([
+      'play:work',
+      'play:break',
+      'play:work',
+      'play:break:completion-notice',
+    ]);
+  });
+
+  test('既定では終了処理の期限に達するとprocess.exitで親プロセスを終了する', async () => {
+    vi.useFakeTimers();
+
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never),
+      harness = createHarness([], { confirmStart: () => Promise.resolve(false) });
+
+    expect(await runCli({ ...harness.parameters, scheduleExit: undefined })).toBe(0);
+
+    vi.advanceTimersByTime(SHUTDOWN_DEADLINE_MS - 1);
+    expect(exit).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  test('既定では完了終了の期限に達するとprocess.exitで親プロセスを終了する', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never),
+      harness = createHarness(['--work', '1', '--break', '1', '--loop', '1']);
+
+    expect(await runCli({ ...harness.parameters, scheduleExit: undefined })).toBe(0);
+
+    vi.advanceTimersByTime(COMPLETION_SHUTDOWN_DEADLINE_MS - 1);
+    expect(exit).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  test('既定の強制終了のtimerはイベントループを維持しない', async () => {
+    const unref = vi.fn<() => void>(),
+      setTimeoutSpy = vi
+        .spyOn(globalThis, 'setTimeout')
+        .mockImplementation(() => ({ unref }) as unknown as NodeJS.Timeout),
+      harness = createHarness([], { confirmStart: () => Promise.resolve(false) });
+
+    await runCli({ ...harness.parameters, scheduleExit: undefined });
+
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), SHUTDOWN_DEADLINE_MS);
+    expect(unref).toHaveBeenCalledTimes(1);
+  });
+
+  test('既定では終了コードをprocess.exitCodeへ設定する', async () => {
+    const originalExitCode = process.exitCode,
+      harness = createHarness([], { confirmStart: () => Promise.resolve(false) });
+
+    try {
+      process.exitCode = 99;
+      await runCli({ ...harness.parameters, setExitCode: undefined });
+
+      expect(process.exitCode).toBe(0);
+    } finally {
+      process.exitCode = originalExitCode;
+    }
+  });
+});
+
+describe('終了要求の重複', () => {
+  test('最初の終了要求の終了コードを保ち、終了処理を1回だけ行う', async () => {
+    const processEvents = createProcessEvents(),
+      harness = createHarness(
+        [],
+        {
+          color: false,
+          interactive: true,
+          processEvents,
+          sleep: () => {
+            processEvents.emit('SIGTERM');
+            processEvents.emit('SIGINT');
+            return Promise.resolve();
+          },
+          stdin: createTtyInput(),
+        },
+        createTerminalStdout(),
+      );
+
+    expect(await runCli(harness.parameters)).toBe(143);
+    expect(harness.events).toEqual([
+      'create-sound-player',
+      'confirm',
+      'set-exit-code:143',
+      'shutdown:abort',
+      `schedule-exit:143:${SHUTDOWN_DEADLINE_MS}`,
+    ]);
+  });
+
+  test('終了要求の後に標準出力が失敗しても終了コードを変えない', async () => {
+    const stdout = createTerminalStdout(),
+      processEvents = createProcessEvents(),
+      harness = createHarness(
+        [],
+        {
+          color: false,
+          interactive: true,
+          processEvents,
+          sleep: () => {
+            processEvents.emit('SIGHUP');
+            stdout.emitError(new Error('write EIO'));
+            return Promise.resolve();
+          },
+          stdin: createTtyInput(),
+        },
+        stdout,
+      );
+
+    expect(await runCli(harness.parameters)).toBe(129);
+    expect(harness.events.filter((event) => event.startsWith('set-exit-code'))).toEqual([
+      'set-exit-code:129',
+    ]);
   });
 });

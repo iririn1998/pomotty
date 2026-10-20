@@ -96,3 +96,39 @@ test('改行とANSIを含む入力が1行の有限長文字列になる', () => 
 test('エスケープ結果を再度エスケープしても壊れない', () => {
   expect(escapeDiagnostic(escapeDiagnostic('\n'))).toBe(String.raw`"\"\\x0A\""`);
 });
+
+test.each([
+  { name: '空白（C0の直後）', value: ' ' },
+  { name: 'チルダ（DELの直前）', value: '~' },
+  { name: 'NBSP（C1の直後）', value: '\u00A0' },
+  { name: 'ZWNJ（ZWSPの直後）', value: '\u200C' },
+  { name: 'ZWJ', value: '\u200D' },
+  { name: 'NNBSP（双方向制御の直後）', value: '\u202F' },
+  { name: 'U+2065（双方向分離子の直前）', value: '\u2065' },
+  { name: 'U+2070（非推奨の方向書式制御の直後）', value: '\u2070' },
+  { name: 'U+FEFE（BOMの直前）', value: '\uFEFE' },
+  { name: '異体字セレクタ', value: '\uFE0F' },
+])('エスケープ対象範囲の境界外にある$nameは変更しない', ({ value }) => {
+  expect(escapeDiagnostic(value)).toBe(`"${value}"`);
+});
+
+test.each([
+  { expected: String.raw`"\x1F"`, name: 'C0の上端', value: '\u001F' },
+  { expected: String.raw`"\x80"`, name: 'C1の下端', value: '\u0080' },
+  { expected: String.raw`"\u{2029}"`, name: 'PS', value: '\u2029' },
+  { expected: String.raw`"\u{202A}"`, name: 'LRE', value: '\u202A' },
+  { expected: String.raw`"\u{2069}"`, name: 'PDI', value: '\u2069' },
+])('範囲の端にある$nameもエスケープする', ({ expected, value }) => {
+  expect(escapeDiagnostic(value)).toBe(expected);
+});
+
+test('正しいサロゲートペアの間に挟まらない単独のサロゲートだけをエスケープする', () => {
+  expect(escapeDiagnostic('😀\uD83D')).toBe(String.raw`"😀\uD83D"`);
+  expect(escapeDiagnostic('\uDE00😀')).toBe(String.raw`"\uDE00😀"`);
+});
+
+test('切り詰めた後の末尾が通常の文字でも、超過していれば省略記号を付ける', () => {
+  const value = `${'A'.repeat(MAXIMUM_CODE_POINTS)}\n`;
+
+  expect(escapeDiagnostic(value)).toBe(`"${'A'.repeat(MAXIMUM_CODE_POINTS)}…"`);
+});

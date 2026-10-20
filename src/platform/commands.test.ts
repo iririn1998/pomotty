@@ -178,6 +178,108 @@ describe('Linux', () => {
     expect(linuxCommandsFor('', definition)).toEqual({});
   });
 
+  test.each([
+    { directory: `${CWD}-tools`, name: 'cwdと同じ接頭辞を持つ別のディレクトリ' },
+    { directory: '/home/user', name: 'cwdの親ディレクトリ' },
+    { directory: '/opt/node_modules/tool/.bin', name: '連続しないnode_modulesと.bin' },
+    { directory: '/opt/node_modules', name: '.binを伴わないnode_modules' },
+    { directory: '/opt/Node_Modules/.bin', name: '大文字小文字が異なるnode_modules/.bin' },
+  ])('$nameにあるコマンドは実行対象にする', ({ directory }) => {
+    expect(
+      linuxCommandsFor(directory, {
+        directories: [directory],
+        executables: [`${directory}/paplay`],
+      }),
+    ).toEqual({ paplay: `${directory}/paplay` });
+  });
+
+  test('..を含むPATHの要素も正規化してcwd配下か判定する', () => {
+    expect(
+      linuxCommandsFor(`${CWD}/../project/bin:/usr/bin`, {
+        directories: [`${CWD}/../project/bin`, '/usr/bin'],
+        executables: [`${CWD}/../project/bin/paplay`, '/usr/bin/paplay'],
+      }),
+    ).toEqual({ paplay: '/usr/bin/paplay' });
+  });
+
+  test('cwdがシンボリックリンクなら、realpath後のcwd配下も拒否する', () => {
+    expect(
+      resolvePlayerCommands({
+        cwd: '/link/project',
+        environment: { PATH: '/srv/project/bin:/usr/bin' },
+        fileSystem: createFileSystem({
+          directories: ['/srv/project/bin', '/usr/bin'],
+          executables: ['/srv/project/bin/paplay', '/usr/bin/paplay'],
+          links: { '/link/project': '/srv/project' },
+        }),
+        platform: 'linux',
+      }),
+    ).toEqual({ paplay: '/usr/bin/paplay' });
+  });
+
+  test('cwdのrealpathを取得できなくてもcwd配下を拒否して探索を続ける', () => {
+    expect(
+      resolvePlayerCommands({
+        cwd: '/missing/project',
+        environment: { PATH: '/missing/project/bin:/usr/bin' },
+        fileSystem: createFileSystem({
+          directories: ['/missing/project/bin', '/usr/bin'],
+          executables: ['/missing/project/bin/paplay', '/usr/bin/paplay'],
+        }),
+        platform: 'linux',
+      }),
+    ).toEqual({ paplay: '/usr/bin/paplay' });
+  });
+
+  test('存在しないディレクトリと存在しないコマンドは飛ばして探索を続ける', () => {
+    expect(
+      linuxCommandsFor('/missing:/opt/bin:/usr/bin', {
+        directories: ['/opt/bin', '/usr/bin'],
+        executables: ['/usr/bin/paplay'],
+      }),
+    ).toEqual({ paplay: '/usr/bin/paplay' });
+  });
+
+  test('どのディレクトリにもなければ利用不能とする', () => {
+    expect(linuxCommandsFor('/usr/bin', { directories: ['/usr/bin'] })).toEqual({
+      aplay: undefined,
+      paplay: undefined,
+    });
+  });
+
+  test.skipIf(process.platform === 'win32')(
+    '実際のファイルシステムで実行権限のないファイルとディレクトリを候補にしない',
+    async () => {
+      const temporaryPrefix = path.join(os.tmpdir(), 'pomotty-'),
+        temporaryDirectory = await realpath(await mkdtemp(temporaryPrefix));
+
+      try {
+        const restricted = path.join(temporaryDirectory, 'restricted'),
+          system = path.join(temporaryDirectory, 'system');
+
+        await mkdir(restricted);
+        await mkdir(system);
+        // 実行権限のないファイルと、コマンド名のディレクトリ
+        await writeFile(path.join(restricted, 'paplay'), '#!/bin/sh\n');
+        await chmod(path.join(restricted, 'paplay'), 0o644);
+        await mkdir(path.join(restricted, 'aplay'));
+        // 後続のディレクトリにある実行可能なファイル
+        await writeFile(path.join(system, 'paplay'), '#!/bin/sh\n');
+        await chmod(path.join(system, 'paplay'), EXECUTABLE_MODE);
+
+        expect(
+          resolvePlayerCommands({
+            cwd: path.join(temporaryDirectory, 'project'),
+            environment: { PATH: [restricted, system].join(path.posix.delimiter) },
+            platform: 'linux',
+          }),
+        ).toEqual({ aplay: undefined, paplay: path.join(system, 'paplay') });
+      } finally {
+        await rm(temporaryDirectory, { force: true, recursive: true });
+      }
+    },
+  );
+
   // Windowsではシンボリックリンクの作成に権限が必要で、実行権限の概念も異なります。
   test.skipIf(process.platform === 'win32')(
     '実際のファイルシステムでcwdに置いたコマンドを実行対象にしない',
@@ -259,6 +361,51 @@ describe('Windows', () => {
     ).toEqual({ powershell: undefined });
   });
 
+  test('SystemRootがシンボリックリンクならrealpath後のディレクトリ配下を返す', () => {
+    expect(
+      windowsCommandsFor(String.raw`C:\Windows`, {
+        directories: [String.raw`D:\Win`],
+        executables: [String.raw`D:\Win\System32\WindowsPowerShell\v1.0\powershell.exe`],
+        links: { [String.raw`C:\Windows`]: String.raw`D:\Win` },
+      }),
+    ).toEqual({ powershell: String.raw`D:\Win\System32\WindowsPowerShell\v1.0\powershell.exe` });
+  });
+
+  test.each([
+    { files: [], name: '存在しない' },
+    { files: [POWERSHELL], name: '実行できない' },
+  ])('PowerShellが$name場合は利用不能とする', ({ files }) => {
+    expect(
+      windowsCommandsFor(String.raw`C:\Windows`, {
+        directories: [String.raw`C:\Windows`],
+        files,
+      }),
+    ).toEqual({ powershell: undefined });
+  });
+
+  test('node_modules/.binの判定は大文字小文字を区別しない', () => {
+    expect(
+      windowsCommandsFor(String.raw`C:\Windows`, {
+        directories: [String.raw`C:\Windows`],
+        executables: [String.raw`D:\Tools\Node_Modules\.BIN\powershell.exe`],
+        links: { [POWERSHELL]: String.raw`D:\Tools\Node_Modules\.BIN\powershell.exe` },
+      }),
+    ).toEqual({ powershell: undefined });
+  });
+
+  test('cwdがSystemRoot配下でもPowerShellを拒否する', () => {
+    expect(
+      windowsCommandsFor(
+        String.raw`C:\Windows`,
+        {
+          directories: [String.raw`C:\Windows`],
+          executables: [POWERSHELL],
+        },
+        String.raw`C:\Windows\System32`,
+      ),
+    ).toEqual({ powershell: undefined });
+  });
+
   test('realpath後の候補がnode_modules/.bin配下なら拒否する', () => {
     expect(
       windowsCommandsFor(String.raw`C:\Windows`, {
@@ -278,5 +425,19 @@ describe('その他のOS', () => {
         platform: 'aix',
       }),
     ).toEqual({});
+  });
+});
+
+describe('既定の実行環境', () => {
+  test('引数を省略した場合は現在のプロセスのOS、cwd、環境変数で解決する', () => {
+    const commands = resolvePlayerCommands();
+
+    for (const [name, commandPath] of Object.entries(commands)) {
+      expect(['afplay', 'aplay', 'paplay', 'powershell']).toContain(name);
+
+      if (commandPath !== undefined) {
+        expect(path.isAbsolute(commandPath)).toBe(true);
+      }
+    }
   });
 });

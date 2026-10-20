@@ -157,3 +157,162 @@ test.each(['--help', '-h'])('%sでヘルプ表示を選ぶ', (option) => {
 test('ヘルプは他の不正な引数より優先する', () => {
   expect(parseCliArguments(['--unknown', '--help'])).toEqual({ kind: 'help' });
 });
+
+test('作業時間、休憩時間、繰り返し回数を同時に指定できる', () => {
+  expect(parseCliArguments(['--loop=4', '--break', '7', '--work=40'])).toEqual({
+    breakDurationMinutes: 7,
+    kind: 'run',
+    loopCount: 4,
+    workDurationMinutes: 40,
+  });
+});
+
+describe.each(['--work', '--break'])('%sの数値文法', (option) => {
+  test.each(['２５', ' 25', '25 ', '0x19', '.5', '1.', 'NaN', 'Infinity', '-1', '10000', '025'])(
+    '%j分を拒否する',
+    (value) => {
+      expect(parseCliArguments([option, value])).toEqual({
+        kind: 'error',
+        message: `Error: ${option} requires an integer from 1 to 1440.\n`,
+      });
+    },
+  );
+
+  test.each([
+    { name: '空の値', value: '' },
+    { name: '負数', value: '-1' },
+    { name: '2つ目のイコール', value: '10=20' },
+  ])('イコール形式の$nameを拒否する', ({ value }) => {
+    expect(parseCliArguments([`${option}=${value}`])).toEqual({
+      kind: 'error',
+      message: `Error: ${option} requires an integer from 1 to 1440.\n`,
+    });
+  });
+
+  test('分離形式では次の引数がオプション名でも値として扱う', () => {
+    expect(parseCliArguments([option, '--loop', '2'])).toEqual({
+      kind: 'error',
+      message: `Error: ${option} requires an integer from 1 to 1440.\n`,
+    });
+  });
+});
+
+test('値として消費した引数はオプションとして解析しない', () => {
+  expect(parseCliArguments(['--loop', '20', '--work', '30'])).toEqual({
+    breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
+    kind: 'run',
+    loopCount: 20,
+    workDurationMinutes: 30,
+  });
+});
+
+test('値のない最後のオプションを拒否する', () => {
+  expect(parseCliArguments(['--work', '10', '--break'])).toEqual({
+    kind: 'error',
+    message: 'Error: --break requires an integer from 1 to 1440.\n',
+  });
+});
+
+test.each([
+  { arguments_: ['--loop', '99999999999999999999'], name: '安全な整数を超える桁数' },
+  { arguments_: ['--loop', '１'], name: '全角数字' },
+  { arguments_: ['--loop', '0x1'], name: '16進数表記' },
+  { arguments_: ['--loop='], name: 'イコール形式の空の値' },
+])('繰り返し回数の$nameを拒否する', ({ arguments_ }) => {
+  expect(parseCliArguments(arguments_)).toEqual({
+    kind: 'error',
+    message: `Error: --loop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
+  });
+});
+
+test('作業時間と休憩時間は4桁目までを先に文法で判定し、1440を超える値を範囲で拒否する', () => {
+  expect(parseCliArguments(['--work', '9999'])).toMatchObject({ kind: 'error' });
+  expect(parseCliArguments(['--break', '1439'])).toMatchObject({
+    breakDurationMinutes: 1439,
+    kind: 'run',
+  });
+});
+
+test.each([
+  { arguments_: ['--work', '10', '--work', 'abc'], name: '2回目の値が不正' },
+  { arguments_: ['--work=10', '--work=10'], name: '同じ値' },
+])('重複指定は$nameでも重複として拒否する', ({ arguments_ }) => {
+  expect(parseCliArguments(arguments_)).toEqual({
+    kind: 'error',
+    message: 'Error: --work may only be specified once.\n',
+  });
+});
+
+test('値の検証は重複の検査より先に最初の指定で行う', () => {
+  expect(parseCliArguments(['--work', 'abc', '--work', '10'])).toEqual({
+    kind: 'error',
+    message: 'Error: --work requires an integer from 1 to 1440.\n',
+  });
+});
+
+test('最初に見つかったエラーだけを返す', () => {
+  expect(parseCliArguments(['--unknown', '--work', '0'])).toEqual({
+    kind: 'error',
+    message: 'Error: Unknown option: "--unknown"\n',
+  });
+  expect(parseCliArguments(['--work', '0', '--unknown'])).toEqual({
+    kind: 'error',
+    message: 'Error: --work requires an integer from 1 to 1440.\n',
+  });
+});
+
+test.each([
+  { argument: '--', name: '単独の--' },
+  { argument: 'value', name: '位置引数' },
+  { argument: '-', name: '単独の-' },
+  { argument: '--Work', name: '大文字を含むオプション名' },
+  { argument: '-w', name: '定義していない短縮形' },
+  { argument: '-hv', name: '結合した短縮形' },
+  { argument: '--help=yes', name: '値を付けたヘルプ' },
+  { argument: '--version', name: '--version' },
+  { argument: '', name: '空文字列' },
+])('$nameを未知のオプションとして拒否する', ({ argument }) => {
+  expect(parseCliArguments([argument])).toEqual({
+    kind: 'error',
+    message: `Error: Unknown option: ${JSON.stringify(argument)}\n`,
+  });
+});
+
+test('未知のオプションのエラーには値を含む引数全体を表示する', () => {
+  expect(parseCliArguments(['--unknown=1'])).toEqual({
+    kind: 'error',
+    message: 'Error: Unknown option: "--unknown=1"\n',
+  });
+});
+
+test('位置引数は直前のオプションの値として消費されなければ拒否する', () => {
+  expect(parseCliArguments(['--work=10', '20'])).toEqual({
+    kind: 'error',
+    message: 'Error: Unknown option: "20"\n',
+  });
+});
+
+describe('ヘルプの判定', () => {
+  test('引数全体が--helpまたは-hと一致するものだけをヘルプとする', () => {
+    expect(parseCliArguments(['--work=-h'])).toEqual({
+      kind: 'error',
+      message: 'Error: --work requires an integer from 1 to 1440.\n',
+    });
+  });
+
+  test('値の位置にある-hもヘルプとして扱う', () => {
+    expect(parseCliArguments(['--work', '-h'])).toEqual({ kind: 'help' });
+  });
+
+  test('重複したヘルプも受理する', () => {
+    expect(parseCliArguments(['-h', '--help', '-h'])).toEqual({ kind: 'help' });
+  });
+
+  test('--の後のヘルプも受理する', () => {
+    expect(parseCliArguments(['--', '--help'])).toEqual({ kind: 'help' });
+  });
+
+  test('重複や不正な値よりもヘルプを優先する', () => {
+    expect(parseCliArguments(['--work', '0', '--work', '0', '--help'])).toEqual({ kind: 'help' });
+  });
+});

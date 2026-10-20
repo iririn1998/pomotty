@@ -1,7 +1,9 @@
 import { expect, test } from 'vitest';
 import { COMPACT_LOGO, LOGO } from './constants.ts';
 import type { OptionDefinition } from '#src/cli/types.ts';
+import { cellWidth } from './frame-line.ts';
 import { createCliOutput } from './render.ts';
+import process from 'node:process';
 
 const help = [
     'Pomotty CLI',
@@ -55,4 +57,61 @@ test.each([
 
 test('端末が狭くてもヘルプはそのまま返す', () => {
   expect(createCliOutput({ columns: 20, optionName: '--help', options })).toBe(help);
+});
+
+test('値を取るオプションは値の表示名を付け、短縮形がなければロングオプションだけを表示する', () => {
+  expect(
+    createCliOutput({
+      optionName: '--help',
+      options: [
+        { description: 'Work duration', name: '--work', valueName: '<minutes>' },
+        { alias: '-h', description: 'Show help', name: '--help' },
+      ],
+    }),
+  ).toBe(
+    [
+      'Pomotty CLI',
+      '',
+      'Usage: pomotty [OPTIONS]',
+      '',
+      'Options:',
+      '  --work <minutes>',
+      '          Work duration',
+      '  -h, --help',
+      '          Show help',
+      '',
+    ].join('\n'),
+  );
+});
+
+test('値を取るオプションの名前を指定してもヘルプを返す', () => {
+  expect(
+    createCliOutput({
+      optionName: '--work',
+      options: [{ description: 'Work duration', name: '--work', valueName: '<minutes>' }],
+    }),
+  ).toContain('Pomotty CLI\n');
+});
+
+test('オプション名を省略した場合はプロセスの最初のCLI引数で判定する', () => {
+  const originalArgv = process.argv;
+
+  try {
+    process.argv = ['node', 'pomotty', '-h'];
+    expect(createCliOutput({ options })).toBe(help);
+
+    process.argv = ['node', 'pomotty', '--unknown'];
+    expect(createCliOutput({ options })).toBe(`${LOGO}\n`);
+  } finally {
+    process.argv = originalArgv;
+  }
+});
+
+test('ロゴは最も長い行が端末幅より1セル狭く収まる場合だけ表示する', () => {
+  const logoWidth = Math.max(...LOGO.split('\n').map((line) => cellWidth(line)));
+
+  expect(createCliOutput({ columns: logoWidth + 1, optionName: '', options })).toBe(`${LOGO}\n`);
+  expect(createCliOutput({ columns: logoWidth, optionName: '', options })).toBe(
+    `${COMPACT_LOGO}\n`,
+  );
 });
