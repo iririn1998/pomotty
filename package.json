@@ -43,10 +43,13 @@
     "lint:fix": "oxlint . --fix --deny-warnings --report-unused-disable-directives-severity=error",
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
-    "test": "vitest run --dir src"
+    "test": "vitest run --dir src",
+    "test:coverage": "vitest run --dir src --coverage",
+    "test:watch": "vitest --dir src"
   },
   "devDependencies": {
     "@types/node": "22.20.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "oxfmt": "^0.61.0",
     "oxlint": "^1.76.0",
     "tsdown": "^0.23.0",
