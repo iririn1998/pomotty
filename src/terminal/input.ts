@@ -63,7 +63,8 @@ const CHOICES = ['OK', 'NG'] as const,
   KEYPRESS_EVENT_KEY_INDEX = 1,
   MOVE_KEY_NAMES = new Set(['down', 'up']),
   NEXT_INDEX_OFFSET = 1,
-  REDRAW_SEQUENCE = `\r\u001B[${CHOICES.length}A\u001B[J`,
+  /** 描画済みの選択画面を消し、カーソルを質問行の先頭へ戻すシーケンスです。 */
+  CLEAR_SELECTION_SEQUENCE = `\r\u001B[${CHOICES.length}A\u001B[J`,
   /** 確定前の終端として扱うstdinのイベントです。 */
   STDIN_CLOSE_EVENTS = ['end', 'close'],
   SELECTION_QUESTION = 'Start working? (Use ↑/↓ to select, Enter to confirm)',
@@ -189,13 +190,19 @@ const CHOICES = ['OK', 'NG'] as const,
     if (MOVE_KEY_NAMES.has(key.name)) {
       const newSelectedIndex = nextChoiceIndex(selectedIndex);
 
-      terminal.write(`${REDRAW_SEQUENCE}${renderSelection(newSelectedIndex)}`);
+      terminal.write(`${CLEAR_SELECTION_SEQUENCE}${renderSelection(newSelectedIndex)}`);
       return newSelectedIndex;
     }
 
     if (ENTER_KEY_NAMES.has(key.name)) {
+      if (CHOICES[selectedIndex] === 'OK') {
+        // OKではタイマー画面へ移るため、確認の表示を残しません。
+        terminal.write(CLEAR_SELECTION_SEQUENCE);
+        return true;
+      }
+
       terminal.write('\n');
-      return CHOICES[selectedIndex] === 'OK';
+      return false;
     }
 
     return selectedIndex;
@@ -203,6 +210,7 @@ const CHOICES = ['OK', 'NG'] as const,
   /**
    * 上下キーでOKまたはNGを選び、作業を開始するか確認します。
    *
+   * OKでは確認の表示を消して`true`を返します。
    * NG、Ctrl+C、確定前のstdin終端、`signal`の中断では`false`を返します。
    * 初回描画を含むすべての出力を`try`内で行い、失敗しても端末状態を復元します。
    */

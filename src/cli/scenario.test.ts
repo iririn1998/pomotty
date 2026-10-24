@@ -93,6 +93,14 @@ describe('開始確認', () => {
     expect(app.rawModes()).toEqual([true, false, true]);
   });
 
+  test('OKで確定すると確認の質問と選択肢を画面に残さない', async () => {
+    const app = await startTimer();
+
+    expect(app.terminal.text()).not.toContain('Start working?');
+    expect(app.terminal.lines()).not.toContain('❯ OK');
+    expect(app.terminal.lines()).not.toContain('  NG');
+  });
+
   test('NGで確定するとタイマーを開始せず、終了コード0で終える', async () => {
     const app = await startScenario({ arguments_: SHORT });
 

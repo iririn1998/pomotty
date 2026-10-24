@@ -48,13 +48,13 @@ const COUNT_INCREMENT = 1,
     }).then((confirmed) => ({ confirmed, restoreCount, writes }));
   };
 
-test('初期選択のOKをEnterで決定できる', async () => {
+test('初期選択のOKをEnterで決定すると確認の表示を消す', async () => {
   const result = await confirmFor([key('return')]);
 
   expect(result).toEqual({
     confirmed: true,
     restoreCount: 1,
-    writes: [MENU_WITH_OK_SELECTED, '\n'],
+    writes: [MENU_WITH_OK_SELECTED, REDRAW_SEQUENCE],
   });
 });
 
@@ -74,7 +74,7 @@ test('選択に使わないキーは無視する', async () => {
   expect(result).toEqual({
     confirmed: true,
     restoreCount: 1,
-    writes: [MENU_WITH_OK_SELECTED, '\n'],
+    writes: [MENU_WITH_OK_SELECTED, REDRAW_SEQUENCE],
   });
 });
 
