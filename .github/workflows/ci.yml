@@ -46,7 +46,13 @@ jobs:
             run: pnpm typecheck
 
           - name: Run tests
+            if: ${{ !(matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x') }}
             run: pnpm test
+
+          # Measure coverage once and fail if it drops below the thresholds.
+          - name: Run tests with coverage
+            if: ${{ matrix.os == 'ubuntu-latest' && matrix.node-version == '24.x' }}
+            run: pnpm test:coverage
 
           - name: Run lint
             run: pnpm lint

@@ -186,7 +186,12 @@ export default defineConfig({
     {
       // 外部コマンドは端末初期化前に1回だけ同期的に解決します。
       // 隠したカーソルは、プロセスのexitイベントで同期的に表示し直します。
-      files: ['src/platform/commands.ts', 'src/terminal/terminal-guard.ts'],
+      // テストでは、exitイベントでの同期的な書き込みを一時ファイルで確かめます。
+      files: [
+        'src/platform/commands.ts',
+        'src/terminal/terminal-guard.ts',
+        'src/terminal/terminal-guard.test.ts',
+      ],
       rules: {
         'node/no-sync': 'off',
       },
