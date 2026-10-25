@@ -18,6 +18,9 @@ type WriteError = (output: string) => void;
 
 /** 作業開始を確認する処理へ渡す値です。 */
 type ConfirmStartParameters = {
+  /** 描画時点の端末の列数を返します。 */
+  readonly columns: () => number | undefined;
+
   /** 終了処理の開始時に中断されるシグナルです。 */
   readonly signal: AbortSignal;
 
@@ -214,7 +217,11 @@ const CLI_ARGUMENTS_START_INDEX = 2,
         return shutdownExitCode;
       }
 
-      const confirmed = await confirmStart({ signal: controller.signal, write: writeOutput });
+      const confirmed = await confirmStart({
+        columns: () => (stdout ?? process.stdout).columns,
+        signal: controller.signal,
+        write: writeOutput,
+      });
 
       if (shutdownExitCode !== undefined) {
         return shutdownExitCode;

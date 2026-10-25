@@ -386,8 +386,8 @@ const START_TIME = Date.UTC(2026, 0, 1),
             exitCode: await runCli({
               arguments_,
               color,
-              confirmStart: ({ signal, write }) =>
-                confirmWorkStart({ input: stdin, signal, write }),
+              confirmStart: ({ columns: terminalColumns, signal, write }) =>
+                confirmWorkStart({ columns: terminalColumns, input: stdin, signal, write }),
               createSoundPlayer: () => soundPlayer,
               interactive,
               now: () => START_TIME + elapsedMs(),

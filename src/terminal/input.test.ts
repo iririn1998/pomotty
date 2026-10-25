@@ -29,12 +29,16 @@ const COUNT_INCREMENT = 1,
   ].join('\n'),
   REDRAW_SEQUENCE = '\r\u001B[2A\u001B[J',
   key = (name: string, ctrl = false): SelectionKey => ({ ctrl, name }),
-  confirmFor = (keys: readonly SelectionKey[]): Promise<ConfirmationResult> => {
+  confirmFor = (
+    keys: readonly SelectionKey[],
+    columns?: () => number | undefined,
+  ): Promise<ConfirmationResult> => {
     const remainingKeys = [...keys],
       writes: string[] = [];
     let restoreCount = 0;
 
     return confirmWorkStart({
+      columns,
       createTerminal: (): SelectionTerminal => ({
         nextKey: () => Promise.resolve(remainingKeys.shift() ?? key('return')),
         restore: () => {
@@ -76,6 +80,36 @@ test('選択に使わないキーは無視する', async () => {
     restoreCount: 1,
     writes: [MENU_WITH_OK_SELECTED, REDRAW_SEQUENCE],
   });
+});
+
+test.each([
+  { columns: 52, sequence: REDRAW_SEQUENCE },
+  { columns: 51, sequence: '\r\u001B[3A\u001B[J' },
+  { columns: 20, sequence: '\r\u001B[4A\u001B[J' },
+])(
+  '$columns列の端末では折り返した質問の行も含めて確認の表示を消す',
+  async ({ columns, sequence }) => {
+    const result = await confirmFor([key('down'), key('up'), key('return')], () => columns);
+
+    expect(result.writes).toEqual([
+      MENU_WITH_OK_SELECTED,
+      `${sequence}${MENU_WITH_NG_SELECTED}`,
+      `${sequence}${MENU_WITH_OK_SELECTED}`,
+      sequence,
+    ]);
+  },
+);
+
+test('描画した時点の列数で消す行数を決める', async () => {
+  const widths = [20, 80, 80];
+  const result = await confirmFor([key('down'), key('up'), key('return')], () => widths.shift());
+
+  expect(result.writes).toEqual([
+    MENU_WITH_OK_SELECTED,
+    `\r\u001B[4A\u001B[J${MENU_WITH_NG_SELECTED}`,
+    `${REDRAW_SEQUENCE}${MENU_WITH_OK_SELECTED}`,
+    REDRAW_SEQUENCE,
+  ]);
 });
 
 test('Ctrl+Cでは作業を開始せず端末状態を復元する', async () => {

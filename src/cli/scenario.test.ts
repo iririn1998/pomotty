@@ -101,6 +101,35 @@ describe('開始確認', () => {
     expect(app.terminal.lines()).not.toContain('  NG');
   });
 
+  test('質問が折り返す狭い端末でも、選択の切り替えで質問を重ねず、OKで確認を残さない', async () => {
+    const app = await startScenario({ arguments_: SHORT, columns: 36 });
+
+    expect(app.terminal.lastLines(4)).toEqual([
+      'Start working? (Use ↑/↓ to select, E',
+      'nter to confirm)',
+      '❯ OK',
+      '  NG',
+    ]);
+
+    await app.press('down', 'up', 'down');
+
+    expect(app.terminal.lastLines(4)).toEqual([
+      'Start working? (Use ↑/↓ to select, E',
+      'nter to confirm)',
+      '  OK',
+      '❯ NG',
+    ]);
+    expect(app.terminal.lines().filter((line) => line.startsWith('Start working?'))).toHaveLength(
+      1,
+    );
+
+    await app.press('up', 'enter');
+
+    expect(app.terminal.text()).not.toContain('Start working?');
+    expect(app.terminal.text()).not.toContain('nter to confirm)');
+    expect(frameOf(app)[0]).toBe('🍅 WORK  1/2');
+  });
+
   test('NGで確定するとタイマーを開始せず、終了コード0で終える', async () => {
     const app = await startScenario({ arguments_: SHORT });
 
