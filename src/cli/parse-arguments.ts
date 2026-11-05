@@ -1,6 +1,6 @@
-import { DEFAULT_BREAK_DURATION_MINUTES, DEFAULT_WORK_DURATION_MINUTES } from '@/timer/timer.ts';
+import { DEFAULT_BREAK_DURATION_MINUTES, DEFAULT_WORK_DURATION_MINUTES } from '#src/timer/timer.ts';
 import { DEFAULT_LOOP_COUNT } from './constants.ts';
-import { escapeDiagnostic } from '@/diagnostics/escape.ts';
+import { escapeDiagnostic } from '#src/diagnostics/escape.ts';
 
 /** タイマー起動に利用するCLI引数です。 */
 type TimerCliArguments = {

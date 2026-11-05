@@ -1,6 +1,6 @@
 {
   "name": "pomotty",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "description": "An interactive terminal Pomodoro timer with configurable work and break sessions and sound notifications.",
   "keywords": [
     "cli",
@@ -26,24 +26,31 @@
     "assets/*.wav"
   ],
   "type": "module",
+  "imports": {
+    "#src/*": "./src/*"
+  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
     "build": "tsdown",
+    "check": "pnpm typecheck && pnpm build && pnpm test",
     "start": "pnpm build && node dist/cli.js",
-    "prepack": "pnpm build",
+    "prepack": "pnpm check",
     "prepublishOnly": "pnpm typecheck && pnpm test && pnpm lint && pnpm format:check",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint . --deny-warnings --report-unused-disable-directives-severity=error",
     "lint:fix": "oxlint . --fix --deny-warnings --report-unused-disable-directives-severity=error",
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
-    "test": "vitest run"
+    "test": "vitest run --dir src",
+    "test:coverage": "vitest run --dir src --coverage",
+    "test:watch": "vitest --dir src"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
+    "@types/node": "22.20.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "oxfmt": "^0.61.0",
     "oxlint": "^1.76.0",
     "tsdown": "^0.23.0",

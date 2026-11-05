@@ -1,4 +1,4 @@
-import { DEFAULT_BREAK_DURATION_MINUTES, DEFAULT_WORK_DURATION_MINUTES } from '@/timer/timer.ts';
+import { DEFAULT_BREAK_DURATION_MINUTES, DEFAULT_WORK_DURATION_MINUTES } from '#src/timer/timer.ts';
 import { describe, expect, test } from 'vitest';
 import { parseCliArguments } from './parse-arguments.ts';
 
