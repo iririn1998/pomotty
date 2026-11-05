@@ -35,10 +35,11 @@
   },
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc -p tsconfig.json",
     "check": "pnpm typecheck && pnpm build && pnpm test",
     "start": "pnpm build && node dist/cli.js",
     "prepack": "pnpm check",
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm lint && pnpm format:check",
+    "typecheck": "tsc --noEmit",
     "lint": "oxlint . --deny-warnings --report-unused-disable-directives-severity=error",
     "lint:fix": "oxlint . --fix --deny-warnings --report-unused-disable-directives-severity=error",
     "format": "oxfmt --write",
