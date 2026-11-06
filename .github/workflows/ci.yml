@@ -7,6 +7,11 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded runs on the same ref so queued macOS jobs don't pile up.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   checks:
     name: Checks (${{ matrix.os }})
@@ -14,9 +19,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Sound playback differs on each OS, so test every OS on the minimum
-        # Node.js version supported by engines (>=22.18.0).
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Sound playback differs on each OS, so test each OS on the minimum
+        # Node.js version supported by engines (>=22.18.0). macOS runners are
+        # not used because their jobs stay queued without being picked up; the
+        # darwin code paths are covered by platform-injected unit tests.
+        os: [ubuntu-latest, windows-latest]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
