@@ -317,16 +317,14 @@ const togglePauseAction = (controls: TimerControls): void => {
   /** 現在のフェーズをskipする操作です。 */
   skipAction = (controls: TimerControls): void => {
     controls.skip();
-  };
-
-describe('実行中の操作', () => {
+  },
   /**
    * 指定した回の待機の直前に操作を行いながらタイマーを実行します。
    *
    * 作業2秒・休憩1秒を`loopCount`回繰り返し、フェーズの開始、完了、skipを
    * 経過時間付きで記録します。
    */
-  const runWithActions = async (
+  runWithActions = async (
     actions: ReadonlyMap<number, (controls: TimerControls) => void>,
     loopCount = 1,
   ): Promise<TimerRun & { readonly settled: boolean[] }> => {
@@ -372,6 +370,7 @@ describe('実行中の操作', () => {
     return { elapsedMs: clock.elapsed(), events, result, settled };
   };
 
+describe('実行中の操作', () => {
   test('一時停止中は時間を経過させず、再開後に残り時間で完了する', async () => {
     const run = await runWithActions(
       new Map([

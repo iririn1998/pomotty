@@ -13,7 +13,7 @@ test('空文字列も二重引用符で囲む', () => {
 });
 
 test.each([
-  { expected: String.raw`"a\\b"`, name: 'バックスラッシュ', value: 'a\\b' },
+  { expected: String.raw`"a\\b"`, name: 'バックスラッシュ', value: String.raw`a\b` },
   { expected: String.raw`"a\"b"`, name: '二重引用符', value: 'a"b' },
 ])('$nameをエスケープする', ({ expected, value }) => {
   expect(escapeDiagnostic(value)).toBe(expected);
