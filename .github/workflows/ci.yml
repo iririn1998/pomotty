@@ -1,7 +1,11 @@
 name: CI
 
 on:
+  # Run on PRs against the merged result, and on main after merging.
+  # Other branch pushes are covered by their PR, so they are skipped to
+  # avoid running the same checks twice.
   push:
+    branches: [main]
   pull_request:
 
 permissions:
