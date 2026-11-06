@@ -18,8 +18,8 @@ pnpm format:check
 `pnpm check` runs the type check, build, and tests in that order. Tests use
 Vitest, and imports across `src/` use the `#src/*` subpath imports defined in
 `package.json`, so `node src/cli.ts` also runs the CLI without building it.
-CI runs these checks on macOS, Ubuntu, and Windows with Node.js 22.18.x and
-24.11.x, and on Ubuntu with the latest Node.js 24 and current releases.
+CI runs these checks on macOS, Ubuntu, and Windows with Node.js 22.18.x, the
+minimum supported version.
 
 ## Testing
 
