@@ -15,10 +15,10 @@
 
 ### 動作環境
 
-- Node.js `^22.18.0 || >=24.11.0`
+- Node.js `>=22.18.0`
 - macOS / Linux / Windows
 
-Node.js 18と20はリリース時点でEOLのため対象外とする。Node.js 22系は22.18.0以上、Node.js 24系は24.11.0以上を対象とし、23.xと24.0〜24.10は対象外とする。CLIの実行、ビルド、型チェック、テストで同じ範囲を使用し、`package.json`の`engines`、README、CIもこの値へ統一する。実装はサポート範囲の下限であるNode.js 22.18.0で動作する構文とAPIだけを使用する。
+Node.js 18と20はリリース時点でEOLのため対象外とする。Node.js 22.18.0以上を対象とする。CLIの実行、ビルド、型チェック、テストで同じ範囲を使用し、`package.json`の`engines`、README、CIもこの値へ統一する。実装はサポート範囲の下限であるNode.js 22.18.0で動作する構文とAPIだけを使用する。
 
 ### 機能対応表
 
@@ -1138,7 +1138,7 @@ macOS通知はbest effortとする。`osascript`の終了コード`0`はスク�
   "imports": { "#src/*": "./src/*" },
   "bin": { "pomotty": "./dist/cli.js" },
   "files": ["dist/cli.js", "assets/*.wav"],
-  "engines": { "node": "^22.18.0 || >=24.11.0" },
+  "engines": { "node": ">=22.18.0" },
   "devEngines": { "packageManager": { "name": "pnpm", "onFail": "error" } },
   "scripts": {
     "build": "tsdown",
@@ -1171,7 +1171,7 @@ macOS通知はbest effortとする。`osascript`の終了コード`0`はスク�
 
 パッケージ管理にはpnpmを使用し、`devEngines`で他のパッケージマネージャーによる操作を拒否する。`devDependencies`は`pnpm-lock.yaml`で間接依存も含めて解決結果を固定し、CIとリリースで`pnpm install --frozen-lockfile`を使用する。`@types/node`はサポート下限のNode.js 22系に合わせて`22.20.1`へ厳密に固定し、そのほかのツールは範囲指定のままlockfileで固定する。更新は個別の依存更新としてCIを通して行う。テストランナーはvitest、lintはoxlint、formatはoxfmtを使用する（§11）。
 
-Node.jsの要件は、公開後のCLI実行、ビルド、型チェック、テストのすべてで`^22.18.0 || >=24.11.0`に統一する。Node.js 22系では22.18.0以上、Node.js 24系では24.11.0以上を必要とし、23.xおよび24.0〜24.10はサポート対象外とする。
+Node.jsの要件は、公開後のCLI実行、ビルド、型チェック、テストのすべてで`>=22.18.0`に統一する。CIでは下限の22.18.xだけを検証し、下限で動作すればそれ以降のバージョンでも動作するものとして扱う。
 
 22.18.0を下限とする理由は、Node.jsのTypeScript型削除実行が既定で有効になり、`node src/cli.ts`でビルドせずにCLIを起動できるため、実行・開発・CIの下限を1つに揃えられるためである。`package.json`の`engines`、README、CI、tarballスモークテストはすべて同じ範囲を記載し、22.0系を対象とする説明やジョブを残さない。バンドル出力のターゲットは`node22`のままとするが、公開物の動作保証下限は22.18.0である。
 
@@ -1424,20 +1424,14 @@ const breakSound = fileURLToPath(new URL('../assets/break-end.wav', import.meta.
 
 CIはソース品質、tgz生成、tgzスモーク、公開を別ジョブに分ける。
 
-| ジョブ             | ランナー                 | Node.js          | 実行内容                                                                                                                                                                           |
-| ------------------ | ------------------------ | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| quality-boundary   | macOS / Ubuntu / Windows | `22.18.x`        | `pnpm install --frozen-lockfile` → `pnpm check`、`pnpm lint`、`pnpm format:check`                                                                                                  |
-| quality-boundary   | macOS / Ubuntu / Windows | 厳密な`24.11.x`  | `pnpm install --frozen-lockfile` → `pnpm check`、`pnpm lint`、`pnpm format:check`                                                                                                  |
-| quality-latest24   | Ubuntu                   | 最新24系         | `pnpm install --frozen-lockfile` → `pnpm check`、`pnpm lint`、`pnpm format:check`                                                                                                  |
-| quality-current    | Ubuntu                   | 現行の最新安定版 | `pnpm install --frozen-lockfile` → `pnpm check`、`pnpm lint`、`pnpm format:check`                                                                                                  |
-| pack               | Ubuntu                   | `22.18.x`        | `pnpm install --frozen-lockfile` → `pnpm verify:package --output-dir release --tag <dist-tag>` → tgz・manifestをartifactとして保存                                                 |
-| smoke-tgz-boundary | macOS / Ubuntu / Windows | `22.18.x`        | 同一commitをcheckout → artifact取得 → commit / SHA-256照合 → `pnpm smoke:package <tgz>`                                                                                            |
-| smoke-tgz-boundary | macOS / Ubuntu / Windows | 厳密な`24.11.x`  | 同上                                                                                                                                                                               |
-| smoke-latest24     | Ubuntu                   | 最新24系         | 同上                                                                                                                                                                               |
-| smoke-current      | Ubuntu                   | 現行の最新安定版 | 同上                                                                                                                                                                               |
-| publish            | Ubuntu                   | `22.18.x`        | リリースタグ時のみ。全quality / smoke完了後、artifactとSHA-256を照合し、検証済みtgzを明示して`npm publish --ignore-scripts --access public --tag <distTag> <verified-tarball.tgz>` |
+| ジョブ             | ランナー                 | Node.js   | 実行内容                                                                                                                                                                           |
+| ------------------ | ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| quality-boundary   | macOS / Ubuntu / Windows | `22.18.x` | `pnpm install --frozen-lockfile` → `pnpm check`、`pnpm lint`、`pnpm format:check`                                                                                                  |
+| pack               | Ubuntu                   | `22.18.x` | `pnpm install --frozen-lockfile` → `pnpm verify:package --output-dir release --tag <dist-tag>` → tgz・manifestをartifactとして保存                                                 |
+| smoke-tgz-boundary | macOS / Ubuntu / Windows | `22.18.x` | 同一commitをcheckout → artifact取得 → commit / SHA-256照合 → `pnpm smoke:package <tgz>`                                                                                            |
+| publish            | Ubuntu                   | `22.18.x` | リリースタグ時のみ。全quality / smoke完了後、artifactとSHA-256を照合し、検証済みtgzを明示して`npm publish --ignore-scripts --access public --tag <distTag> <verified-tarball.tgz>` |
 
-Node.js 22.0系のジョブは設けず、実行・開発要件の下限である22.18.xへ統一する。23.xと24.0〜24.10は`engines`の範囲外なのでCIへ含めない。
+Node.js 22.0系のジョブは設けず、実行・開発要件の下限である22.18.xへ統一する。それより新しいバージョンのジョブも設けない。
 
 packジョブだけがtgzを生成する。smokeジョブとpublishジョブはpackジョブと同じcommitをcheckoutして同じCI artifactを取得し、manifestの`gitCommit`とSHA-256が一致することを確認する。smoke用ハーネスはcheckoutした`scripts/smoke-package.mjs`を使うが、後続ジョブでは`pnpm install`、ビルド、`pnpm pack`を実行せず、検証済みtgzを再生成しない。publishジョブはすべてのquality・smokeジョブに依存させ、リリースタグとtgz内のversionが一致しない場合、commitまたはSHA-256が異なる場合は公開しない。
 

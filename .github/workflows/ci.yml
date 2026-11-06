@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         # Sound playback differs on each OS, so test every OS on the minimum
-        # Node.js version supported by engines (^22.18.0 || >=24.11.0).
+        # Node.js version supported by engines (>=22.18.0).
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Check out repository

@@ -21,7 +21,7 @@
   - [x] `package-lock.json` から `pnpm-lock.yaml` へ移行し、CIとリリースで `pnpm install --frozen-lockfile` を使う
 - [ ] `package.json` を公開仕様へ更新する
   - [x] `description`、`keywords`、`bin`、`files`、`engines`、`publishConfig`を設定する
-  - [x] Node.js要件を `^22.18.0 || >=24.11.0` に統一する（`engines`、README、CIの22.18.x・24.11.x）
+  - [x] Node.js要件を `>=22.18.0` に統一する（`engines`、README、CIの22.18.x）
   - [x] `dependencies`を空に保ち、`postinstall`、`prepare`、`prepublishOnly`を定義しない
   - [x] `@types/node@22.20.1`を厳密に固定し、そのほかの`devDependencies`を`pnpm-lock.yaml`で固定する
   - [ ] `build`、`typecheck`、`test`、`test:package`、`verify:wav`、`check`、`prepack`、`verify:package`、`smoke:package`を定義する
@@ -284,7 +284,7 @@
 ## 14. READMEと利用者向け文書
 
 - [ ] READMEへ概要、`npx pomotty`、全主要optionと使用例を記載する
-- [ ] Node.js要件 `^22.18.0 || >=24.11.0` とOS別機能表を記載する
+- [ ] Node.js要件 `>=22.18.0` とOS別機能表を記載する
 - [ ] Windowsは音のみ、Linux通知は環境依存、macOS通知はbest effortであることを記載する
 - [ ] volumeがafplay/paplayだけで有効で、aplay/Windowsでは無視されることを記載する
 - [ ] Windowsの差替え音源は非圧縮PCM RIFF WAVEが必要で、内容検証は起動時に行わないことを記載する
@@ -294,8 +294,8 @@
 ## 15. CI・リリース
 
 - [ ] quality、pack、tgz smoke、publishを別jobにしたCI workflowを追加する
-- [x] quality matrixをmacOS / Ubuntu / WindowsのNode 22.18.x・24.11.x境界で実行する
-- [x] Ubuntuでlatest 24系とcurrent stableのquality jobを実行する
+- [x] quality matrixをmacOS / Ubuntu / WindowsのNode 22.18.xで実行する
+- [x] ~~Ubuntuでlatest 24系とcurrent stableのquality jobを実行する~~（下限の22.18.xのみ検証する方針に変更）
 - [x] GitHub Actionsを完全なコミットSHAで固定する
 - [ ] pack jobだけがNode 22.18.xでtgzとmanifestを生成・保存する
 - [ ] 全smoke jobが同一commit・同一SHA-256のartifactを再生成せず検証する
