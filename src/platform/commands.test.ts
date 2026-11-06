@@ -57,6 +57,17 @@ const CWD = '/home/user/project',
       environment: { PATH: pathValue },
       fileSystem: createFileSystem(definition),
       platform: 'linux',
+    }),
+  windowsCommandsFor = (
+    systemRoot: string | undefined,
+    definition: FakeFileSystemDefinition,
+    cwd = String.raw`C:\Users\user\project`,
+  ): PlayerCommands =>
+    resolvePlayerCommands({
+      cwd,
+      environment: { PATH: String.raw`C:\Users\user\project`, SystemRoot: systemRoot },
+      fileSystem: createFileSystem(definition),
+      platform: 'win32',
     });
 
 describe('macOS', () => {
@@ -213,18 +224,7 @@ describe('Linux', () => {
 });
 
 describe('Windows', () => {
-  const POWERSHELL = String.raw`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`,
-    windowsCommandsFor = (
-      systemRoot: string | undefined,
-      definition: FakeFileSystemDefinition,
-      cwd = String.raw`C:\Users\user\project`,
-    ): PlayerCommands =>
-      resolvePlayerCommands({
-        cwd,
-        environment: { PATH: String.raw`C:\Users\user\project`, SystemRoot: systemRoot },
-        fileSystem: createFileSystem(definition),
-        platform: 'win32',
-      });
+  const POWERSHELL = String.raw`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`;
 
   test('SystemRoot配下の固定PowerShellを絶対パスで返す', () => {
     expect(
