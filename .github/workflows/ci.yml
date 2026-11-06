@@ -7,6 +7,11 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded runs on the same ref so queued macOS jobs don't pile up.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   checks:
     name: Checks (${{ matrix.os }})
