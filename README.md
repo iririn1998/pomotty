@@ -2,7 +2,7 @@
 
 English | [日本語](./README.ja.md)
 
-A Pomodoro timer for the terminal, available on Node.js `^22.18.0 || >=24.11.0`.
+A Pomodoro timer for the terminal, available on Node.js `>=22.18.0`.
 
 ```shell
 npx pomotty

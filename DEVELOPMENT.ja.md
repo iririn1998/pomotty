@@ -18,8 +18,7 @@ pnpm format:check
 `pnpm check`は型チェック、ビルド、テストを順に実行します。テストにはVitestを使用し、
 `src/`内の機能をまたぐimportには`package.json`の`imports`で定義した`#src/*`を使うため、
 ビルドせずに`node src/cli.ts`でもCLIを起動できます。
-CIはmacOS、Ubuntu、WindowsのNode.js 22.18.xと24.11.x、およびUbuntuの最新のNode.js 24と
-最新安定版でこれらの検証を実行します。
+CIはmacOS、Ubuntu、Windowsで、サポート下限のNode.js 22.18.xを使ってこれらの検証を実行します。
 
 ## テスト
 
