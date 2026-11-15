@@ -5,7 +5,7 @@ type OperationResult = 'success' | 'failure' | 'cancelled';
 
 /** 音・通知要求1回分の操作です。 */
 type Operation = {
-  /** 最後の休憩の自然終了に由来する完了通知なら`true`です。 */
+  /** 最後のフェーズの自然終了に由来する完了通知なら`true`です。 */
   readonly completionNotice: boolean;
 
   /** キャンセル済みなら`true`を返します。 */

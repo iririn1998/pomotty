@@ -244,6 +244,7 @@ const CLI_ARGUMENTS_START_INDEX = 2,
       const player = soundPlayer,
         settings = {
           breakDurationMs: parsedArguments.breakDurationMinutes * MILLISECONDS_PER_MINUTE,
+          finalBreak: parsedArguments.finalBreak,
           loopCount: parsedArguments.loopCount,
           workDurationMs: parsedArguments.workDurationMinutes * MILLISECONDS_PER_MINUTE,
         };

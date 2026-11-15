@@ -17,8 +17,9 @@ pomotty
 
 Run `pomotty` to display the start menu. Press `y` (or select `Yes` with the up
 and down arrow keys and press Enter) to start 3 cycles of 25 minutes of work and
-5 minutes of break. Press `n` or `Esc` (or select `No`) to exit without starting
-the timer.
+5 minutes of break. The timer finishes when the last work session ends, without a
+final break. Press `n` or `Esc` (or select `No`) to exit without starting the
+timer.
 
 ```shell
 pomotty
@@ -34,11 +35,19 @@ pomotty --work=45 --break=15
 
 Use `--loop` to set the number of work and break cycles. It defaults to 3 and
 accepts whole numbers from 1 to 100. The start confirmation appears only once,
-and the timer exits after the final break finishes.
+and the timer exits when the last work session finishes.
 
 ```shell
 pomotty --loop 5
 pomotty --work=25 --break=5 --loop=2
+```
+
+Add `--final-break` to take a break after the last work session as well. The timer
+then exits after the final break finishes.
+
+```shell
+pomotty --final-break
+pomotty --loop=4 --final-break
 ```
 
 While the timer runs, the remaining time is shown in large digits and updated in
@@ -59,7 +68,7 @@ and total time) and a timeline showing the work and break progress of each cycle
 
   #1  █████████████████ ███  ✓
   #2  ███████▏········· ···  ◀ now
-  #3  ················· ···
+  #3  ·················
       work 25:00        break 5:00
 
   [space] pause   [s] skip   [q] quit

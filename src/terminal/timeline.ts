@@ -2,6 +2,7 @@ import type { FrameLine, FrameSegment } from './frame-line.ts';
 import type { TimerPhase, TimerSettings, TimerState } from '#src/timer/state.ts';
 import { cellWidth } from './frame-line.ts';
 import { formatDuration } from './clock.ts';
+import { hasBreakAfterWork } from '#src/timer/state.ts';
 
 /** タイムラインの1サイクル分の状態です。 */
 type CycleStatus = {
@@ -13,6 +14,12 @@ type CycleStatus = {
 
   /** 作業の経過率（0〜1）です。 */
   readonly workRatio: number;
+};
+
+/** タイムラインの1行に描くサイクルの状態です。 */
+type CycleRow = CycleStatus & {
+  /** 作業の後に休憩を実行するサイクルなら`true`です。 */
+  readonly hasBreak: boolean;
 };
 
 /** タイムラインの作業と休憩のバーのセル数です。 */
@@ -90,16 +97,26 @@ const BLOCK = '█',
 
     return { breakRatio: ratio, label: CURRENT_LABEL, workRatio: COMPLETED };
   },
-  /** タイムラインのサイクル1行を作成します。 */
-  createCycleRow = (label: string, status: CycleStatus, cells: TimelineCells): FrameLine => {
+  /**
+   * タイムラインのサイクル1行を作成します。
+   *
+   * 休憩を実行しないサイクルでは休憩のバーを描かず、状態表示の位置だけを揃えます。
+   */
+  createCycleRow = (label: string, status: CycleRow, cells: TimelineCells): FrameLine => {
     const row: FrameSegment[] = [
       { text: `${INDENT}${label}${LABEL_GAP}` },
       ...createSmoothBar(status.workRatio, cells.work, 'work'),
-      { text: BAR_GAP },
-      ...createSmoothBar(status.breakRatio, cells.break, 'break'),
     ];
 
+    if (status.hasBreak) {
+      row.push({ text: BAR_GAP }, ...createSmoothBar(status.breakRatio, cells.break, 'break'));
+    }
+
     if (status.label !== '') {
+      if (!status.hasBreak) {
+        row.push({ text: ' '.repeat(cellWidth(BAR_GAP) + cells.break) });
+      }
+
       row.push({ text: `${LABEL_GAP}${status.label}` });
     }
 
@@ -148,7 +165,9 @@ const BLOCK = '█',
 
         return createCycleRow(
           `#${cycle}`.padEnd(labelWidth),
-          cycleStatusFor(cycle, state, ratio),
+          Object.assign(cycleStatusFor(cycle, state, ratio), {
+            hasBreak: hasBreakAfterWork(cycle, settings),
+          }),
           cells,
         );
       });
