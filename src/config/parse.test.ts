@@ -78,8 +78,19 @@ describe('不正な設定', () => {
     expect(result.kind).toBe('error');
     expect(result).toHaveProperty(
       'message',
-      expect.stringMatching(/^Error: Invalid config file ".+": Invalid JSON \(.+\)\.\n$/u),
+      expect.stringMatching(/^Error: Invalid config file ".+": Invalid JSON \(".+"\)\.\n$/u),
     );
+  });
+
+  test.each([
+    { escaped: String.raw`\x1B[31mRED`, name: 'ESC', raw: '\u001B[31mRED' },
+    { escaped: String.raw`\u{202E}`, name: 'RLO', raw: '[1,‮]' },
+  ])('JSONの構文エラーに含まれる$nameをエスケープする', ({ escaped, raw }) => {
+    const result = parseConfig(raw, PATH);
+
+    expect(result.kind).toBe('error');
+    expect(result).toHaveProperty('message', expect.not.stringContaining(raw));
+    expect(result).toHaveProperty('message', expect.stringContaining(escaped));
   });
 
   test.each([[[]], [null], [1], ['text']])('トップレベルが%jならエラーにする', (value) => {

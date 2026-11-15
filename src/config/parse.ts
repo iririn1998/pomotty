@@ -176,7 +176,8 @@ const BYTE_ORDER_MARK = /^﻿/u,
     try {
       return { value: JSON.parse(text.replace(BYTE_ORDER_MARK, '')) };
     } catch (error) {
-      return `Invalid JSON (${describeError(error)}).`;
+      // V8のエラーメッセージには入力の断片が含まれるため、端末を操作できないようエスケープします。
+      return `Invalid JSON (${escapeDiagnostic(describeError(error))}).`;
     }
   },
   /** 設定ファイルの内容が不正なことを示す読み込み結果を生成します。 */
