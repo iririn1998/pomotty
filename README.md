@@ -33,8 +33,8 @@ pomotty --work=45 --break=15
 ```
 
 Use `--loop` to set the number of work and break cycles. It defaults to 3 and
-accepts whole numbers from 1 to 9007199254740991. The start confirmation appears
-only once, and the timer exits after the final break finishes.
+accepts whole numbers from 1 to 100. The start confirmation appears only once,
+and the timer exits after the final break finishes.
 
 ```shell
 pomotty --loop 5
