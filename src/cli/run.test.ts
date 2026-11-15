@@ -235,7 +235,7 @@ test('診断の書き込みが同期的に失敗しても終了コード2を保�
   expect(result).toMatchObject({ elapsedMs: 0, events: [], exitCode: 2, output: '' });
 });
 
-test('NGを選択するとタイマーを開始せず、再生処理を終了する', async () => {
+test('Noを選択するとタイマーを開始せず、再生処理を終了する', async () => {
   const result = await runCliFor([], { confirmStart: () => Promise.resolve(false) });
 
   expect(result).toEqual({
