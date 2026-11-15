@@ -154,7 +154,7 @@ describe('開始確認', () => {
 });
 
 describe('残り時間の画面', () => {
-  test('既定の設定では15分の作業を3サイクルで表示する', async () => {
+  test('既定の設定では25分の作業を3サイクルで表示する', async () => {
     const app = await startScenario();
 
     await app.press('enter');
@@ -162,23 +162,23 @@ describe('残り時間の画面', () => {
     expect(frameOf(app)).toEqual([
       '  🍅 WORK                      Cycle 1 / 3',
       '',
-      '       ████   ██████    ██████ ██████',
-      '         ██   ██     ██ ██  ██ ██  ██',
-      '         ██   ██████    ██  ██ ██  ██',
-      '         ██       ██ ██ ██  ██ ██  ██',
+      '       ██████ ██████    ██████ ██████',
+      '           ██ ██     ██ ██  ██ ██  ██',
+      '       ██████ ██████    ██  ██ ██  ██',
+      '       ██         ██ ██ ██  ██ ██  ██',
       '       ██████ ██████    ██████ ██████',
       '',
       '  ────────────────────────────────────────',
-      '  0:00 elapsed       0%        15:00 total',
+      '  0:00 elapsed       0%        25:00 total',
       '',
-      '  #1  ··············· ·····  ◀ now',
-      '  #2  ··············· ·····',
-      '  #3  ··············· ·····',
-      '      work 15:00      break 5:00',
+      '  #1  ················· ···  ◀ now',
+      '  #2  ················· ···',
+      '  #3  ················· ···',
+      '      work 25:00        break 5:00',
       '',
       '  [space] pause   [s] skip   [q] quit',
     ]);
-    expect(clockOf(app)).toBe('15:00');
+    expect(clockOf(app)).toBe('25:00');
   });
 
   test('残り時間は秒の切り上げで表示し、tickごとに描き直す', async () => {
@@ -646,19 +646,19 @@ describe('完了', () => {
     const app = await startScenario({ interactive: false });
 
     await app.press('enter');
-    await app.advance('1:00:00');
+    await app.advance('1:30:00');
 
     expect(app.exitCode()).toBe(0);
     expect(app.log()).toEqual([
-      '15:00.000 play:work',
-      '20:00.000 play:break',
-      '35:00.000 play:work',
-      '40:00.000 play:break',
+      '25:00.000 play:work',
+      '30:00.000 play:break',
       '55:00.000 play:work',
-      '1:00:00.000 play:break:completion-notice',
-      '1:00:00.000 exit-code:0',
-      '1:00:00.000 shutdown:complete',
-      `1:00:00.000 schedule-exit:0:${COMPLETION_SHUTDOWN}`,
+      '1:00:00.000 play:break',
+      '1:25:00.000 play:work',
+      '1:30:00.000 play:break:completion-notice',
+      '1:30:00.000 exit-code:0',
+      '1:30:00.000 shutdown:complete',
+      `1:30:00.000 schedule-exit:0:${COMPLETION_SHUTDOWN}`,
     ]);
   });
 

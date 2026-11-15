@@ -16,7 +16,7 @@ pomotty
 ```
 
 Run `pomotty` to display the start menu. Press `y` (or select `Yes` with the up
-and down arrow keys and press Enter) to start 3 cycles of 15 minutes of work and
+and down arrow keys and press Enter) to start 3 cycles of 25 minutes of work and
 5 minutes of break. Press `n` or `Esc` (or select `No`) to exit without starting
 the timer.
 
@@ -48,19 +48,19 @@ and total time) and a timeline showing the work and break progress of each cycle
 ```text
   🍅 WORK                      Cycle 2 / 3
 
-          ██████    ██  ██ ██████
-          ██  ██ ██ ██  ██     ██
-          ██████    ██████ ██████
-          ██  ██ ██     ██ ██
-          ██████        ██ ██████
+       ████   ██  ██    ██████ ██████
+         ██   ██  ██ ██     ██ ██  ██
+         ██   ██████    ██████ ██  ██
+         ██       ██ ██     ██ ██  ██
+       ██████     ██    ██████ ██████
 
   ━━━━━━━━━━━━━━━━────────────────────────
-  6:18 elapsed      42%        15:00 total
+  10:30 elapsed     42%        25:00 total
 
-  #1  ███████████████ █████  ✓
-  #2  ██████▎········ ·····  ◀ now
-  #3  ··············· ·····
-      work 15:00      break 5:00
+  #1  █████████████████ ███  ✓
+  #2  ███████▏········· ···  ◀ now
+  #3  ················· ···
+      work 25:00        break 5:00
 
   [space] pause   [s] skip   [q] quit
 ```

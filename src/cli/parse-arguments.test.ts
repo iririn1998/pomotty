@@ -13,7 +13,7 @@ const DEFAULT_TIMER_OPTIONS = {
   MINIMUM_DURATION_MINUTES = 1,
   TRUNCATED_OPTION_LENGTH = 158;
 
-test('オプションなしでは作業15分・休憩5分・3回を返す', () => {
+test('オプションなしでは作業25分・休憩5分・3回を返す', () => {
   expect(parseCliArguments([])).toEqual(DEFAULT_TIMER_OPTIONS);
 });
 
