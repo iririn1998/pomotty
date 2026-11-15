@@ -15,9 +15,10 @@ npm install --global pomotty
 pomotty
 ```
 
-Run `pomotty` to display the start menu. Use the up and down arrow keys to select
-`OK`, then press Enter to start 3 cycles of 15 minutes of work and 5 minutes of
-break. Select `NG` to exit without starting the timer.
+Run `pomotty` to display the start menu. Press `y` (or select `Yes` with the up
+and down arrow keys and press Enter) to start 3 cycles of 15 minutes of work and
+5 minutes of break. Press `n` or `Esc` (or select `No`) to exit without starting
+the timer.
 
 ```shell
 pomotty
