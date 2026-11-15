@@ -4,6 +4,7 @@ import { parseCliArguments } from './parse-arguments.ts';
 
 const DEFAULT_TIMER_OPTIONS = {
     breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
+    finalBreak: false,
     kind: 'run',
     loopCount: 3,
     workDurationMinutes: DEFAULT_WORK_DURATION_MINUTES,
@@ -20,18 +21,31 @@ test('オプションなしでは作業15分・休憩5分・3回を返す', () =
 test.each([
   {
     arguments_: ['--work', '30', '--break', '10'],
-    expected: { breakDurationMinutes: 10, kind: 'run', loopCount: 3, workDurationMinutes: 30 },
+    expected: {
+      breakDurationMinutes: 10,
+      finalBreak: false,
+      kind: 'run',
+      loopCount: 3,
+      workDurationMinutes: 30,
+    },
     name: '分離形式',
   },
   {
     arguments_: ['--break=20', '--work=50'],
-    expected: { breakDurationMinutes: 20, kind: 'run', loopCount: 3, workDurationMinutes: 50 },
+    expected: {
+      breakDurationMinutes: 20,
+      finalBreak: false,
+      kind: 'run',
+      loopCount: 3,
+      workDurationMinutes: 50,
+    },
     name: 'イコール形式',
   },
   {
     arguments_: ['--work', '45'],
     expected: {
       breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
+      finalBreak: false,
       kind: 'run',
       loopCount: 3,
       workDurationMinutes: 45,
@@ -42,6 +56,7 @@ test.each([
     arguments_: ['--break', '15'],
     expected: {
       breakDurationMinutes: 15,
+      finalBreak: false,
       kind: 'run',
       loopCount: 3,
       workDurationMinutes: DEFAULT_WORK_DURATION_MINUTES,
@@ -59,6 +74,7 @@ test.each([
 ])('繰り返し回数を受理する: $arguments_', ({ arguments_, loopCount }) => {
   expect(parseCliArguments(arguments_)).toEqual({
     breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
+    finalBreak: false,
     kind: 'run',
     loopCount,
     workDurationMinutes: DEFAULT_WORK_DURATION_MINUTES,
@@ -89,6 +105,38 @@ test('繰り返し回数の重複指定を拒否する', () => {
   expect(parseCliArguments(['--loop', '2', '--loop=3'])).toEqual({
     kind: 'error',
     message: 'Error: --loop may only be specified once.\n',
+  });
+});
+
+test.each([
+  { arguments_: ['--final-break'], name: '単独' },
+  { arguments_: ['--work', '30', '--final-break', '--loop=2'], name: '他のオプションと併用' },
+])('--final-breakで最後の休憩を有効にする: $name', ({ arguments_ }) => {
+  expect(parseCliArguments(arguments_)).toMatchObject({ finalBreak: true, kind: 'run' });
+});
+
+test('--final-breakを指定すると後続の引数を値として消費しない', () => {
+  expect(parseCliArguments(['--final-break', '--loop', '4'])).toEqual({
+    ...DEFAULT_TIMER_OPTIONS,
+    finalBreak: true,
+    loopCount: 4,
+  });
+});
+
+test.each(['--final-break=true', '--final-break='])(
+  '--final-breakに値を指定すると拒否する: %s',
+  (argument) => {
+    expect(parseCliArguments([argument])).toEqual({
+      kind: 'error',
+      message: 'Error: --final-break does not take a value.\n',
+    });
+  },
+);
+
+test('--final-breakの重複指定を拒否する', () => {
+  expect(parseCliArguments(['--final-break', '--final-break'])).toEqual({
+    kind: 'error',
+    message: 'Error: --final-break may only be specified once.\n',
   });
 });
 

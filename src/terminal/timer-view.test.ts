@@ -7,6 +7,7 @@ const MINUTE_MS = 60_000,
   NOW = 1_700_000_000_000,
   DEFAULT_SETTINGS: TimerSettings = {
     breakDurationMs: 5 * MINUTE_MS,
+    finalBreak: true,
     loopCount: 3,
     workDurationMs: 15 * MINUTE_MS,
   },
@@ -78,7 +79,12 @@ describe('標準の画面', () => {
     const frame = frameFor({
       cycle: 7,
       remainingMs: 90 * MINUTE_MS,
-      settings: { breakDurationMs: 10 * MINUTE_MS, loopCount: 20, workDurationMs: 120 * MINUTE_MS },
+      settings: {
+        breakDurationMs: 10 * MINUTE_MS,
+        finalBreak: true,
+        loopCount: 20,
+        workDurationMs: 120 * MINUTE_MS,
+      },
     });
 
     expect(frame.slice(2, 3)).toEqual(['  ████      ██████ ██████    ██████ ██████']);
@@ -101,7 +107,12 @@ describe('標準の画面', () => {
   test('作業の凡例がバーより長い場合は凡例を1行に並べる', () => {
     const frame = frameFor({
       remainingMs: MINUTE_MS,
-      settings: { breakDurationMs: 60 * MINUTE_MS, loopCount: 1, workDurationMs: MINUTE_MS },
+      settings: {
+        breakDurationMs: 60 * MINUTE_MS,
+        finalBreak: true,
+        loopCount: 1,
+        workDurationMs: MINUTE_MS,
+      },
     });
 
     expect(frame.at(-3)).toBe('      work 1:00 · break 1:00:00');

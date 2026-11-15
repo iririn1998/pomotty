@@ -23,6 +23,10 @@ const DEFAULT_LOOP_COUNT = 3,
       valueName: '<count>',
     },
     {
+      description: 'Take a break after the last work session (default: finish after work)',
+      name: '--final-break',
+    },
+    {
       alias: '-h',
       description: 'Print help',
       name: '--help',

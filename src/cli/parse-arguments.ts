@@ -5,6 +5,7 @@ import { escapeDiagnostic } from '#src/diagnostics/escape.ts';
 /** タイマー起動に利用するCLI引数です。 */
 type TimerCliArguments = {
   readonly breakDurationMinutes: number;
+  readonly finalBreak: boolean;
   readonly kind: 'run';
   readonly loopCount: number;
   readonly workDurationMinutes: number;
@@ -18,6 +19,9 @@ type ParseCliArgumentsResult =
 
 /** 数値を指定できるCLIオプションです。 */
 type NumericOption = '--break' | '--work' | '--loop';
+
+/** 値を取らないCLIオプションです。 */
+type FlagOption = '--final-break';
 
 /** CLI引数1個から取り出したオプション名と値です。 */
 type NumericArgument = {
@@ -38,6 +42,8 @@ const ARGUMENT_INDEX_INCREMENT = 1,
   /** 引数が数値指定オプションか判定します。 */
   isNumericOption = (value: string): value is NumericOption =>
     value === '--break' || value === '--work' || value === '--loop',
+  /** 引数が値を取らないオプションか判定します。 */
+  isFlagOption = (value: string): value is FlagOption => value === '--final-break',
   /** 引数がヘルプオプションか判定します。 */
   isHelpOption = (value: string): boolean => HELP_OPTIONS.some((option) => option === value),
   /** 数値指定のエラーを生成します。 */
@@ -53,8 +59,13 @@ const ARGUMENT_INDEX_INCREMENT = 1,
       message: `Error: ${option} requires an integer from 1 to ${maximum}.\n`,
     };
   },
-  /** 時間指定の重複エラーを生成します。 */
-  createDuplicateError = (option: NumericOption): ParseCliArgumentsResult => ({
+  /** 値を取らないオプションに値を指定したエラーを生成します。 */
+  createFlagValueError = (option: FlagOption): ParseCliArgumentsResult => ({
+    kind: 'error',
+    message: `Error: ${option} does not take a value.\n`,
+  }),
+  /** オプションの重複エラーを生成します。 */
+  createDuplicateError = (option: NumericOption | FlagOption): ParseCliArgumentsResult => ({
     kind: 'error',
     message: `Error: ${option} may only be specified once.\n`,
   }),
@@ -98,14 +109,15 @@ const ARGUMENT_INDEX_INCREMENT = 1,
       value: argument.slice(equalsSignIndex + NEXT_ARGUMENT_OFFSET),
     };
   },
-  /** CLI引数から作業時間、休憩時間、繰り返し回数を解析します。 */
+  /** CLI引数から作業時間、休憩時間、繰り返し回数、最後の休憩の有無を解析します。 */
   parseCliArguments = (arguments_: readonly string[]): ParseCliArgumentsResult => {
     if (arguments_.some((argument) => isHelpOption(argument))) {
       return { kind: 'help' };
     }
 
-    const specifiedOptions = new Set<NumericOption>();
+    const specifiedOptions = new Set<NumericOption | FlagOption>();
     let breakDurationMinutes = DEFAULT_BREAK_DURATION_MINUTES,
+      finalBreak = false,
       loopCount = DEFAULT_LOOP_COUNT,
       workDurationMinutes = DEFAULT_WORK_DURATION_MINUTES;
 
@@ -121,7 +133,7 @@ const ARGUMENT_INDEX_INCREMENT = 1,
         ),
         { consumesNextArgument, optionName, value } = numericArgument;
 
-      if (!isNumericOption(optionName)) {
+      if (!isFlagOption(optionName) && !isNumericOption(optionName)) {
         return {
           kind: 'error',
           message: `Error: Unknown option: ${escapeDiagnostic(argument)}\n`,
@@ -132,29 +144,39 @@ const ARGUMENT_INDEX_INCREMENT = 1,
         return createDuplicateError(optionName);
       }
 
-      const numericValue = parseNumericValue(optionName, value);
-
-      if (typeof numericValue !== 'number') {
-        return createValueError(optionName);
-      }
-
       specifiedOptions.add(optionName);
 
-      if (consumesNextArgument) {
-        argumentIndex += NEXT_ARGUMENT_OFFSET;
-      }
+      // 値を取らないオプションは`=`付きの値を拒否し、後続の引数を値として消費しません。
+      if (isFlagOption(optionName)) {
+        if (!consumesNextArgument) {
+          return createFlagValueError(optionName);
+        }
 
-      if (optionName === '--work') {
-        workDurationMinutes = numericValue;
-      } else if (optionName === '--loop') {
-        loopCount = numericValue;
+        finalBreak = true;
       } else {
-        breakDurationMinutes = numericValue;
+        const numericValue = parseNumericValue(optionName, value);
+
+        if (typeof numericValue !== 'number') {
+          return createValueError(optionName);
+        }
+
+        if (consumesNextArgument) {
+          argumentIndex += NEXT_ARGUMENT_OFFSET;
+        }
+
+        if (optionName === '--work') {
+          workDurationMinutes = numericValue;
+        } else if (optionName === '--loop') {
+          loopCount = numericValue;
+        } else {
+          breakDurationMinutes = numericValue;
+        }
       }
     }
 
     return {
       breakDurationMinutes,
+      finalBreak,
       kind: 'run',
       loopCount,
       workDurationMinutes,

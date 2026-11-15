@@ -10,8 +10,10 @@ import { describe, expect, test } from 'vitest';
  * 利用者が端末で見る内容と同じです。
  */
 
-/** 作業1分・休憩1分を2回繰り返す、短い設定です。 */
+/** 作業1分・休憩1分を2回繰り返し、最後の作業で完了する短い設定です。 */
 const SHORT = ['--work', '1', '--break', '1', '--loop', '2'],
+  /** 短い設定に、最後の休憩を加えた設定です。 */
+  SHORT_WITH_FINAL_BREAK = [...SHORT, '--final-break'],
   SHUTDOWN = '2000ms',
   COMPLETION_SHUTDOWN = '5000ms',
   /** 開始確認でOKを選び、タイマーを開始した状態のシナリオを返します。 */
@@ -155,7 +157,7 @@ describe('残り時間の画面', () => {
       '',
       '  #1  ··············· ·····  ◀ now',
       '  #2  ··············· ·····',
-      '  #3  ··············· ·····',
+      '  #3  ···············',
       '      work 15:00      break 5:00',
       '',
       '  [space] pause   [s] skip   [q] quit',
@@ -193,7 +195,7 @@ describe('残り時間の画面', () => {
       '  0:15 elapsed      25%         1:00 total',
       '',
       '  #1  ██▌······· ··········  ◀ now',
-      '  #2  ·········· ··········',
+      '  #2  ··········',
       '      work 1:00  break 1:00',
     ]);
   });
@@ -210,7 +212,7 @@ describe('残り時間の画面', () => {
     expect(clockOf(app)).toBe('1:00');
     expect(frameOf(app).slice(11, 13)).toEqual([
       '  #1  ██████████ ··········  ◀ now',
-      '  #2  ·········· ··········',
+      '  #2  ··········',
     ]);
 
     await app.advance('1:30');
@@ -219,7 +221,7 @@ describe('残り時間の画面', () => {
     expect(clockOf(app)).toBe('0:30');
     expect(frameOf(app).slice(11, 13)).toEqual([
       '  #1  ██████████ ██████████  ✓',
-      '  #2  █████····· ··········  ◀ now',
+      '  #2  █████·····             ◀ now',
     ]);
   });
 
@@ -488,8 +490,23 @@ describe('skip', () => {
     expect(frameOf(app)[0]).toContain('BREAK');
   });
 
-  test('最後の休憩をskipするとタイマーを完了し、完了通知の音を鳴らさずに終える', async () => {
+  test('最後の作業をskipするとタイマーを完了し、完了通知の音を鳴らさずに終える', async () => {
     const app = await startTimer();
+
+    await app.press('s', 's', 's');
+
+    expect(app.exitCode()).toBe(0);
+    expect(app.terminal.lastLines(2)).toEqual(['⏩ Work skipped.', '🎉 Pomodoro complete.']);
+    expect(app.log()).toEqual([
+      '0:00.000 exit-code:0',
+      '0:00.000 shutdown:complete',
+      `0:00.000 schedule-exit:0:${COMPLETION_SHUTDOWN}`,
+    ]);
+    expect(app.terminal.cursorVisible()).toBe(true);
+  });
+
+  test('--final-breakでは最後の休憩をskipするとタイマーを完了し、完了通知の音を鳴らさずに終える', async () => {
+    const app = await startTimer({ arguments_: SHORT_WITH_FINAL_BREAK });
 
     await app.press('s', 's', 's', 's');
 
@@ -504,7 +521,7 @@ describe('skip', () => {
   });
 
   test('skipしたフェーズと自然終了したフェーズが混在しても、自然終了した分だけ音を鳴らす', async () => {
-    const app = await startTimer();
+    const app = await startTimer({ arguments_: SHORT_WITH_FINAL_BREAK });
 
     await app.advance('1:00');
     await app.press('s');
@@ -587,8 +604,27 @@ describe('終了', () => {
     expect(app.terminal.lines()).toContain('✅ Work complete.');
   });
 
-  test('期限を過ぎた最後の休憩でqを押すと、終了より完了を優先する', async () => {
+  test('期限を過ぎた最後の作業でqを押すと、終了より完了を優先する', async () => {
     const app = await startTimer();
+
+    await app.advance('2:59.900');
+    app.stall('0:00.200');
+    await app.press('q');
+
+    expect(app.exitCode()).toBe(0);
+    expect(app.log()).toEqual([
+      '1:00.000 play:work',
+      '2:00.000 play:break',
+      '3:00.100 play:work:completion-notice',
+      '3:00.100 exit-code:0',
+      '3:00.100 shutdown:complete',
+      `3:00.100 schedule-exit:0:${COMPLETION_SHUTDOWN}`,
+    ]);
+    expect(app.terminal.lastLines(1)).toEqual(['🎉 Pomodoro complete.']);
+  });
+
+  test('期限を過ぎた最後の休憩でqを押すと、終了より完了を優先する', async () => {
+    const app = await startTimer({ arguments_: SHORT_WITH_FINAL_BREAK });
 
     await app.advance('3:59.900');
     app.stall('0:00.200');
@@ -624,11 +660,11 @@ describe('終了', () => {
 });
 
 describe('完了', () => {
-  test('既定の設定では各フェーズの終了時刻ちょうどに音を鳴らし、最後だけ完了通知とする', async () => {
+  test('既定の設定では各フェーズの終了時刻ちょうどに音を鳴らし、最後の作業だけ完了通知とする', async () => {
     const app = await startScenario({ interactive: false });
 
     await app.press('enter');
-    await app.advance('1:00:00');
+    await app.advance('55:00');
 
     expect(app.exitCode()).toBe(0);
     expect(app.log()).toEqual([
@@ -636,16 +672,53 @@ describe('完了', () => {
       '20:00.000 play:break',
       '35:00.000 play:work',
       '40:00.000 play:break',
-      '55:00.000 play:work',
-      '1:00:00.000 play:break:completion-notice',
-      '1:00:00.000 exit-code:0',
-      '1:00:00.000 shutdown:complete',
-      `1:00:00.000 schedule-exit:0:${COMPLETION_SHUTDOWN}`,
+      '55:00.000 play:work:completion-notice',
+      '55:00.000 exit-code:0',
+      '55:00.000 shutdown:complete',
+      `55:00.000 schedule-exit:0:${COMPLETION_SHUTDOWN}`,
     ]);
   });
 
-  test('最後の休憩が終わると画面に完了を表示し、カーソルと入力を元に戻す', async () => {
+  test('--final-breakでは最後の休憩の終了時刻に完了通知を鳴らす', async () => {
+    const app = await startScenario({
+      arguments_: ['--final-break'],
+      interactive: false,
+    });
+
+    await app.press('enter');
+    await app.advance('1:00:00');
+
+    expect(app.exitCode()).toBe(0);
+    expect(playsOf(app).slice(-2)).toEqual([
+      '55:00.000 play:work',
+      '1:00:00.000 play:break:completion-notice',
+    ]);
+  });
+
+  test('最後の作業が終わると画面に完了を表示し、カーソルと入力を元に戻す', async () => {
     const app = await startTimer();
+
+    await app.advance('2:59.750');
+
+    expect(app.finished()).toBe(false);
+
+    await app.advance('0:00.250');
+
+    expect(app.exitCode()).toBe(0);
+    expect(app.terminal.lastLines(4)).toEqual([
+      '✅ Work complete.',
+      '✅ Break complete.',
+      '✅ Work complete.',
+      '🎉 Pomodoro complete.',
+    ]);
+    expect(app.terminal.cursorVisible()).toBe(true);
+    expect(app.rawModes()).toEqual([true, false, true, false]);
+    expect(app.processListenerCount()).toBe(0);
+    expect(app.terminal.resizeListenerCount()).toBe(0);
+  });
+
+  test('--final-breakでは最後の休憩が終わると画面に完了を表示する', async () => {
+    const app = await startTimer({ arguments_: SHORT_WITH_FINAL_BREAK });
 
     await app.advance('3:59.750');
 
@@ -717,18 +790,16 @@ describe('端末以外への出力', () => {
     const app = await startScenario({ arguments_: SHORT, interactive: false });
 
     await app.press('enter');
-    await app.advance('4:00');
+    await app.advance('3:00');
 
     expect(app.exitCode()).toBe(0);
-    expect(app.terminal.lines().slice(-9)).toEqual([
+    expect(app.terminal.lines().slice(-7)).toEqual([
       '🍅 Work started (1 min)',
       '✅ Work complete.',
       '☕ Break started (1 min)',
       '✅ Break complete.',
       '🍅 Work started (1 min)',
       '✅ Work complete.',
-      '☕ Break started (1 min)',
-      '✅ Break complete.',
       '🎉 Pomodoro complete.',
     ]);
     expect(app.terminal.raw()).not.toContain('\u001B[?25l');

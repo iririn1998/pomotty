@@ -36,7 +36,7 @@ type CliResult = {
 const MINUTE_MS = 60_000,
   START_TIME = 1_700_000_000_000,
   help =
-    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (positive integer, default: 3)\n  -h, --help\n          Print help\n',
+    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (positive integer, default: 3)\n  --final-break\n          Take a break after the last work session (default: finish after work)\n  -h, --help\n          Print help\n',
   brokenPipe = (): Error => Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }),
   /** 書き込みを記録し、`error`イベントを発生させられる偽の標準出力を作成します。 */
   createStdout = (failWrite?: (output: string) => void): FakeStdout => {
@@ -130,11 +130,11 @@ const MINUTE_MS = 60_000,
     };
   };
 
-test('オプションなしで15分の作業と5分の休憩を3回実行する', async () => {
+test('オプションなしで15分の作業を3回実行し、最後の作業の完了で終了する', async () => {
   const result = await runCliFor();
 
   expect(result).toEqual({
-    elapsedMs: 3 * (DEFAULT_WORK_DURATION_MS + DEFAULT_BREAK_DURATION_MS),
+    elapsedMs: 3 * DEFAULT_WORK_DURATION_MS + 2 * DEFAULT_BREAK_DURATION_MS,
     errorOutput: '',
     events: [
       'create-sound-player',
@@ -143,8 +143,7 @@ test('オプションなしで15分の作業と5分の休憩を3回実行する'
       'play:break',
       'play:work',
       'play:break',
-      'play:work',
-      'play:break:completion-notice',
+      'play:work:completion-notice',
       'set-exit-code:0',
       'shutdown:complete',
       `schedule-exit:0:${COMPLETION_SHUTDOWN_DEADLINE_MS}`,
@@ -162,8 +161,6 @@ test('オプションなしで15分の作業と5分の休憩を3回実行する'
       '✅ Break complete.\n',
       '🍅 Work started (15 min)\n',
       '✅ Work complete.\n',
-      '☕ Break started (5 min)\n',
-      '✅ Break complete.\n',
       '🎉 Pomodoro complete.\n',
     ].join(''),
   });
@@ -172,13 +169,18 @@ test('オプションなしで15分の作業と5分の休憩を3回実行する'
 test.each([
   {
     arguments_: ['--work', '30', '--break', '10', '--loop', '1'],
-    elapsedMs: 40 * MINUTE_MS,
+    elapsedMs: 30 * MINUTE_MS,
     name: '分離形式',
   },
   {
     arguments_: ['--work=45', '--break=15', '--loop=2'],
-    elapsedMs: 120 * MINUTE_MS,
+    elapsedMs: 105 * MINUTE_MS,
     name: 'イコール形式',
+  },
+  {
+    arguments_: ['--work=45', '--break=15', '--loop=2', '--final-break'],
+    elapsedMs: 120 * MINUTE_MS,
+    name: '最後の休憩あり',
   },
 ])('$nameで指定した時間と回数でタイマーを実行する', async ({ arguments_, elapsedMs }) => {
   const result = await runCliFor(arguments_);
@@ -504,6 +506,7 @@ describe('残り時間の画面', () => {
       '1',
       '--loop',
       '1',
+      '--final-break',
     ]);
 
     expect(exitCode).toBe(0);
@@ -535,7 +538,7 @@ describe('残り時間の画面', () => {
 
   test('色が有効な場合は作業を赤、休憩を緑で表示する', async () => {
     const { output } = await runInteractive(
-      ['--work', '1', '--break', '1', '--loop', '1'],
+      ['--work', '1', '--break', '1', '--loop', '1', '--final-break'],
       new Map(),
       { color: true },
     );
@@ -561,7 +564,7 @@ describe('残り時間の画面', () => {
 
   test('sでフェーズをskipし、音を鳴らさずにskipした行を残す', async () => {
     const { events, exitCode, output } = await runInteractive(
-      ['--work', '1', '--break', '1', '--loop', '1'],
+      ['--work', '1', '--break', '1', '--loop', '1', '--final-break'],
       new Map([
         [1, 's'],
         [3, 'S'],
@@ -607,7 +610,7 @@ describe('残り時間の画面', () => {
     let currentTime = 0;
     const stdin = createTtyInput(),
       harness = createHarness(
-        ['--work', '1', '--break', '1', '--loop', '1'],
+        ['--work', '1', '--break', '1', '--loop', '1', '--final-break'],
         {
           color: false,
           interactive: true,
@@ -737,12 +740,25 @@ describe('残り時間の画面', () => {
   });
 
   test('標準出力が端末でない場合はフェーズの開始と完了を1行ずつ出力する', async () => {
-    const result = await runCliFor(['--work', '1', '--break', '1', '--loop', '1'], {
-      stdin: createTtyInput(),
-    });
+    const result = await runCliFor(
+      ['--work', '1', '--break', '1', '--loop', '1', '--final-break'],
+      { stdin: createTtyInput() },
+    );
 
     expect(result.output).toBe(
       `${LOGO}\n🍅 Work started (1 min)\n✅ Work complete.\n☕ Break started (1 min)\n✅ Break complete.\n🎉 Pomodoro complete.\n`,
     );
+  });
+
+  test('最後の休憩を指定しない場合は、最後の作業の完了で完了通知を鳴らして終了する', async () => {
+    const result = await runCliFor(['--work', '1', '--break', '1', '--loop', '1'], {
+      stdin: createTtyInput(),
+    });
+
+    expect(result.elapsedMs).toBe(MINUTE_MS);
+    expect(result.output).toBe(
+      `${LOGO}\n🍅 Work started (1 min)\n✅ Work complete.\n🎉 Pomodoro complete.\n`,
+    );
+    expect(result.events).toContain('play:work:completion-notice');
   });
 });

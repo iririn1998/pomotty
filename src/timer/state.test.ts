@@ -1,9 +1,9 @@
-import { remainingMsAt, togglePause, transitionFromSkip } from './state.ts';
+import { remainingMsAt, togglePause, transitionFromSkip, transitionFromTimeout } from './state.ts';
 import type { TimerState } from './state.ts';
 import { expect, test } from 'vitest';
 
 const NOW = 1_700_000_000_000,
-  SETTINGS = { breakDurationMs: 1000, loopCount: 2, workDurationMs: 2000 },
+  SETTINGS = { breakDurationMs: 1000, finalBreak: true, loopCount: 2, workDurationMs: 2000 },
   running = (overrides: Partial<TimerState> = {}): TimerState => ({
     completedPomodoros: 0,
     cycle: 1,
@@ -31,6 +31,27 @@ test('休憩のskipでは次のサイクルの作業を開始し、最後の休�
   expect(transitionFromSkip(running({ cycle: 2, phase: 'break' }), NOW, SETTINGS)).toMatchObject({
     final: true,
     skippedPhase: 'break',
+  });
+});
+
+test('最後の休憩がない場合は、最後のサイクルの作業を最後のフェーズとする', () => {
+  const settings = { ...SETTINGS, finalBreak: false };
+
+  expect(transitionFromSkip(running(), NOW, settings)).toMatchObject({
+    final: false,
+    skippedPhase: 'work',
+  });
+  expect(transitionFromSkip(running({ cycle: 2 }), NOW, settings)).toEqual({
+    final: true,
+    skippedPhase: 'work',
+    state: running({ cycle: 2 }),
+  });
+  expect(
+    transitionFromTimeout(running({ completedPomodoros: 1, cycle: 2 }), NOW, settings),
+  ).toEqual({
+    completedPhase: 'work',
+    final: true,
+    state: running({ completedPomodoros: 2, cycle: 2 }),
   });
 });
 

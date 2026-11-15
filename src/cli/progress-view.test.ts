@@ -8,7 +8,12 @@ import { createProgressView } from './progress-view.ts';
 import { createVirtualTerminal } from '#src/terminal/virtual-terminal.test-helper.ts';
 import type { VirtualTerminal } from '#src/terminal/virtual-terminal.test-helper.ts';
 
-const SETTINGS = { breakDurationMs: 60_000, loopCount: 2, workDurationMs: 120_000 },
+const SETTINGS = {
+    breakDurationMs: 60_000,
+    finalBreak: true,
+    loopCount: 2,
+    workDurationMs: 120_000,
+  },
   NOW = 1_700_000_000_000,
   RUNNING: TimerState = {
     completedPomodoros: 0,

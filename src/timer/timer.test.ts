@@ -74,7 +74,7 @@ test('既定時間は作業15分・休憩5分である', () => {
 });
 
 test('loopCount = 1では作業と休憩を1回ずつ実行して終了する', async () => {
-  const run = await runTimer({ loopCount: 1 });
+  const run = await runTimer({ finalBreak: true, loopCount: 1 });
 
   expect(run).toEqual({
     elapsedMs: DEFAULT_WORK_DURATION_MS + DEFAULT_BREAK_DURATION_MS,
@@ -91,6 +91,7 @@ test('loopCount = 1では作業と休憩を1回ずつ実行して終了する', 
 test('loopCount = 3では最後の休憩だけを最終フェーズとして通知する', async () => {
   const run = await runTimer({
     breakDurationMs: CUSTOM_BREAK_DURATION_MS,
+    finalBreak: true,
     loopCount: 3,
     workDurationMs: CUSTOM_WORK_DURATION_MS,
   });
@@ -112,6 +113,27 @@ test('loopCount = 3では最後の休憩だけを最終フェーズとして通�
   expect(run.result).toEqual({ completed: true, completedPomodoros: 3 });
 });
 
+test('既定では最後のサイクルの休憩を実行せず、最後の作業を最終フェーズとして通知する', async () => {
+  const run = await runTimer({
+    breakDurationMs: CUSTOM_BREAK_DURATION_MS,
+    loopCount: 2,
+    workDurationMs: CUSTOM_WORK_DURATION_MS,
+  });
+
+  expect(run).toEqual({
+    elapsedMs: 5000,
+    events: [
+      'started:work:2000:0',
+      'completed:work:2000',
+      'started:break:1000:2000',
+      'completed:break:3000',
+      'started:work:2000:3000',
+      'completed:work:5000:final',
+    ],
+    result: { completed: true, completedPomodoros: 2 },
+  });
+});
+
 test('スリープ復帰後は現在のフェーズを1回だけ完了し、次のフェーズを復帰時刻から開始する', async () => {
   // 1秒後に1時間のスリープが発生する。作業2秒・休憩1秒の全フェーズ分を超えるが、
   // 遡って複数フェーズを完了させず、作業だけを完了して休憩を全量で開始する。
@@ -121,6 +143,7 @@ test('スリープ復帰後は現在のフェーズを1回だけ完了し、次�
     run = await runTimer(
       {
         breakDurationMs: CUSTOM_BREAK_DURATION_MS,
+        finalBreak: true,
         loopCount: 2,
         workDurationMs: CUSTOM_WORK_DURATION_MS,
       },
@@ -144,6 +167,7 @@ test('待機処理が遅れても経過時間を累積せず、終了予定時�
     run = await runTimer(
       {
         breakDurationMs: CUSTOM_BREAK_DURATION_MS,
+        finalBreak: true,
         loopCount: 1,
         workDurationMs: CUSTOM_WORK_DURATION_MS,
       },
@@ -161,6 +185,7 @@ test('待機処理が遅れても経過時間を累積せず、終了予定時�
 test('終了予定時刻ちょうどでフェーズを完了する', () => {
   const settings = {
       breakDurationMs: CUSTOM_BREAK_DURATION_MS,
+      finalBreak: true,
       loopCount: 2,
       workDurationMs: CUSTOM_WORK_DURATION_MS,
     },
@@ -190,6 +215,7 @@ test('終了予定時刻ちょうどでフェーズを完了する', () => {
 test('最後のサイクル以外の休憩完了でサイクルを進め、作業を開始する', () => {
   const settings = {
     breakDurationMs: CUSTOM_BREAK_DURATION_MS,
+    finalBreak: true,
     loopCount: 2,
     workDurationMs: CUSTOM_WORK_DURATION_MS,
   };
@@ -241,6 +267,7 @@ test('開始直後と、終了しない各tickの後に現在の状態と判定�
 
   await runPomodoroTimer({
     breakDurationMs: TICK_INTERVAL_MS,
+    finalBreak: true,
     loopCount: 1,
     now: clock.now,
     onPhaseCompleted: (phase) => {
@@ -267,6 +294,7 @@ test('中断されるとフェーズを完了せずに終了する', async () =>
     clock = createFakeClock(),
     events: string[] = [],
     result = await runPomodoroTimer({
+      finalBreak: true,
       loopCount: 1,
       now: clock.now,
       onPhaseCompleted: (phase) => {
@@ -286,6 +314,7 @@ test('中断されるとフェーズを完了せずに終了する', async () =>
 test('待機処理が中断で失敗した場合も中断として扱う', async () => {
   const controller = new AbortController(),
     result = await runPomodoroTimer({
+      finalBreak: true,
       loopCount: 1,
       now: () => START_TIME,
       signal: controller.signal,
@@ -303,6 +332,7 @@ test('中断以外の待機処理の失敗は呼び出し元へ伝える', async
 
   await expect(
     runPomodoroTimer({
+      finalBreak: true,
       loopCount: 1,
       now: () => START_TIME,
       sleep: () => Promise.reject(failure),
@@ -338,6 +368,7 @@ const togglePauseAction = (controls: TimerControls): void => {
         controls = bound;
       },
       breakDurationMs: CUSTOM_BREAK_DURATION_MS,
+      finalBreak: true,
       loopCount,
       now: clock.now,
       onPhaseCompleted: (phase, { final }) => {
@@ -422,6 +453,7 @@ describe('実行中の操作', () => {
         controls = bound;
       },
       breakDurationMs: CUSTOM_BREAK_DURATION_MS,
+      finalBreak: true,
       loopCount: 2,
       now: clock.now,
       onPhaseCompleted: (phase) => {
@@ -472,6 +504,7 @@ describe('実行中の操作', () => {
         settled.push(controls.settle());
       },
       breakDurationMs: CUSTOM_BREAK_DURATION_MS,
+      finalBreak: true,
       loopCount: 1,
       now: clock.now,
       onPhaseCompleted: (phase, { final }) => {
@@ -495,6 +528,7 @@ describe('実行中の操作', () => {
       bindControls: (bound) => {
         controls = bound;
       },
+      finalBreak: true,
       loopCount: 1,
       now: () => START_TIME,
       onPhaseSkipped: (phase) => {
