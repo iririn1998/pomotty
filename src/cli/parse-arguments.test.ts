@@ -55,7 +55,7 @@ test.each([
 test.each([
   { arguments_: ['--loop', '1'], loopCount: 1 },
   { arguments_: ['--loop=5'], loopCount: 5 },
-  { arguments_: ['--loop', String(Number.MAX_SAFE_INTEGER)], loopCount: Number.MAX_SAFE_INTEGER },
+  { arguments_: ['--loop', '100'], loopCount: 100 },
 ])('繰り返し回数を受理する: $arguments_', ({ arguments_, loopCount }) => {
   expect(parseCliArguments(arguments_)).toEqual({
     breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
@@ -76,12 +76,14 @@ test.each([
   ['1e2'],
   [' 2'],
   ['Infinity'],
+  ['101'],
+  ['1000'],
   ['9007199254740992'],
   ['--work'],
 ])('不正な繰り返し回数を拒否する: %j', (...values) => {
   expect(parseCliArguments(['--loop', ...values])).toEqual({
     kind: 'error',
-    message: `Error: --loop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
+    message: `Error: --loop requires an integer from 1 to 100.\n`,
   });
 });
 

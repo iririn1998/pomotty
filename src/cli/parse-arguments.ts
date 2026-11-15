@@ -1,5 +1,5 @@
 import { DEFAULT_BREAK_DURATION_MINUTES, DEFAULT_WORK_DURATION_MINUTES } from '#src/timer/timer.ts';
-import { DEFAULT_LOOP_COUNT } from './constants.ts';
+import { DEFAULT_LOOP_COUNT, MAXIMUM_LOOP_COUNT } from './constants.ts';
 import { escapeDiagnostic } from '#src/diagnostics/escape.ts';
 
 /** タイマー起動に利用するCLI引数です。 */
@@ -34,7 +34,7 @@ const ARGUMENT_INDEX_INCREMENT = 1,
   HELP_OPTIONS = ['--help', '-h'] as const,
   MAXIMUM_DURATION_MINUTES = 1440,
   NEXT_ARGUMENT_OFFSET = 1,
-  LOOP_PATTERN = /^[1-9][0-9]*$/u,
+  LOOP_PATTERN = /^[1-9][0-9]{0,2}$/u,
   /** 引数が数値指定オプションか判定します。 */
   isNumericOption = (value: string): value is NumericOption =>
     value === '--break' || value === '--work' || value === '--loop',
@@ -45,7 +45,7 @@ const ARGUMENT_INDEX_INCREMENT = 1,
     let maximum = MAXIMUM_DURATION_MINUTES;
 
     if (option === '--loop') {
-      maximum = Number.MAX_SAFE_INTEGER;
+      maximum = MAXIMUM_LOOP_COUNT;
     }
 
     return {
@@ -65,7 +65,7 @@ const ARGUMENT_INDEX_INCREMENT = 1,
 
     if (option === '--loop') {
       pattern = LOOP_PATTERN;
-      maximum = Number.MAX_SAFE_INTEGER;
+      maximum = MAXIMUM_LOOP_COUNT;
     }
 
     if (typeof value !== 'string' || !pattern.test(value)) {
@@ -74,7 +74,7 @@ const ARGUMENT_INDEX_INCREMENT = 1,
 
     const numericValue = Number(value);
 
-    if (!Number.isSafeInteger(numericValue) || numericValue > maximum) {
+    if (numericValue > maximum) {
       return;
     }
 

@@ -36,7 +36,7 @@ type CliResult = {
 const MINUTE_MS = 60_000,
   START_TIME = 1_700_000_000_000,
   help =
-    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (positive integer, default: 3)\n  -h, --help\n          Print help\n',
+    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (1-100, default: 3)\n  -h, --help\n          Print help\n',
   brokenPipe = (): Error => Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }),
   /** 書き込みを記録し、`error`イベントを発生させられる偽の標準出力を作成します。 */
   createStdout = (failWrite?: (output: string) => void): FakeStdout => {
@@ -194,7 +194,7 @@ test('不正な繰り返し回数では再生コマンドの解決も開始確�
 
   expect(result).toEqual({
     elapsedMs: 0,
-    errorOutput: `Error: --loop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
+    errorOutput: `Error: --loop requires an integer from 1 to 100.\n`,
     events: [],
     exitCode: 2,
     output: '',

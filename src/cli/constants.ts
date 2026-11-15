@@ -3,6 +3,8 @@ import type { OptionDefinition } from './types.ts';
 
 /** `--loop`を指定しない場合に作業と休憩を繰り返す回数です。 */
 const DEFAULT_LOOP_COUNT = 3,
+  /** `--loop`で指定できる繰り返し回数の上限です。 */
+  MAXIMUM_LOOP_COUNT = 100,
   /**
    * CLIで現在案内しているオプションの一覧です。
    */
@@ -18,7 +20,7 @@ const DEFAULT_LOOP_COUNT = 3,
       valueName: '<minutes>',
     },
     {
-      description: `Work-break repetitions (positive integer, default: ${DEFAULT_LOOP_COUNT})`,
+      description: `Work-break repetitions (1-${MAXIMUM_LOOP_COUNT}, default: ${DEFAULT_LOOP_COUNT})`,
       name: '--loop',
       valueName: '<count>',
     },
@@ -29,4 +31,4 @@ const DEFAULT_LOOP_COUNT = 3,
     },
   ] as const satisfies readonly OptionDefinition[];
 
-export { DEFAULT_LOOP_COUNT, OPTIONS };
+export { DEFAULT_LOOP_COUNT, MAXIMUM_LOOP_COUNT, OPTIONS };
