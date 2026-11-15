@@ -13,6 +13,7 @@ import { LOGO } from '#src/terminal/constants.ts';
 import type { OutputStream } from '#src/terminal/output.ts';
 import type { ProcessEvents } from '#src/terminal/terminal-guard.ts';
 import type { SoundPlayer } from '#src/notification/sound.ts';
+import { VERSION } from './constants.ts';
 
 type FakeStdout = OutputStream & {
   readonly emitError: (error: unknown) => void;
@@ -36,7 +37,7 @@ type CliResult = {
 const MINUTE_MS = 60_000,
   START_TIME = 1_700_000_000_000,
   help =
-    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (positive integer, default: 3)\n  -h, --help\n          Print help\n',
+    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (positive integer, default: 3)\n  -h, --help\n          Print help\n  -v, --version\n          Print version\n',
   brokenPipe = (): Error => Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }),
   /** 書き込みを記録し、`error`イベントを発生させられる偽の標準出力を作成します。 */
   createStdout = (failWrite?: (output: string) => void): FakeStdout => {
@@ -213,6 +214,18 @@ test.each(['--help', '-h'])('%sでヘルプを表示してタイマーを開始�
   });
 });
 
+test.each(['--version', '-v'])('%sでバージョンを表示してタイマーを開始しない', async (option) => {
+  const result = await runCliFor([option]);
+
+  expect(result).toEqual({
+    elapsedMs: 0,
+    errorOutput: '',
+    events: [],
+    exitCode: 0,
+    output: `${VERSION}\n`,
+  });
+});
+
 test('未知のオプションではエラー終了しタイマーを開始しない', async () => {
   const result = await runCliFor(['--unknown']);
 
@@ -291,6 +304,21 @@ test.each([
         throw error;
       }),
       harness = createHarness(['--help'], {}, stdout);
+
+    expect(await runCli(harness.parameters)).toBe(exitCode);
+  },
+);
+
+test.each([
+  { error: brokenPipe(), exitCode: 0, name: 'EPIPE' },
+  { error: new Error('stream destroyed'), exitCode: 1, name: 'その他のエラー' },
+])(
+  'バージョンの同期的な書き込み失敗が$nameなら終了コード$exitCodeを返す',
+  async ({ error, exitCode }) => {
+    const stdout = createStdout(() => {
+        throw error;
+      }),
+      harness = createHarness(['--version'], {}, stdout);
 
     expect(await runCli(harness.parameters)).toBe(exitCode);
   },

@@ -1,9 +1,9 @@
 import { MILLISECONDS_PER_MINUTE, runPomodoroTimer } from '#src/timer/timer.ts';
 import type { Now, Sleep } from '#src/timer/timer.ts';
+import { OPTIONS, VERSION } from '#src/cli/constants.ts';
 import type { OutputStream, WriteOutput } from '#src/terminal/output.ts';
 import type { ProgressViewParameters, StopReason, TimerView } from '#src/cli/progress-view.ts';
 import { createStandardOutput, isBrokenPipe } from '#src/terminal/output.ts';
-import { OPTIONS } from '#src/cli/constants.ts';
 import type { SelectionInput } from '#src/terminal/input.ts';
 import type { SoundPlayer } from '#src/notification/sound.ts';
 import { confirmWorkStart } from '#src/terminal/input.ts';
@@ -128,15 +128,23 @@ const CLI_ARGUMENTS_START_INDEX = 2,
   setProcessExitCode = (exitCode: number): void => {
     process.exitCode = exitCode;
   },
-  /** ヘルプを表示します。出力先が閉じていれば、閉じたパイプだけを正常終了とします。 */
-  runHelp = (stdout: OutputStream | undefined, setExitCode: (exitCode: number) => void): number => {
+  /**
+   * タイマーを開始せずに文字列を標準出力へ書き込んで終了します。
+   *
+   * 出力先が閉じていれば、閉じたパイプだけを正常終了とします。
+   */
+  runPrint = (
+    output: string,
+    stdout: OutputStream | undefined,
+    setExitCode: (exitCode: number) => void,
+  ): number => {
     let exitCode = SUCCESS_EXIT_CODE;
     const writeOutput = createStandardOutput((error) => {
       exitCode = exitCodeForOutputFailure(error);
       setExitCode(exitCode);
     }, stdout);
 
-    writeOutput(createCliOutput({ optionName: '--help', options: OPTIONS }));
+    writeOutput(output);
     return exitCode;
   },
   /** 作業開始を確認し、指定回数のポモドーロサイクルを実行します。 */
@@ -163,7 +171,15 @@ const CLI_ARGUMENTS_START_INDEX = 2,
     }
 
     if (parsedArguments.kind === 'help') {
-      return runHelp(stdout, setExitCode);
+      return runPrint(
+        createCliOutput({ optionName: '--help', options: OPTIONS }),
+        stdout,
+        setExitCode,
+      );
+    }
+
+    if (parsedArguments.kind === 'version') {
+      return runPrint(`${VERSION}\n`, stdout, setExitCode);
     }
 
     const controller = new AbortController();

@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import process from 'node:process';
 import { spawn } from 'node:child_process';
+import { VERSION } from '#src/cli/constants.ts';
 
 type CliProcessResult = {
   readonly exitCode: number | null;
@@ -98,6 +99,17 @@ test('ヘルプを表示して終了コード0で終える', async () => {
 
   expect(result.exitCode).toBe(0);
   expect(result.stdout.startsWith('Pomotty CLI\n')).toBe(true);
+});
+
+test('バージョンを表示して終了コード0で終える', async () => {
+  const result = await runCliProcess(['--version']);
+
+  expect(result).toEqual({
+    exitCode: 0,
+    signal: null,
+    stderr: '',
+    stdout: `${VERSION}\n`,
+  });
 });
 
 test('不正な引数は開始確認を表示せず終了コード2で終える', async () => {

@@ -89,6 +89,12 @@ pomotty --work=25 --break=5 --loop=2
 pomotty --help
 ```
 
+インストールされているバージョンを確認するには、次のコマンドを実行します。
+
+```shell
+pomotty --version
+```
+
 作業と休憩の完了時には、それぞれ異なる通知音を再生します。macOSでは
 `afplay`、Linuxでは`paplay`または`aplay`、WindowsではPowerShellを利用し、
 再生できない環境では異なる回数のターミナルベルに切り替わります。
