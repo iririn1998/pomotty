@@ -15,9 +15,9 @@ npm install --global pomotty
 pomotty
 ```
 
-`pomotty`で作業開始の選択メニューを表示します。上下キーで`OK`を選んで
-Enterを押すと15分の作業と5分の休憩を3セット実行し、`NG`を選ぶとタイマーを
-開始せず終了します。
+`pomotty`で作業開始の選択メニューを表示します。`y`を押す（または上下キーで
+`Yes`を選んでEnterを押す）と15分の作業と5分の休憩を3セット実行し、`n`か`Esc`を
+押す（または`No`を選ぶ）とタイマーを開始せず終了します。
 
 ```shell
 pomotty
@@ -86,6 +86,12 @@ pomotty --work=25 --break=5 --loop=2
 
 ```shell
 pomotty --help
+```
+
+インストールされているバージョンを確認するには、次のコマンドを実行します。
+
+```shell
+pomotty --version
 ```
 
 作業と休憩の完了時には、それぞれ異なる通知音を再生します。macOSでは

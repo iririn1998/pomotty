@@ -14,6 +14,7 @@ type TimerCliArguments = {
 type ParseCliArgumentsResult =
   | TimerCliArguments
   | { readonly kind: 'help' }
+  | { readonly kind: 'version' }
   | { readonly kind: 'error'; readonly message: string };
 
 /** 数値を指定できるCLIオプションです。 */
@@ -35,11 +36,14 @@ const ARGUMENT_INDEX_INCREMENT = 1,
   MAXIMUM_DURATION_MINUTES = 1440,
   NEXT_ARGUMENT_OFFSET = 1,
   LOOP_PATTERN = /^[1-9][0-9]{0,2}$/u,
+  VERSION_OPTIONS = ['--version', '-v'] as const,
   /** 引数が数値指定オプションか判定します。 */
   isNumericOption = (value: string): value is NumericOption =>
     value === '--break' || value === '--work' || value === '--loop',
   /** 引数がヘルプオプションか判定します。 */
   isHelpOption = (value: string): boolean => HELP_OPTIONS.some((option) => option === value),
+  /** 引数がバージョン表示オプションか判定します。 */
+  isVersionOption = (value: string): boolean => VERSION_OPTIONS.some((option) => option === value),
   /** 数値指定のエラーを生成します。 */
   createValueError = (option: NumericOption): ParseCliArgumentsResult => {
     let maximum = MAXIMUM_DURATION_MINUTES;
@@ -102,6 +106,10 @@ const ARGUMENT_INDEX_INCREMENT = 1,
   parseCliArguments = (arguments_: readonly string[]): ParseCliArgumentsResult => {
     if (arguments_.some((argument) => isHelpOption(argument))) {
       return { kind: 'help' };
+    }
+
+    if (arguments_.some((argument) => isVersionOption(argument))) {
+      return { kind: 'version' };
     }
 
     const specifiedOptions = new Set<NumericOption>();

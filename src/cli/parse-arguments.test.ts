@@ -159,3 +159,18 @@ test.each(['--help', '-h'])('%sでヘルプ表示を選ぶ', (option) => {
 test('ヘルプは他の不正な引数より優先する', () => {
   expect(parseCliArguments(['--unknown', '--help'])).toEqual({ kind: 'help' });
 });
+
+test.each(['--version', '-v'])('%sでバージョン表示を選ぶ', (option) => {
+  expect(parseCliArguments([option])).toEqual({ kind: 'version' });
+});
+
+test('バージョン表示は他の不正な引数より優先する', () => {
+  expect(parseCliArguments(['--work', '0', '--unknown', '-v'])).toEqual({ kind: 'version' });
+});
+
+test.each([
+  ['--help', '--version'],
+  ['-v', '-h'],
+])('ヘルプとバージョン表示が両方あればヘルプを優先する: %s %s', (...arguments_) => {
+  expect(parseCliArguments(arguments_)).toEqual({ kind: 'help' });
+});
