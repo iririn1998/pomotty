@@ -1,19 +1,36 @@
-import { DEFAULT_BREAK_DURATION_MINUTES, DEFAULT_WORK_DURATION_MINUTES } from '#src/timer/timer.ts';
-import { DEFAULT_LOOP_COUNT, MAXIMUM_LOOP_COUNT } from './constants.ts';
+import { PRESET_NAME_RULE, isValidPresetName } from '#src/config/presets.ts';
+import type { PartialTimerValues, TimerValueKey } from '#src/config/values.ts';
+import { describeTimerValueRange, isValidTimerValue } from '#src/config/values.ts';
+import type { ConfigSelection } from '#src/config/load.ts';
 import { escapeDiagnostic } from '#src/diagnostics/escape.ts';
 
 /** タイマー起動に利用するCLI引数です。 */
 type TimerCliArguments = {
-  readonly breakDurationMinutes: number;
+  /** どの設定ファイルを読むかの指定です。 */
+  readonly config: ConfigSelection;
+
+  /** 最後の作業の後にも休憩するかを示します。 */
   readonly finalBreak: boolean;
   readonly kind: 'run';
-  readonly loopCount: number;
-  readonly workDurationMinutes: number;
+
+  /** CLIで指定した作業時間、休憩時間、繰り返し回数です。指定しない項目はキーを持ちません。 */
+  readonly overrides: PartialTimerValues;
+
+  /** `--preset`で指定したプリセット名です。 */
+  readonly preset?: string;
+};
+
+/** プリセット一覧の表示に利用するCLI引数です。 */
+type ListPresetsCliArguments = {
+  /** どの設定ファイルを読むかの指定です。 */
+  readonly config: ConfigSelection;
+  readonly kind: 'list-presets';
 };
 
 /** CLI引数の解析結果です。 */
 type ParseCliArgumentsResult =
   | TimerCliArguments
+  | ListPresetsCliArguments
   | { readonly kind: 'help' }
   | { readonly kind: 'version' }
   | { readonly kind: 'error'; readonly message: string };
@@ -21,14 +38,27 @@ type ParseCliArgumentsResult =
 /** 数値を指定できるCLIオプションです。 */
 type NumericOption = '--break' | '--work' | '--loop';
 
-/** 値を取らないCLIオプションです。 */
-type FlagOption = '--final-break';
+/** 値を受け取るCLIオプションです。短縮形は正式名へ変換して扱います。 */
+type ValueOption = NumericOption | '--config' | '--preset';
+
+/** 値を受け取らないCLIオプションです。 */
+type FlagOption = '--final-break' | '--list-presets' | '--no-config';
 
 /** CLI引数1個から取り出したオプション名と値です。 */
-type NumericArgument = {
+type OptionArgument = {
   readonly consumesNextArgument: boolean;
   readonly optionName: string;
   readonly value?: string;
+};
+
+/** 解析中に集めた値です。 */
+type ParsedValues = {
+  configPath?: string;
+  finalBreak: boolean;
+  listPresets: boolean;
+  noConfig: boolean;
+  overrides: Partial<Record<TimerValueKey, number>>;
+  preset?: string;
 };
 
 const ARGUMENT_INDEX_INCREMENT = 1,
@@ -37,50 +67,54 @@ const ARGUMENT_INDEX_INCREMENT = 1,
   EQUALS_SIGN = '=',
   EQUALS_SIGN_NOT_FOUND = -1,
   HELP_OPTIONS = ['--help', '-h'] as const,
-  MAXIMUM_DURATION_MINUTES = 1440,
   NEXT_ARGUMENT_OFFSET = 1,
+  NO_OVERRIDES = 0,
   LOOP_PATTERN = /^[1-9][0-9]{0,2}$/u,
   VERSION_OPTIONS = ['--version', '-v'] as const,
-  /** 引数が数値指定オプションか判定します。 */
-  isNumericOption = (value: string): value is NumericOption =>
-    value === '--break' || value === '--work' || value === '--loop',
-  /** 引数が値を取らないオプションか判定します。 */
-  isFlagOption = (value: string): value is FlagOption => value === '--final-break',
+  /** 値を受け取らないオプションです。 */
+  FLAG_OPTIONS: readonly FlagOption[] = ['--final-break', '--list-presets', '--no-config'],
+  /** 値を受け取るオプションの名前と、その正式名です。 */
+  VALUE_OPTIONS: ReadonlyMap<string, ValueOption> = new Map([
+    ['--break', '--break'],
+    ['--config', '--config'],
+    ['--loop', '--loop'],
+    ['--preset', '--preset'],
+    ['--work', '--work'],
+    ['-p', '--preset'],
+  ]),
+  /** 数値指定オプションと、設定ファイルでのキー名です。 */
+  NUMERIC_OPTION_KEYS: Readonly<Record<NumericOption, TimerValueKey>> = {
+    '--break': 'break',
+    '--loop': 'loop',
+    '--work': 'work',
+  },
   /** 引数がヘルプオプションか判定します。 */
   isHelpOption = (value: string): boolean => HELP_OPTIONS.some((option) => option === value),
   /** 引数がバージョン表示オプションか判定します。 */
   isVersionOption = (value: string): boolean => VERSION_OPTIONS.some((option) => option === value),
+  /** 引数と一致する、値を受け取らないオプションを返します。 */
+  findFlagOption = (argument: string): FlagOption | undefined =>
+    FLAG_OPTIONS.find((option) => option === argument),
+  /** 引数が、値を付けた値を受け取らないオプションなら、そのオプションを返します。 */
+  findFlagOptionWithValue = (argument: string): FlagOption | undefined =>
+    FLAG_OPTIONS.find((option) => argument.startsWith(`${option}${EQUALS_SIGN}`)),
+  /** エラーの解析結果を生成します。 */
+  createError = (message: string): ParseCliArgumentsResult => ({
+    kind: 'error',
+    message: `Error: ${message}\n`,
+  }),
   /** 数値指定のエラーを生成します。 */
-  createValueError = (option: NumericOption): ParseCliArgumentsResult => {
-    let maximum = MAXIMUM_DURATION_MINUTES;
-
-    if (option === '--loop') {
-      maximum = MAXIMUM_LOOP_COUNT;
-    }
-
-    return {
-      kind: 'error',
-      message: `Error: ${option} requires an integer from 1 to ${maximum}.\n`,
-    };
-  },
-  /** 値を取らないオプションに値を指定したエラーを生成します。 */
-  createFlagValueError = (option: FlagOption): ParseCliArgumentsResult => ({
-    kind: 'error',
-    message: `Error: ${option} does not take a value.\n`,
-  }),
+  createValueError = (option: NumericOption): ParseCliArgumentsResult =>
+    createError(`${option} requires ${describeTimerValueRange(NUMERIC_OPTION_KEYS[option])}.`),
   /** オプションの重複エラーを生成します。 */
-  createDuplicateError = (option: NumericOption | FlagOption): ParseCliArgumentsResult => ({
-    kind: 'error',
-    message: `Error: ${option} may only be specified once.\n`,
-  }),
+  createDuplicateError = (option: ValueOption | FlagOption): ParseCliArgumentsResult =>
+    createError(`${option} may only be specified once.`),
   /** オプション値を仕様の範囲内の整数へ変換します。 */
   parseNumericValue = (option: NumericOption, value: string | undefined): number | undefined => {
-    let pattern = DURATION_PATTERN,
-      maximum = MAXIMUM_DURATION_MINUTES;
+    let pattern = DURATION_PATTERN;
 
     if (option === '--loop') {
       pattern = LOOP_PATTERN;
-      maximum = MAXIMUM_LOOP_COUNT;
     }
 
     if (typeof value !== 'string' || !pattern.test(value)) {
@@ -89,14 +123,14 @@ const ARGUMENT_INDEX_INCREMENT = 1,
 
     const numericValue = Number(value);
 
-    if (numericValue > maximum) {
+    if (!isValidTimerValue(NUMERIC_OPTION_KEYS[option], numericValue)) {
       return;
     }
 
     return numericValue;
   },
   /** 引数をオプション名と値へ分離します。 */
-  parseNumericArgument = (argument: string, nextArgument: string | undefined): NumericArgument => {
+  parseOptionArgument = (argument: string, nextArgument: string | undefined): OptionArgument => {
     const equalsSignIndex = argument.indexOf(EQUALS_SIGN);
 
     if (equalsSignIndex === EQUALS_SIGN_NOT_FOUND) {
@@ -113,7 +147,92 @@ const ARGUMENT_INDEX_INCREMENT = 1,
       value: argument.slice(equalsSignIndex + NEXT_ARGUMENT_OFFSET),
     };
   },
-  /** CLI引数から作業時間、休憩時間、繰り返し回数、最後の休憩の有無を解析します。 */
+  /**
+   * 値を受け取るオプションの値を検証して記録します。
+   *
+   * @returns 値が不正ならエラーの解析結果、正しければ`undefined`。
+   */
+  applyValueOption = (
+    parsed: ParsedValues,
+    option: ValueOption,
+    value: string | undefined,
+  ): ParseCliArgumentsResult | undefined => {
+    if (option === '--preset') {
+      if (typeof value !== 'string' || !isValidPresetName(value)) {
+        return createError(`--preset requires a preset name (${PRESET_NAME_RULE}).`);
+      }
+
+      parsed.preset = value;
+      return;
+    }
+
+    if (option === '--config') {
+      if (typeof value !== 'string' || value === '') {
+        return createError('--config requires a file path.');
+      }
+
+      parsed.configPath = value;
+      return;
+    }
+
+    const numericValue = parseNumericValue(option, value);
+
+    if (typeof numericValue !== 'number') {
+      return createValueError(option);
+    }
+
+    parsed.overrides[NUMERIC_OPTION_KEYS[option]] = numericValue;
+  },
+  /** 集めた値から、読む設定ファイルの指定を作ります。 */
+  configSelection = ({ configPath, noConfig }: ParsedValues): ConfigSelection => {
+    if (noConfig) {
+      return { kind: 'none' };
+    }
+
+    if (typeof configPath === 'string') {
+      return { kind: 'file', path: configPath };
+    }
+
+    return { kind: 'default' };
+  },
+  /** オプション同士の組み合わせを検証し、解析結果を作ります。 */
+  createResult = (parsed: ParsedValues): ParseCliArgumentsResult => {
+    if (typeof parsed.configPath === 'string' && parsed.noConfig) {
+      return createError('--config and --no-config cannot be used together.');
+    }
+
+    const config = configSelection(parsed);
+
+    if (parsed.listPresets) {
+      if (
+        Object.keys(parsed.overrides).length > NO_OVERRIDES ||
+        typeof parsed.preset === 'string' ||
+        parsed.finalBreak
+      ) {
+        return createError(
+          '--list-presets cannot be combined with --work, --break, --loop, --preset, or --final-break.',
+        );
+      }
+
+      return { config, kind: 'list-presets' };
+    }
+
+    if (typeof parsed.preset === 'string') {
+      return {
+        config,
+        finalBreak: parsed.finalBreak,
+        kind: 'run',
+        overrides: parsed.overrides,
+        preset: parsed.preset,
+      };
+    }
+
+    return { config, finalBreak: parsed.finalBreak, kind: 'run', overrides: parsed.overrides };
+  },
+  /**
+   * CLI引数から作業時間、休憩時間、繰り返し回数、最後の休憩の有無、プリセット、
+   * 設定ファイルの指定を解析します。
+   */
   parseCliArguments = (arguments_: readonly string[]): ParseCliArgumentsResult => {
     if (arguments_.some((argument) => isHelpOption(argument))) {
       return { kind: 'help' };
@@ -123,11 +242,13 @@ const ARGUMENT_INDEX_INCREMENT = 1,
       return { kind: 'version' };
     }
 
-    const specifiedOptions = new Set<NumericOption | FlagOption>();
-    let breakDurationMinutes = DEFAULT_BREAK_DURATION_MINUTES,
-      finalBreak = false,
-      loopCount = DEFAULT_LOOP_COUNT,
-      workDurationMinutes = DEFAULT_WORK_DURATION_MINUTES;
+    const specifiedOptions = new Set<ValueOption | FlagOption>(),
+      parsed: ParsedValues = {
+        finalBreak: false,
+        listPresets: false,
+        noConfig: false,
+        overrides: {},
+      };
 
     for (
       let argumentIndex = ARGUMENTS_START_INDEX;
@@ -135,61 +256,59 @@ const ARGUMENT_INDEX_INCREMENT = 1,
       argumentIndex += ARGUMENT_INDEX_INCREMENT
     ) {
       const argument = arguments_[argumentIndex] ?? '',
-        numericArgument = parseNumericArgument(
-          argument,
-          arguments_[argumentIndex + NEXT_ARGUMENT_OFFSET],
-        ),
-        { consumesNextArgument, optionName, value } = numericArgument;
+        flagOption = findFlagOption(argument);
 
-      if (!isFlagOption(optionName) && !isNumericOption(optionName)) {
-        return {
-          kind: 'error',
-          message: `Error: Unknown option: ${escapeDiagnostic(argument)}\n`,
-        };
-      }
-
-      if (specifiedOptions.has(optionName)) {
-        return createDuplicateError(optionName);
-      }
-
-      specifiedOptions.add(optionName);
-
-      // 値を取らないオプションは`=`付きの値を拒否し、後続の引数を値として消費しません。
-      if (isFlagOption(optionName)) {
-        if (!consumesNextArgument) {
-          return createFlagValueError(optionName);
+      if (typeof flagOption === 'string') {
+        if (specifiedOptions.has(flagOption)) {
+          return createDuplicateError(flagOption);
         }
 
-        finalBreak = true;
+        specifiedOptions.add(flagOption);
+
+        if (flagOption === '--final-break') {
+          parsed.finalBreak = true;
+        } else if (flagOption === '--list-presets') {
+          parsed.listPresets = true;
+        } else {
+          parsed.noConfig = true;
+        }
       } else {
-        const numericValue = parseNumericValue(optionName, value);
+        const flagOptionWithValue = findFlagOptionWithValue(argument);
 
-        if (typeof numericValue !== 'number') {
-          return createValueError(optionName);
+        if (typeof flagOptionWithValue === 'string') {
+          return createError(`${flagOptionWithValue} does not take a value.`);
         }
+
+        const { consumesNextArgument, optionName, value } = parseOptionArgument(
+            argument,
+            arguments_[argumentIndex + NEXT_ARGUMENT_OFFSET],
+          ),
+          valueOption = VALUE_OPTIONS.get(optionName);
+
+        if (typeof valueOption !== 'string') {
+          return createError(`Unknown option: ${escapeDiagnostic(argument)}`);
+        }
+
+        if (specifiedOptions.has(valueOption)) {
+          return createDuplicateError(valueOption);
+        }
+
+        const error = applyValueOption(parsed, valueOption, value);
+
+        if (typeof error === 'object') {
+          return error;
+        }
+
+        specifiedOptions.add(valueOption);
 
         if (consumesNextArgument) {
           argumentIndex += NEXT_ARGUMENT_OFFSET;
         }
-
-        if (optionName === '--work') {
-          workDurationMinutes = numericValue;
-        } else if (optionName === '--loop') {
-          loopCount = numericValue;
-        } else {
-          breakDurationMinutes = numericValue;
-        }
       }
     }
 
-    return {
-      breakDurationMinutes,
-      finalBreak,
-      kind: 'run',
-      loopCount,
-      workDurationMinutes,
-    };
+    return createResult(parsed);
   };
 
 export { parseCliArguments };
-export type { ParseCliArgumentsResult, TimerCliArguments };
+export type { ListPresetsCliArguments, ParseCliArgumentsResult, TimerCliArguments };

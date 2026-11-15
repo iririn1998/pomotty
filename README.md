@@ -50,6 +50,50 @@ pomotty --final-break
 pomotty --loop=4 --final-break
 ```
 
+Use `--preset` (or `-p`) to pick a named set of values. The three presets below are
+built in. When you combine a preset with options, the options take precedence. Run
+`--list-presets` to see all available presets.
+
+| Name      | Work | Break | Loop |
+| --------- | ---- | ----- | ---- |
+| `classic` | 25   | 5     | 4    |
+| `deep`    | 50   | 10    | 2    |
+| `quick`   | 15   | 3     | 3    |
+
+```shell
+pomotty -p classic
+pomotty --preset deep --loop 3
+pomotty --list-presets
+```
+
+You can store your usual values and your own presets in a JSON config file. On macOS
+and Linux, pomotty reads `$XDG_CONFIG_HOME/pomotty/config.json` (or
+`~/.config/pomotty/config.json` if `XDG_CONFIG_HOME` is unset). On Windows, it reads
+`%APPDATA%\pomotty\config.json`. If the file does not exist, the defaults are used.
+
+```json
+{
+  "work": 25,
+  "break": 5,
+  "loop": 4,
+  "defaultPreset": "focus",
+  "presets": {
+    "focus": { "work": 40, "break": 8 },
+    "deep": { "work": 90, "break": 15 }
+  }
+}
+```
+
+The top-level `work`, `break`, and `loop` are your usual values and accept the same
+ranges as the options. Preset names in `presets` may use letters, digits, `-`, and `_`,
+up to 32 characters. Values omitted from a preset fall back to the top-level values,
+and a preset with the same name as a built-in one replaces it entirely. `defaultPreset`
+is the preset used when `--preset` is not given. Values take precedence in this order:
+options, preset, top-level config values, then defaults. To help you catch typos,
+unknown keys and out-of-range values are errors (exit code 1).
+
+Use `--config <path>` to read a different file, or `--no-config` to skip config files.
+
 While the timer runs, the remaining time is shown in large digits and updated in
 place. Below it are a progress bar for the current phase (elapsed time, percentage,
 and total time) and a timeline showing the work and break progress of each cycle.

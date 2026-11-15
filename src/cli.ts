@@ -1,7 +1,9 @@
 import { createDiagnosticWriter } from '#src/diagnostics/writer.ts';
 import { createSoundPlayer } from '#src/notification/sound.ts';
 import { escapeDiagnostic } from '#src/diagnostics/escape.ts';
+import os from 'node:os';
 import process from 'node:process';
+import { resolveDefaultConfigPath } from '#src/config/path.ts';
 import { resolvePlayerCommands } from '#src/platform/commands.ts';
 import { runCli } from '#src/cli/run.ts';
 
@@ -14,6 +16,19 @@ const FAILURE_EXIT_CODE = 1,
    */
   SOUND_DIRECTORY = new URL('../assets/', import.meta.url),
   UNCONVERTIBLE_VALUE_MESSAGE = 'Unable to convert the thrown value to a string',
+  /**
+   * ホームディレクトリを返します。
+   *
+   * `HOME`がなくユーザー情報も取得できない環境では例外になるため、空文字列を返して
+   * 標準の設定ファイルを読まずに起動できるようにします。
+   */
+  homeDirectory = (): string => {
+    try {
+      return os.homedir();
+    } catch {
+      return '';
+    }
+  },
   /** 例外値を、`toString()`が再度例外を投げても失敗せずに文字列化します。 */
   stringifyError = (error: unknown): string => {
     try {
@@ -35,6 +50,11 @@ const FAILURE_EXIT_CODE = 1,
 
 try {
   process.exitCode = await runCli({
+    configPath: resolveDefaultConfigPath({
+      env: process.env,
+      homeDirectory: homeDirectory(),
+      platform: process.platform,
+    }),
     createSoundPlayer: () =>
       createSoundPlayer({ commands: resolvePlayerCommands(), soundDirectory: SOUND_DIRECTORY }),
   });
