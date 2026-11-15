@@ -67,7 +67,7 @@ describe('正しい設定', () => {
   });
 
   test('繰り返し回数の最大値を受理する', () => {
-    expect(parse({ loop: Number.MAX_SAFE_INTEGER })).toMatchObject({ kind: 'ok' });
+    expect(parse({ loop: 100 })).toMatchObject({ kind: 'ok' });
   });
 });
 
@@ -104,14 +104,9 @@ describe('不正な設定', () => {
     expect(parse({ [key]: value })).toEqual(invalid(`${key} must be an integer from 1 to 1440.`));
   });
 
-  test.each([0, -1, 2.5, Number.MAX_SAFE_INTEGER + 1, '3'])(
-    'loopに%jを指定するとエラーにする',
-    (value) => {
-      expect(parse({ loop: value })).toEqual(
-        invalid(`loop must be an integer from 1 to ${Number.MAX_SAFE_INTEGER}.`),
-      );
-    },
-  );
+  test.each([0, -1, 2.5, 101, '3'])('loopに%jを指定するとエラーにする', (value) => {
+    expect(parse({ loop: value })).toEqual(invalid(`loop must be an integer from 1 to 100.`));
+  });
 
   test.each([[[]], [null], ['deep']])('presetsが%jならエラーにする', (value) => {
     expect(parse({ presets: value })).toEqual(invalid('presets must be an object.'));

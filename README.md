@@ -15,9 +15,11 @@ npm install --global pomotty
 pomotty
 ```
 
-Run `pomotty` to display the start menu. Use the up and down arrow keys to select
-`OK`, then press Enter to start 3 cycles of 15 minutes of work and 5 minutes of
-break. Select `NG` to exit without starting the timer.
+Run `pomotty` to display the start menu. Press `y` (or select `Yes` with the up
+and down arrow keys and press Enter) to start 3 cycles of 25 minutes of work and
+5 minutes of break. The timer finishes when the last work session ends, without a
+final break. Press `n` or `Esc` (or select `No`) to exit without starting the
+timer.
 
 ```shell
 pomotty
@@ -32,12 +34,20 @@ pomotty --work=45 --break=15
 ```
 
 Use `--loop` to set the number of work and break cycles. It defaults to 3 and
-accepts whole numbers from 1 to 9007199254740991. The start confirmation appears
-only once, and the timer exits after the final break finishes.
+accepts whole numbers from 1 to 100. The start confirmation appears only once,
+and the timer exits when the last work session finishes.
 
 ```shell
 pomotty --loop 5
 pomotty --work=25 --break=5 --loop=2
+```
+
+Add `--final-break` to take a break after the last work session as well. The timer
+then exits after the final break finishes.
+
+```shell
+pomotty --final-break
+pomotty --loop=4 --final-break
 ```
 
 Use `--preset` (or `-p`) to pick a named set of values. The three presets below are
@@ -91,19 +101,19 @@ and total time) and a timeline showing the work and break progress of each cycle
 ```text
   🍅 WORK                      Cycle 2 / 3
 
-          ██████    ██  ██ ██████
-          ██  ██ ██ ██  ██     ██
-          ██████    ██████ ██████
-          ██  ██ ██     ██ ██
-          ██████        ██ ██████
+       ████   ██  ██    ██████ ██████
+         ██   ██  ██ ██     ██ ██  ██
+         ██   ██████    ██████ ██  ██
+         ██       ██ ██     ██ ██  ██
+       ██████     ██    ██████ ██████
 
   ━━━━━━━━━━━━━━━━────────────────────────
-  6:18 elapsed      42%        15:00 total
+  10:30 elapsed     42%        25:00 total
 
-  #1  ███████████████ █████  ✓
-  #2  ██████▎········ ·····  ◀ now
-  #3  ··············· ·····
-      work 15:00      break 5:00
+  #1  █████████████████ ███  ✓
+  #2  ███████▏········· ···  ◀ now
+  #3  ·················
+      work 25:00        break 5:00
 
   [space] pause   [s] skip   [q] quit
 ```
@@ -133,6 +143,12 @@ To see the available options, run:
 
 ```shell
 pomotty --help
+```
+
+To print the installed version, run:
+
+```shell
+pomotty --version
 ```
 
 Different notification sounds play when work and break sessions end. Sound

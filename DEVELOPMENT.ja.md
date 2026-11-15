@@ -36,7 +36,7 @@ CLIを実行するため、テストを台本のように記述できます。
 ```ts
 const app = await startScenario({ arguments_: ['--work', '1', '--break', '1'] });
 
-await app.press('enter'); // 開始確認でOKを選ぶ
+await app.press('enter'); // 開始確認でYesを選ぶ
 await app.advance('0:20'); // 20秒分のtickを実行する
 await app.press('space'); // 一時停止する
 

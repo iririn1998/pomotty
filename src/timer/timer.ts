@@ -20,7 +20,7 @@ type Now = () => number;
 
 /** フェーズ完了時に通知する付加情報です。 */
 type PhaseCompletion = {
-  /** 最後のサイクルの休憩が完了し、タイマーを終了する場合は`true`です。 */
+  /** 最後のフェーズが完了し、タイマーを終了する場合は`true`です。 */
   readonly final: boolean;
 };
 
@@ -28,14 +28,14 @@ type PhaseCompletion = {
  * 実行中のタイマーを操作する処理です。
  *
  * どの操作も、まず現在時刻で期限到達済みのフェーズを自然終了として精算し、
- * その後のフェーズへ操作を適用します。精算で最後の休憩が完了した場合は
+ * その後のフェーズへ操作を適用します。精算で最後のフェーズが完了した場合は
  * 操作を適用しません。タイマーの終了後や中断後は何もしません。
  */
 type TimerControls = {
   /** 一時停止と再開を切り替えます。 */
   readonly togglePause: () => void;
 
-  /** 現在のフェーズをskipします。最後の休憩をskipするとタイマーを完了します。 */
+  /** 現在のフェーズをskipします。最後のフェーズをskipするとタイマーを完了します。 */
   readonly skip: () => void;
 
   /**
@@ -48,7 +48,7 @@ type TimerControls = {
 
 /** タイマーの実行結果です。 */
 type TimerResult = {
-  /** 最後の休憩まで完了した場合は`true`、中断した場合は`false`です。 */
+  /** 最後のフェーズまで完了した場合は`true`、中断した場合は`false`です。 */
   readonly completed: boolean;
 
   /** 自然終了した作業フェーズの数です。 */
@@ -93,7 +93,7 @@ type RunPomodoroTimerParameters = Partial<Omit<TimerSettings, 'loopCount'>> & {
 const DEFAULT_BREAK_DURATION_MINUTES = 5,
   /** 1分あたりのミリ秒数です。 */
   MILLISECONDS_PER_MINUTE = 60_000,
-  DEFAULT_WORK_DURATION_MINUTES = 15,
+  DEFAULT_WORK_DURATION_MINUTES = 25,
   /** オプション未指定時の休憩時間です。 */
   DEFAULT_BREAK_DURATION_MS = DEFAULT_BREAK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
   /** オプション未指定時の作業時間です。 */
@@ -131,6 +131,8 @@ const DEFAULT_BREAK_DURATION_MINUTES = 5,
   /**
    * 作業と休憩を指定回数だけ繰り返します。
    *
+   * `finalBreak`が`false`なら、最後のサイクルは休憩せずに作業の完了で終了します。
+   *
    * 各フェーズの終了予定時刻を壁時計の絶対値で保持し、250msごとに現在時刻と
    * 比較します。待機処理を経過時間の情報源にしないため、OSのスリープ中に
    * 待機用のtimerが止まっても、復帰後の最初のtickでフェーズの終了を検知します。
@@ -140,6 +142,7 @@ const DEFAULT_BREAK_DURATION_MINUTES = 5,
     workDurationMs = DEFAULT_WORK_DURATION_MS,
     breakDurationMs = DEFAULT_BREAK_DURATION_MS,
     loopCount,
+    finalBreak = false,
     now = Date.now,
     sleep = sleepWithTimer,
     signal,
@@ -149,14 +152,14 @@ const DEFAULT_BREAK_DURATION_MINUTES = 5,
     onTick,
     bindControls,
   }: RunPomodoroTimerParameters): Promise<TimerResult> => {
-    const settings = { breakDurationMs, loopCount, workDurationMs },
+    const settings = { breakDurationMs, finalBreak, loopCount, workDurationMs },
       startedAt = now(),
       finishController = new AbortController(),
       tickSignal = combineSignals(signal, finishController.signal);
     let state = createInitialState(settings, startedAt),
       finished = false;
 
-    /** 最後の休憩の終了でタイマーを完了し、待機中のtickを打ち切ります。 */
+    /** 最後のフェーズの終了でタイマーを完了し、待機中のtickを打ち切ります。 */
     const finish = (): void => {
         finished = true;
         finishController.abort();

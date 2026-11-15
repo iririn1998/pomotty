@@ -16,6 +16,7 @@ const MINUTE_MS = 60_000,
   /** 作業と休憩の分数、繰り返し回数から実行条件を作成します。 */
   settingsOf = (workMinutes: number, breakMinutes: number, loopCount = 1): TimerSettings => ({
     breakDurationMs: breakMinutes * MINUTE_MS,
+    finalBreak: true,
     loopCount,
     workDurationMs: workMinutes * MINUTE_MS,
   }),
@@ -78,6 +79,21 @@ describe('サイクルの状態', () => {
       '  #1  ██████████ ██████████  ✓',
       '  #2  ██████████ ███·······  ◀ now',
       '  #3  ·········· ··········',
+      '      work 1:00  break 1:00',
+    ]);
+  });
+
+  test('最後の休憩がない場合は最後のサイクルの休憩のバーを描かない', () => {
+    const settings = { ...settingsOf(1, 1, 2), finalBreak: false };
+
+    expect(createTimeline(stateAt(1), settings, 0).map((line) => plain(line))).toEqual([
+      '  #1  ·········· ··········  ◀ now',
+      '  #2  ··········',
+      '      work 1:00  break 1:00',
+    ]);
+    expect(createTimeline(stateAt(2), settings, 0.5).map((line) => plain(line))).toEqual([
+      '  #1  ██████████ ██████████  ✓',
+      '  #2  █████·····             ◀ now',
       '      work 1:00  break 1:00',
     ]);
   });

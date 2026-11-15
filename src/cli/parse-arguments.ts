@@ -8,6 +8,9 @@ import { escapeDiagnostic } from '#src/diagnostics/escape.ts';
 type TimerCliArguments = {
   /** どの設定ファイルを読むかの指定です。 */
   readonly config: ConfigSelection;
+
+  /** 最後の作業の後にも休憩するかを示します。 */
+  readonly finalBreak: boolean;
   readonly kind: 'run';
 
   /** CLIで指定した作業時間、休憩時間、繰り返し回数です。指定しない項目はキーを持ちません。 */
@@ -29,6 +32,7 @@ type ParseCliArgumentsResult =
   | TimerCliArguments
   | ListPresetsCliArguments
   | { readonly kind: 'help' }
+  | { readonly kind: 'version' }
   | { readonly kind: 'error'; readonly message: string };
 
 /** 数値を指定できるCLIオプションです。 */
@@ -38,7 +42,7 @@ type NumericOption = '--break' | '--work' | '--loop';
 type ValueOption = NumericOption | '--config' | '--preset';
 
 /** 値を受け取らないCLIオプションです。 */
-type FlagOption = '--list-presets' | '--no-config';
+type FlagOption = '--final-break' | '--list-presets' | '--no-config';
 
 /** CLI引数1個から取り出したオプション名と値です。 */
 type OptionArgument = {
@@ -50,6 +54,7 @@ type OptionArgument = {
 /** 解析中に集めた値です。 */
 type ParsedValues = {
   configPath?: string;
+  finalBreak: boolean;
   listPresets: boolean;
   noConfig: boolean;
   overrides: Partial<Record<TimerValueKey, number>>;
@@ -64,9 +69,10 @@ const ARGUMENT_INDEX_INCREMENT = 1,
   HELP_OPTIONS = ['--help', '-h'] as const,
   NEXT_ARGUMENT_OFFSET = 1,
   NO_OVERRIDES = 0,
-  LOOP_PATTERN = /^[1-9][0-9]*$/u,
+  LOOP_PATTERN = /^[1-9][0-9]{0,2}$/u,
+  VERSION_OPTIONS = ['--version', '-v'] as const,
   /** 値を受け取らないオプションです。 */
-  FLAG_OPTIONS: readonly FlagOption[] = ['--list-presets', '--no-config'],
+  FLAG_OPTIONS: readonly FlagOption[] = ['--final-break', '--list-presets', '--no-config'],
   /** 値を受け取るオプションの名前と、その正式名です。 */
   VALUE_OPTIONS: ReadonlyMap<string, ValueOption> = new Map([
     ['--break', '--break'],
@@ -84,6 +90,8 @@ const ARGUMENT_INDEX_INCREMENT = 1,
   },
   /** 引数がヘルプオプションか判定します。 */
   isHelpOption = (value: string): boolean => HELP_OPTIONS.some((option) => option === value),
+  /** 引数がバージョン表示オプションか判定します。 */
+  isVersionOption = (value: string): boolean => VERSION_OPTIONS.some((option) => option === value),
   /** 引数と一致する、値を受け取らないオプションを返します。 */
   findFlagOption = (argument: string): FlagOption | undefined =>
     FLAG_OPTIONS.find((option) => option === argument),
@@ -198,10 +206,11 @@ const ARGUMENT_INDEX_INCREMENT = 1,
     if (parsed.listPresets) {
       if (
         Object.keys(parsed.overrides).length > NO_OVERRIDES ||
-        typeof parsed.preset === 'string'
+        typeof parsed.preset === 'string' ||
+        parsed.finalBreak
       ) {
         return createError(
-          '--list-presets cannot be combined with --work, --break, --loop, or --preset.',
+          '--list-presets cannot be combined with --work, --break, --loop, --preset, or --final-break.',
         );
       }
 
@@ -209,19 +218,37 @@ const ARGUMENT_INDEX_INCREMENT = 1,
     }
 
     if (typeof parsed.preset === 'string') {
-      return { config, kind: 'run', overrides: parsed.overrides, preset: parsed.preset };
+      return {
+        config,
+        finalBreak: parsed.finalBreak,
+        kind: 'run',
+        overrides: parsed.overrides,
+        preset: parsed.preset,
+      };
     }
 
-    return { config, kind: 'run', overrides: parsed.overrides };
+    return { config, finalBreak: parsed.finalBreak, kind: 'run', overrides: parsed.overrides };
   },
-  /** CLI引数から作業時間、休憩時間、繰り返し回数、プリセット、設定ファイルの指定を解析します。 */
+  /**
+   * CLI引数から作業時間、休憩時間、繰り返し回数、最後の休憩の有無、プリセット、
+   * 設定ファイルの指定を解析します。
+   */
   parseCliArguments = (arguments_: readonly string[]): ParseCliArgumentsResult => {
     if (arguments_.some((argument) => isHelpOption(argument))) {
       return { kind: 'help' };
     }
 
+    if (arguments_.some((argument) => isVersionOption(argument))) {
+      return { kind: 'version' };
+    }
+
     const specifiedOptions = new Set<ValueOption | FlagOption>(),
-      parsed: ParsedValues = { listPresets: false, noConfig: false, overrides: {} };
+      parsed: ParsedValues = {
+        finalBreak: false,
+        listPresets: false,
+        noConfig: false,
+        overrides: {},
+      };
 
     for (
       let argumentIndex = ARGUMENTS_START_INDEX;
@@ -238,7 +265,9 @@ const ARGUMENT_INDEX_INCREMENT = 1,
 
         specifiedOptions.add(flagOption);
 
-        if (flagOption === '--list-presets') {
+        if (flagOption === '--final-break') {
+          parsed.finalBreak = true;
+        } else if (flagOption === '--list-presets') {
           parsed.listPresets = true;
         } else {
           parsed.noConfig = true;

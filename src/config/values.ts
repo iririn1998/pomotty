@@ -25,6 +25,8 @@ type TimerValueKey = keyof TimerValues;
 const DEFAULT_LOOP_COUNT = 3,
   /** 作業時間と休憩時間に指定できる最大の分数です。 */
   MAXIMUM_DURATION_MINUTES = 1440,
+  /** 繰り返し回数に指定できる最大値です。 */
+  MAXIMUM_LOOP_COUNT = 100,
   /** 作業時間、休憩時間、繰り返し回数に指定できる最小値です。 */
   MINIMUM_TIMER_VALUE = 1,
   /** CLI、設定ファイル、プリセットのいずれでも指定しない場合の値です。 */
@@ -38,7 +40,7 @@ const DEFAULT_LOOP_COUNT = 3,
   /** 項目ごとに指定できる最大値です。 */
   MAXIMUM_TIMER_VALUES: Readonly<Record<TimerValueKey, number>> = {
     break: MAXIMUM_DURATION_MINUTES,
-    loop: Number.MAX_SAFE_INTEGER,
+    loop: MAXIMUM_LOOP_COUNT,
     work: MAXIMUM_DURATION_MINUTES,
   },
   /** 値が項目に指定できる範囲の整数か判定します。 */
@@ -55,6 +57,7 @@ export {
   DEFAULT_LOOP_COUNT,
   DEFAULT_TIMER_VALUES,
   MAXIMUM_DURATION_MINUTES,
+  MAXIMUM_LOOP_COUNT,
   TIMER_VALUE_KEYS,
   describeTimerValueRange,
   isValidTimerValue,

@@ -17,16 +17,8 @@ type ConfirmationResult = {
 };
 
 const COUNT_INCREMENT = 1,
-  MENU_WITH_NG_SELECTED = [
-    'Start working? (Use ↑/↓ to select, Enter to confirm)',
-    '  OK',
-    '❯ NG',
-  ].join('\n'),
-  MENU_WITH_OK_SELECTED = [
-    'Start working? (Use ↑/↓ to select, Enter to confirm)',
-    '❯ OK',
-    '  NG',
-  ].join('\n'),
+  MENU_WITH_NO_SELECTED = ['Start working? (y/n, or ↑/↓ and Enter)', '  Yes', '❯ No'].join('\n'),
+  MENU_WITH_YES_SELECTED = ['Start working? (y/n, or ↑/↓ and Enter)', '❯ Yes', '  No'].join('\n'),
   REDRAW_SEQUENCE = '\r\u001B[2A\u001B[J',
   key = (name: string, ctrl = false): SelectionKey => ({ ctrl, name }),
   confirmFor = (keys: readonly SelectionKey[]): Promise<ConfirmationResult> => {
@@ -48,23 +40,70 @@ const COUNT_INCREMENT = 1,
     }).then((confirmed) => ({ confirmed, restoreCount, writes }));
   };
 
-test('初期選択のOKをEnterで決定すると確認の表示を消す', async () => {
+test('初期選択のYesをEnterで決定すると確認の表示を消す', async () => {
   const result = await confirmFor([key('return')]);
 
   expect(result).toEqual({
     confirmed: true,
     restoreCount: 1,
-    writes: [MENU_WITH_OK_SELECTED, REDRAW_SEQUENCE],
+    writes: [MENU_WITH_YES_SELECTED, REDRAW_SEQUENCE],
   });
 });
 
-test('上下キーでNGへ移動してEnterで決定できる', async () => {
+test('上下キーでNoへ移動してEnterで決定できる', async () => {
   const result = await confirmFor([key('down'), key('return')]);
 
   expect(result).toEqual({
     confirmed: false,
     restoreCount: 1,
-    writes: [MENU_WITH_OK_SELECTED, `${REDRAW_SEQUENCE}${MENU_WITH_NG_SELECTED}`, '\n'],
+    writes: [MENU_WITH_YES_SELECTED, `${REDRAW_SEQUENCE}${MENU_WITH_NO_SELECTED}`, '\n'],
+  });
+});
+
+test('yで即座にYesで確定し、確認の表示を消す', async () => {
+  const result = await confirmFor([key('y')]);
+
+  expect(result).toEqual({
+    confirmed: true,
+    restoreCount: 1,
+    writes: [MENU_WITH_YES_SELECTED, REDRAW_SEQUENCE],
+  });
+});
+
+test('Noを選んだ状態でもyではYesで確定する', async () => {
+  const result = await confirmFor([key('down'), key('y')]);
+
+  expect(result).toMatchObject({ confirmed: true });
+  expect(result.writes.at(-1)).toBe(REDRAW_SEQUENCE);
+});
+
+test.each(['n', 'escape'])('%sで即座にNoで確定し、Noを選んだ表示を残す', async (name) => {
+  const result = await confirmFor([key(name)]);
+
+  expect(result).toEqual({
+    confirmed: false,
+    restoreCount: 1,
+    writes: [MENU_WITH_YES_SELECTED, `${REDRAW_SEQUENCE}${MENU_WITH_NO_SELECTED}`, '\n'],
+  });
+});
+
+test('Noを選んだ状態でnを押すと描き直さずに確定する', async () => {
+  const result = await confirmFor([key('down'), key('n')]);
+
+  expect(result).toEqual({
+    confirmed: false,
+    restoreCount: 1,
+    writes: [MENU_WITH_YES_SELECTED, `${REDRAW_SEQUENCE}${MENU_WITH_NO_SELECTED}`, '\n'],
+  });
+});
+
+test.each(['y', 'n'])('Ctrl+%sは無視する', async (name) => {
+  const result = await confirmFor([key(name, true), key('return')]);
+
+  expect(result).toEqual({
+    confirmed: true,
+    restoreCount: 1,
+    writes: [MENU_WITH_YES_SELECTED, REDRAW_SEQUENCE],
   });
 });
 
@@ -74,7 +113,7 @@ test('選択に使わないキーは無視する', async () => {
   expect(result).toEqual({
     confirmed: true,
     restoreCount: 1,
-    writes: [MENU_WITH_OK_SELECTED, REDRAW_SEQUENCE],
+    writes: [MENU_WITH_YES_SELECTED, REDRAW_SEQUENCE],
   });
 });
 
@@ -84,7 +123,7 @@ test('Ctrl+Cでは作業を開始せず端末状態を復元する', async () =>
   expect(result).toEqual({
     confirmed: false,
     restoreCount: 1,
-    writes: [MENU_WITH_OK_SELECTED, '\n'],
+    writes: [MENU_WITH_YES_SELECTED, '\n'],
   });
 });
 
@@ -157,11 +196,25 @@ describe('実際のストリームを使う開始確認', () => {
     input.end();
 
     expect(await confirmation).toBe(false);
-    expect(writes).toEqual([MENU_WITH_OK_SELECTED, '\n']);
+    expect(writes).toEqual([MENU_WITH_YES_SELECTED, '\n']);
     // Node.js 26以降は終端済みストリームのpause()でflowing状態が変わらないため、
     // 状態ではなく、アプリが開始したflowingを戻す呼び出しを確認します。
     expect(pause).toHaveBeenCalledTimes(1);
     expect(input.rawModes).toEqual([]);
+  });
+
+  test.each([
+    ['y', true],
+    ['Y', true],
+    ['n', false],
+    ['N', false],
+  ])('stdinから復号した%sで確定する', async (character, expected) => {
+    const input = createInput(false),
+      { confirmation } = confirmWith(input);
+
+    input.write(character);
+
+    expect(await confirmation).toBe(expected);
   });
 
   test('非TTYではstdinから復号したEnterで確定する', async () => {

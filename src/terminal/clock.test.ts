@@ -6,6 +6,7 @@ const MINUTE_MS = 60_000,
   NOW = 1_700_000_000_000,
   DEFAULT_SETTINGS: TimerSettings = {
     breakDurationMs: 5 * MINUTE_MS,
+    finalBreak: true,
     loopCount: 3,
     workDurationMs: 15 * MINUTE_MS,
   };

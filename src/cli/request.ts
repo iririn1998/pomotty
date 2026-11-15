@@ -1,6 +1,6 @@
+import { OPTIONS, VERSION } from './constants.ts';
 import { listPresets, resolveTimerValues } from '#src/config/resolve.ts';
 import { loadConfig, readConfigFileIfExists } from '#src/config/load.ts';
-import { OPTIONS } from './constants.ts';
 import type { ReadConfigFile } from '#src/config/load.ts';
 import type { TimerValues } from '#src/config/values.ts';
 import { createCliOutput } from '#src/terminal/render.ts';
@@ -12,12 +12,12 @@ import { parseCliArguments } from './parse-arguments.ts';
  *
  * - `print`: `output`を表示して終了します。
  * - `error`: `message`を標準エラー出力へ書き、`exitCode`で終了します。
- * - `run`: `values`でタイマーを実行します。
+ * - `run`: `values`でタイマーを実行します。`finalBreak`は最後の作業の後にも休憩するかを示します。
  */
 type CliRequest =
   | { readonly kind: 'print'; readonly output: string }
   | { readonly exitCode: number; readonly kind: 'error'; readonly message: string }
-  | { readonly kind: 'run'; readonly values: TimerValues };
+  | { readonly finalBreak: boolean; readonly kind: 'run'; readonly values: TimerValues };
 
 /** CLIが行う処理を決めるための入力です。 */
 type ResolveCliRequestParameters = {
@@ -38,7 +38,7 @@ const CONFIG_ERROR_EXIT_CODE = 1,
   /**
    * CLI引数を解析し、必要なら設定ファイルを読み込んで、CLIが行う処理を決めます。
    *
-   * ヘルプとCLI引数のエラーは設定ファイルを読まずに決めます。そのため、
+   * ヘルプ、バージョン、CLI引数のエラーは設定ファイルを読まずに決めます。そのため、
    * 設定ファイルが壊れていても`--help`は表示できます。
    */
   resolveCliRequest = async ({
@@ -54,6 +54,10 @@ const CONFIG_ERROR_EXIT_CODE = 1,
 
     if (parsedArguments.kind === 'help') {
       return { kind: 'print', output: createCliOutput({ optionName: '--help', options: OPTIONS }) };
+    }
+
+    if (parsedArguments.kind === 'version') {
+      return { kind: 'print', output: `${VERSION}\n` };
     }
 
     const loadedConfig = await loadConfig({
@@ -80,7 +84,7 @@ const CONFIG_ERROR_EXIT_CODE = 1,
       return { exitCode: USAGE_ERROR_EXIT_CODE, kind: 'error', message: resolved.message };
     }
 
-    return { kind: 'run', values: resolved.values };
+    return { finalBreak: parsedArguments.finalBreak, kind: 'run', values: resolved.values };
   };
 
 export { resolveCliRequest };

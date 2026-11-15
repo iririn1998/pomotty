@@ -9,6 +9,7 @@ const DEFAULT_CONFIG = { kind: 'default' } as const,
   /** 指定した値だけを持つタイマー起動の解析結果を作ります。 */
   runWith = (overrides: object, extra: object = {}): object => ({
     config: DEFAULT_CONFIG,
+    finalBreak: false,
     kind: 'run',
     overrides,
     ...extra,
@@ -50,7 +51,7 @@ test('指定しない項目は上書きのキー自体を持たない', () => {
 test.each([
   { arguments_: ['--loop', '1'], loopCount: 1 },
   { arguments_: ['--loop=5'], loopCount: 5 },
-  { arguments_: ['--loop', String(Number.MAX_SAFE_INTEGER)], loopCount: Number.MAX_SAFE_INTEGER },
+  { arguments_: ['--loop', '100'], loopCount: 100 },
 ])('繰り返し回数を受理する: $arguments_', ({ arguments_, loopCount }) => {
   expect(parseCliArguments(arguments_)).toEqual(runWith({ loop: loopCount }));
 });
@@ -66,12 +67,14 @@ test.each([
   ['1e2'],
   [' 2'],
   ['Infinity'],
+  ['101'],
+  ['1000'],
   ['9007199254740992'],
   ['--work'],
 ])('不正な繰り返し回数を拒否する: %j', (...values) => {
   expect(parseCliArguments(['--loop', ...values])).toEqual({
     kind: 'error',
-    message: `Error: --loop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
+    message: `Error: --loop requires an integer from 1 to 100.\n`,
   });
 });
 
@@ -80,6 +83,42 @@ test('繰り返し回数の重複指定を拒否する', () => {
     kind: 'error',
     message: 'Error: --loop may only be specified once.\n',
   });
+});
+
+test.each([
+  { arguments_: ['--final-break'], name: '単独' },
+  { arguments_: ['--work', '30', '--final-break', '--loop=2'], name: '他のオプションと併用' },
+])('--final-breakで最後の休憩を有効にする: $name', ({ arguments_ }) => {
+  expect(parseCliArguments(arguments_)).toMatchObject({ finalBreak: true, kind: 'run' });
+});
+
+test('--final-breakを指定すると後続の引数を値として消費しない', () => {
+  expect(parseCliArguments(['--final-break', '--loop', '4'])).toEqual(
+    runWith({ loop: 4 }, { finalBreak: true }),
+  );
+});
+
+test.each(['--final-break=true', '--final-break='])(
+  '--final-breakに値を指定すると拒否する: %s',
+  (argument) => {
+    expect(parseCliArguments([argument])).toEqual({
+      kind: 'error',
+      message: 'Error: --final-break does not take a value.\n',
+    });
+  },
+);
+
+test('--final-breakの重複指定を拒否する', () => {
+  expect(parseCliArguments(['--final-break', '--final-break'])).toEqual({
+    kind: 'error',
+    message: 'Error: --final-break may only be specified once.\n',
+  });
+});
+
+test('--final-breakとプリセットを組み合わせられる', () => {
+  expect(parseCliArguments(['-p', 'deep', '--final-break'])).toEqual(
+    runWith({}, { finalBreak: true, preset: 'deep' }),
+  );
 });
 
 describe.each(['--work', '--break'])('%s', (option) => {
@@ -148,6 +187,21 @@ test('ヘルプは他の不正な引数より優先する', () => {
   expect(parseCliArguments(['--unknown', '--help'])).toEqual({ kind: 'help' });
 });
 
+test.each(['--version', '-v'])('%sでバージョン表示を選ぶ', (option) => {
+  expect(parseCliArguments([option])).toEqual({ kind: 'version' });
+});
+
+test('バージョン表示は他の不正な引数より優先する', () => {
+  expect(parseCliArguments(['--work', '0', '--unknown', '-v'])).toEqual({ kind: 'version' });
+});
+
+test.each([
+  ['--help', '--version'],
+  ['-v', '-h'],
+])('ヘルプとバージョン表示が両方あればヘルプを優先する: %s %s', (...arguments_) => {
+  expect(parseCliArguments(arguments_)).toEqual({ kind: 'help' });
+});
+
 describe('--preset', () => {
   test.each([['--preset', 'deep'], ['--preset=deep'], ['-p', 'deep'], ['-p=deep']])(
     '%jでプリセット名を受け取る',
@@ -192,6 +246,7 @@ describe('--config と --no-config', () => {
   ])('%jで指定したファイルを読む指定を返す', (arguments_, path) => {
     expect(parseCliArguments(arguments_)).toEqual({
       config: { kind: 'file', path },
+      finalBreak: false,
       kind: 'run',
       overrides: {},
     });
@@ -210,6 +265,7 @@ describe('--config と --no-config', () => {
   test('--no-configで設定ファイルを読まない指定を返す', () => {
     expect(parseCliArguments(['--no-config', '--work', '10'])).toEqual({
       config: { kind: 'none' },
+      finalBreak: false,
       kind: 'run',
       overrides: { work: 10 },
     });
@@ -264,11 +320,12 @@ describe('--list-presets', () => {
     ['--break', '10'],
     ['--loop', '2'],
     ['-p', 'deep'],
+    ['--final-break'],
   ])('タイマーの値やプリセットとの組み合わせを拒否する: %j', (...arguments_) => {
     expect(parseCliArguments(['--list-presets', ...arguments_])).toEqual({
       kind: 'error',
       message:
-        'Error: --list-presets cannot be combined with --work, --break, --loop, or --preset.\n',
+        'Error: --list-presets cannot be combined with --work, --break, --loop, --preset, or --final-break.\n',
     });
   });
 

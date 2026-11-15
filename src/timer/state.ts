@@ -32,6 +32,9 @@ type TimerSettings = {
 
   /** 作業と休憩の組を繰り返す回数です。 */
   readonly loopCount: number;
+
+  /** 最後のサイクルでも休憩を実行するかを示します。`false`なら最後の作業で完了します。 */
+  readonly finalBreak: boolean;
 };
 
 /** 期限到達によるフェーズ遷移の結果です。 */
@@ -39,7 +42,7 @@ type TimeoutTransition = {
   /** 完了したフェーズです。 */
   readonly completedPhase: TimerPhase;
 
-  /** 完了したフェーズが最後の休憩なら`true`です。 */
+  /** 完了したフェーズが最後のフェーズなら`true`です。 */
   readonly final: boolean;
 
   /** 遷移後の状態です。完了済みの作業数を最終値として保持します。 */
@@ -51,7 +54,7 @@ type SkipTransition = {
   /** 飛ばしたフェーズです。 */
   readonly skippedPhase: TimerPhase;
 
-  /** 飛ばしたフェーズが最後の休憩なら`true`です。 */
+  /** 飛ばしたフェーズが最後のフェーズなら`true`です。 */
   readonly final: boolean;
 
   /** 遷移後の状態です。 */
@@ -88,10 +91,14 @@ const FIRST_CYCLE = 1,
   /** 最初の作業フェーズを開始した状態を作成します。 */
   createInitialState = (settings: TimerSettings, startedAt: number): TimerState =>
     startPhase({ completedPomodoros: 0, cycle: FIRST_CYCLE, phase: 'work' }, startedAt, settings),
+  /** 指定したサイクルで作業の後に休憩を実行するかを返します。 */
+  hasBreakAfterWork = (cycle: number, settings: TimerSettings): boolean =>
+    settings.finalBreak || cycle < settings.loopCount,
   /**
-   * 現在のフェーズの次へ進めた状態を返します。最後の休憩なら`undefined`です。
+   * 現在のフェーズの次へ進めた状態を返します。最後のフェーズなら`undefined`です。
    *
    * 作業の次は同じサイクルの休憩、休憩の次は次のサイクルの作業です。
+   * `finalBreak`が`false`なら、最後のサイクルの作業を最後のフェーズとします。
    * 完了済みの作業数は呼び出し元が決めた値をそのまま使います。
    */
   nextPhase = (
@@ -100,6 +107,10 @@ const FIRST_CYCLE = 1,
     settings: TimerSettings,
   ): TimerState | undefined => {
     if (phase === 'work') {
+      if (!hasBreakAfterWork(cycle, settings)) {
+        return undefined;
+      }
+
       return startPhase({ completedPomodoros, cycle, phase: 'break' }, now, settings);
     }
 
@@ -133,18 +144,15 @@ const FIRST_CYCLE = 1,
     now: number,
     settings: TimerSettings,
   ): TimeoutTransition => {
-    const next = nextPhase(
-      {
-        completedPomodoros: completedPomodorosAfterTimeout(state),
-        cycle: state.cycle,
-        phase: state.phase,
-      },
-      now,
-      settings,
-    );
+    const completedPomodoros = completedPomodorosAfterTimeout(state),
+      next = nextPhase(
+        { completedPomodoros, cycle: state.cycle, phase: state.phase },
+        now,
+        settings,
+      );
 
     if (next === undefined) {
-      return { completedPhase: state.phase, final: true, state };
+      return { completedPhase: state.phase, final: true, state: { ...state, completedPomodoros } };
     }
 
     return { completedPhase: state.phase, final: false, state: next };
@@ -207,6 +215,7 @@ const FIRST_CYCLE = 1,
 export {
   createInitialState,
   durationFor,
+  hasBreakAfterWork,
   remainingMsAt,
   togglePause,
   transitionFromSkip,

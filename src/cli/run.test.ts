@@ -13,6 +13,7 @@ import { LOGO } from '#src/terminal/constants.ts';
 import type { OutputStream } from '#src/terminal/output.ts';
 import type { ProcessEvents } from '#src/terminal/terminal-guard.ts';
 import type { SoundPlayer } from '#src/notification/sound.ts';
+import { VERSION } from './constants.ts';
 
 type FakeStdout = OutputStream & {
   readonly emitError: (error: unknown) => void;
@@ -42,11 +43,13 @@ const MINUTE_MS = 60_000,
     '',
     'Options:',
     '  --work <minutes>',
-    '          Work duration in minutes (1-1440, default: 15)',
+    '          Work duration in minutes (1-1440, default: 25)',
     '  --break <minutes>',
     '          Break duration in minutes (1-1440, default: 5)',
     '  --loop <count>',
-    '          Work-break repetitions (positive integer, default: 3)',
+    '          Work-break repetitions (1-100, default: 3)',
+    '  --final-break',
+    '          Take a break after the last work session (default: finish after work)',
     '  -p, --preset <name>',
     '          Use a preset (built-in: classic, deep, quick)',
     '  --config <path>',
@@ -57,6 +60,8 @@ const MINUTE_MS = 60_000,
     '          List available presets and exit',
     '  -h, --help',
     '          Print help',
+    '  -v, --version',
+    '          Print version',
     '',
   ].join('\n'),
   brokenPipe = (): Error => Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }),
@@ -152,11 +157,11 @@ const MINUTE_MS = 60_000,
     };
   };
 
-test('オプションなしで15分の作業と5分の休憩を3回実行する', async () => {
+test('オプションなしで25分の作業を3回実行し、最後の作業の完了で終了する', async () => {
   const result = await runCliFor();
 
   expect(result).toEqual({
-    elapsedMs: 3 * (DEFAULT_WORK_DURATION_MS + DEFAULT_BREAK_DURATION_MS),
+    elapsedMs: 3 * DEFAULT_WORK_DURATION_MS + 2 * DEFAULT_BREAK_DURATION_MS,
     errorOutput: '',
     events: [
       'create-sound-player',
@@ -165,8 +170,7 @@ test('オプションなしで15分の作業と5分の休憩を3回実行する'
       'play:break',
       'play:work',
       'play:break',
-      'play:work',
-      'play:break:completion-notice',
+      'play:work:completion-notice',
       'set-exit-code:0',
       'shutdown:complete',
       `schedule-exit:0:${COMPLETION_SHUTDOWN_DEADLINE_MS}`,
@@ -174,18 +178,16 @@ test('オプションなしで15分の作業と5分の休憩を3回実行する'
     exitCode: 0,
     output: [
       `${LOGO}\n`,
-      '🍅 Work started (15 min)\n',
+      '🍅 Work started (25 min)\n',
       '✅ Work complete.\n',
       '☕ Break started (5 min)\n',
       '✅ Break complete.\n',
-      '🍅 Work started (15 min)\n',
+      '🍅 Work started (25 min)\n',
       '✅ Work complete.\n',
       '☕ Break started (5 min)\n',
       '✅ Break complete.\n',
-      '🍅 Work started (15 min)\n',
+      '🍅 Work started (25 min)\n',
       '✅ Work complete.\n',
-      '☕ Break started (5 min)\n',
-      '✅ Break complete.\n',
       '🎉 Pomodoro complete.\n',
     ].join(''),
   });
@@ -194,13 +196,18 @@ test('オプションなしで15分の作業と5分の休憩を3回実行する'
 test.each([
   {
     arguments_: ['--work', '30', '--break', '10', '--loop', '1'],
-    elapsedMs: 40 * MINUTE_MS,
+    elapsedMs: 30 * MINUTE_MS,
     name: '分離形式',
   },
   {
     arguments_: ['--work=45', '--break=15', '--loop=2'],
-    elapsedMs: 120 * MINUTE_MS,
+    elapsedMs: 105 * MINUTE_MS,
     name: 'イコール形式',
+  },
+  {
+    arguments_: ['--work=45', '--break=15', '--loop=2', '--final-break'],
+    elapsedMs: 120 * MINUTE_MS,
+    name: '最後の休憩あり',
   },
 ])('$nameで指定した時間と回数でタイマーを実行する', async ({ arguments_, elapsedMs }) => {
   const result = await runCliFor(arguments_);
@@ -216,7 +223,7 @@ test('不正な繰り返し回数では再生コマンドの解決も開始確�
 
   expect(result).toEqual({
     elapsedMs: 0,
-    errorOutput: `Error: --loop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
+    errorOutput: `Error: --loop requires an integer from 1 to 100.\n`,
     events: [],
     exitCode: 2,
     output: '',
@@ -232,6 +239,18 @@ test.each(['--help', '-h'])('%sでヘルプを表示してタイマーを開始�
     events: [],
     exitCode: 0,
     output: help,
+  });
+});
+
+test.each(['--version', '-v'])('%sでバージョンを表示してタイマーを開始しない', async (option) => {
+  const result = await runCliFor([option]);
+
+  expect(result).toEqual({
+    elapsedMs: 0,
+    errorOutput: '',
+    events: [],
+    exitCode: 0,
+    output: `${VERSION}\n`,
   });
 });
 
@@ -274,7 +293,7 @@ describe('設定ファイルとプリセット', () => {
       [CONFIG_PATH]: '{"work": 1, "break": 2, "loop": 2}',
     });
 
-    expect(result.elapsedMs).toBe(6 * MINUTE_MS);
+    expect(result.elapsedMs).toBe(4 * MINUTE_MS);
     expect(result.exitCode).toBe(0);
   });
 
@@ -283,15 +302,21 @@ describe('設定ファイルとプリセット', () => {
       [CONFIG_PATH]: '{"defaultPreset": "short", "presets": {"short": {"work": 3, "break": 1}}}',
     });
 
-    expect(result.elapsedMs).toBe(4 * MINUTE_MS);
+    expect(result.elapsedMs).toBe(3 * MINUTE_MS);
     expect(result.output).toContain('🍅 Work started (3 min)\n');
   });
 
   test('--presetで組み込みのプリセットを使う', async () => {
     const result = await runCliFor(['-p', 'deep']);
 
-    expect(result.elapsedMs).toBe(2 * 60 * MINUTE_MS);
+    expect(result.elapsedMs).toBe(110 * MINUTE_MS);
     expect(result.output).toContain('🍅 Work started (50 min)\n');
+  });
+
+  test('--final-breakとプリセットを組み合わせると最後の休憩も取る', async () => {
+    const result = await runCliFor(['-p', 'deep', '--final-break']);
+
+    expect(result.elapsedMs).toBe(120 * MINUTE_MS);
   });
 
   test('configPathを渡さなければ標準の設定ファイルを読まない', async () => {
@@ -304,7 +329,7 @@ describe('設定ファイルとプリセット', () => {
       });
 
     expect(reads).toEqual([]);
-    expect(result.elapsedMs).toBe(DEFAULT_WORK_DURATION_MS + DEFAULT_BREAK_DURATION_MS);
+    expect(result.elapsedMs).toBe(DEFAULT_WORK_DURATION_MS);
   });
 
   test('--no-configでは標準の設定ファイルを読まない', async () => {
@@ -312,7 +337,7 @@ describe('設定ファイルとプリセット', () => {
       [CONFIG_PATH]: '{"work": 1}',
     });
 
-    expect(result.elapsedMs).toBe(DEFAULT_WORK_DURATION_MS + DEFAULT_BREAK_DURATION_MS);
+    expect(result.elapsedMs).toBe(DEFAULT_WORK_DURATION_MS);
   });
 
   test('--list-presetsで一覧を表示し、タイマーを開始しない', async () => {
@@ -385,7 +410,7 @@ describe('設定ファイルとプリセット', () => {
   });
 });
 
-test('NGを選択するとタイマーを開始せず、再生処理を終了する', async () => {
+test('Noを選択するとタイマーを開始せず、再生処理を終了する', async () => {
   const result = await runCliFor([], { confirmStart: () => Promise.resolve(false) });
 
   expect(result).toEqual({
@@ -448,6 +473,21 @@ test.each([
 
 test.each([
   { error: brokenPipe(), exitCode: 0, name: 'EPIPE' },
+  { error: new Error('stream destroyed'), exitCode: 1, name: 'その他のエラー' },
+])(
+  'バージョンの同期的な書き込み失敗が$nameなら終了コード$exitCodeを返す',
+  async ({ error, exitCode }) => {
+    const stdout = createStdout(() => {
+        throw error;
+      }),
+      harness = createHarness(['--version'], {}, stdout);
+
+    expect(await runCli(harness.parameters)).toBe(exitCode);
+  },
+);
+
+test.each([
+  { error: brokenPipe(), exitCode: 0, name: 'EPIPE' },
   { error: new Error('write EIO'), exitCode: 1, name: 'その他のエラー' },
 ])(
   'タイマー実行中の標準出力の$nameでタイマーを中断し、終了コード$exitCodeで終える',
@@ -472,7 +512,7 @@ test.each([
       'shutdown:abort',
       `schedule-exit:${exitCode}:${SHUTDOWN_DEADLINE_MS}`,
     ]);
-    expect(stdout.output()).toBe(`${LOGO}\n🍅 Work started (15 min)\n`);
+    expect(stdout.output()).toBe(`${LOGO}\n🍅 Work started (25 min)\n`);
   },
 );
 
@@ -654,6 +694,7 @@ describe('残り時間の画面', () => {
       '1',
       '--loop',
       '1',
+      '--final-break',
     ]);
 
     expect(exitCode).toBe(0);
@@ -685,7 +726,7 @@ describe('残り時間の画面', () => {
 
   test('色が有効な場合は作業を赤、休憩を緑で表示する', async () => {
     const { output } = await runInteractive(
-      ['--work', '1', '--break', '1', '--loop', '1'],
+      ['--work', '1', '--break', '1', '--loop', '1', '--final-break'],
       new Map(),
       { color: true },
     );
@@ -711,7 +752,7 @@ describe('残り時間の画面', () => {
 
   test('sでフェーズをskipし、音を鳴らさずにskipした行を残す', async () => {
     const { events, exitCode, output } = await runInteractive(
-      ['--work', '1', '--break', '1', '--loop', '1'],
+      ['--work', '1', '--break', '1', '--loop', '1', '--final-break'],
       new Map([
         [1, 's'],
         [3, 'S'],
@@ -757,7 +798,7 @@ describe('残り時間の画面', () => {
     let currentTime = 0;
     const stdin = createTtyInput(),
       harness = createHarness(
-        ['--work', '1', '--break', '1', '--loop', '1'],
+        ['--work', '1', '--break', '1', '--loop', '1', '--final-break'],
         {
           color: false,
           interactive: true,
@@ -869,7 +910,7 @@ describe('残り時間の画面', () => {
 
     await expect(runCli(harness.parameters)).rejects.toThrow('stop');
     expect(stdout.output()).toContain(
-      '[q] quit\n\u001B[2K🍅 WORK  1/3\n\u001B[2K15:00 left · 0%\n',
+      '[q] quit\n\u001B[2K🍅 WORK  1/3\n\u001B[2K25:00 left · 0%\n',
     );
   });
 
@@ -887,12 +928,25 @@ describe('残り時間の画面', () => {
   });
 
   test('標準出力が端末でない場合はフェーズの開始と完了を1行ずつ出力する', async () => {
-    const result = await runCliFor(['--work', '1', '--break', '1', '--loop', '1'], {
-      stdin: createTtyInput(),
-    });
+    const result = await runCliFor(
+      ['--work', '1', '--break', '1', '--loop', '1', '--final-break'],
+      { stdin: createTtyInput() },
+    );
 
     expect(result.output).toBe(
       `${LOGO}\n🍅 Work started (1 min)\n✅ Work complete.\n☕ Break started (1 min)\n✅ Break complete.\n🎉 Pomodoro complete.\n`,
     );
+  });
+
+  test('最後の休憩を指定しない場合は、最後の作業の完了で完了通知を鳴らして終了する', async () => {
+    const result = await runCliFor(['--work', '1', '--break', '1', '--loop', '1'], {
+      stdin: createTtyInput(),
+    });
+
+    expect(result.elapsedMs).toBe(MINUTE_MS);
+    expect(result.output).toBe(
+      `${LOGO}\n🍅 Work started (1 min)\n✅ Work complete.\n🎉 Pomodoro complete.\n`,
+    );
+    expect(result.events).toContain('play:work:completion-notice');
   });
 });

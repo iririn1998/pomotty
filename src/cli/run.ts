@@ -134,11 +134,15 @@ const CLI_ARGUMENTS_START_INDEX = 2,
   setProcessExitCode = (exitCode: number): void => {
     process.exitCode = exitCode;
   },
-  /** ヘルプなどを表示します。出力先が閉じていれば、閉じたパイプだけを正常終了とします。 */
+  /**
+   * タイマーを開始せずに文字列を標準出力へ書き込んで終了します。
+   *
+   * 出力先が閉じていれば、閉じたパイプだけを正常終了とします。
+   */
   runPrint = (
+    output: string,
     stdout: OutputStream | undefined,
     setExitCode: (exitCode: number) => void,
-    output: string,
   ): number => {
     let exitCode = SUCCESS_EXIT_CODE;
     const writeOutput = createStandardOutput((error) => {
@@ -175,7 +179,7 @@ const CLI_ARGUMENTS_START_INDEX = 2,
     }
 
     if (request.kind === 'print') {
-      return runPrint(stdout, setExitCode, request.output);
+      return runPrint(request.output, stdout, setExitCode);
     }
 
     const controller = new AbortController();
@@ -240,6 +244,7 @@ const CLI_ARGUMENTS_START_INDEX = 2,
       const player = soundPlayer,
         settings = {
           breakDurationMs: request.values.break * MILLISECONDS_PER_MINUTE,
+          finalBreak: request.finalBreak,
           loopCount: request.values.loop,
           workDurationMs: request.values.work * MILLISECONDS_PER_MINUTE,
         };

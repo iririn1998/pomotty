@@ -20,7 +20,7 @@ type SoundCommand = {
 
 /** 完了音の再生要求に付ける情報です。 */
 type PlayOptions = {
-  /** 最後の休憩の自然終了に由来する完了通知なら`true`です。 */
+  /** 最後のフェーズの自然終了に由来する完了通知なら`true`です。 */
   readonly completionNotice?: boolean;
 };
 

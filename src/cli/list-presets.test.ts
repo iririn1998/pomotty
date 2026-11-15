@@ -29,7 +29,7 @@ test('既定のプリセットに印を付け、定義元を表示する', () =>
       '  classic  work 25  break 5   loop 4   built-in',
       '* deep     work 90  break 15  loop 3   config (overrides built-in)',
       '  quick    work 15  break 3   loop 3   built-in',
-      '  writing  work 15  break 5   loop 12  config',
+      '  writing  work 25  break 5   loop 12  config',
       '',
       '* default preset',
       '',

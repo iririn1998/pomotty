@@ -83,8 +83,10 @@ export default defineConfig({
       },
     },
     {
+      // オプションごとの検証と組み合わせの検証を1か所にまとめるため、行数の上限を外します。
       files: ['src/cli/parse-arguments.ts'],
       rules: {
+        'max-lines': 'off',
         'max-lines-per-function': 'off',
         'max-statements': 'off',
         'no-duplicate-imports': 'off',

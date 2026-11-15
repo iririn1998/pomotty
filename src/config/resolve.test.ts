@@ -15,7 +15,7 @@ describe('resolveTimerValues', () => {
   test('何も指定しなければ組み込みの標準値を使う', () => {
     expect(resolveTimerValues({ config: EMPTY_CONFIG, overrides: {} })).toEqual({
       kind: 'ok',
-      values: { break: 5, loop: 3, work: 15 },
+      values: { break: 5, loop: 3, work: 25 },
     });
   });
 
