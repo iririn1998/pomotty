@@ -4,14 +4,15 @@ import type { OutputStream, WriteOutput } from '#src/terminal/output.ts';
 import type { ProgressViewParameters, StopReason, TimerView } from '#src/cli/progress-view.ts';
 import { createStandardOutput, isBrokenPipe } from '#src/terminal/output.ts';
 import { OPTIONS } from '#src/cli/constants.ts';
+import type { ReadConfigFile } from '#src/cli/request.ts';
 import type { SelectionInput } from '#src/terminal/input.ts';
 import type { SoundPlayer } from '#src/notification/sound.ts';
 import { confirmWorkStart } from '#src/terminal/input.ts';
 import { createCliOutput } from '#src/terminal/render.ts';
 import { createDiagnosticWriter } from '#src/diagnostics/writer.ts';
 import { createProgressView } from '#src/cli/progress-view.ts';
-import { parseCliArguments } from '#src/cli/parse-arguments.ts';
 import process from 'node:process';
+import { resolveCliRequest } from '#src/cli/request.ts';
 
 /** CLIの標準エラー出力へ文字列を書き込む処理です。 */
 type WriteError = (output: string) => void;
@@ -29,6 +30,12 @@ type ConfirmStartParameters = {
 type RunCliParameters = {
   /** Node.jsとスクリプトのパスを除いたCLI引数です。 */
   readonly arguments_?: readonly string[];
+
+  /** 標準の設定ファイルのパスです。省略時は読みません（`--config`の指定は常に読みます）。 */
+  readonly configPath?: string | undefined;
+
+  /** 設定ファイルを読み込む処理です。省略時はファイルシステムから読みます。 */
+  readonly readConfigFile?: ReadConfigFile;
 
   /** 作業開始を確認する処理です。 */
   readonly confirmStart?: (parameters: ConfirmStartParameters) => Promise<boolean>;
@@ -90,7 +97,6 @@ const CLI_ARGUMENTS_START_INDEX = 2,
     interrupt: INTERRUPTED_EXIT_CODE,
     quit: SUCCESS_EXIT_CODE,
   },
-  USAGE_ERROR_EXIT_CODE = 2,
   /** 完了終了以外で、終了処理の開始から親プロセスを強制終了するまでの上限です。 */
   SHUTDOWN_DEADLINE_MS = 2000,
   /** 完了終了で、完了通知の猶予を含めて親プロセスを強制終了するまでの上限です。 */
@@ -128,20 +134,25 @@ const CLI_ARGUMENTS_START_INDEX = 2,
   setProcessExitCode = (exitCode: number): void => {
     process.exitCode = exitCode;
   },
-  /** ヘルプを表示します。出力先が閉じていれば、閉じたパイプだけを正常終了とします。 */
-  runHelp = (stdout: OutputStream | undefined, setExitCode: (exitCode: number) => void): number => {
+  /** ヘルプなどを表示します。出力先が閉じていれば、閉じたパイプだけを正常終了とします。 */
+  runPrint = (
+    stdout: OutputStream | undefined,
+    setExitCode: (exitCode: number) => void,
+    output: string,
+  ): number => {
     let exitCode = SUCCESS_EXIT_CODE;
     const writeOutput = createStandardOutput((error) => {
       exitCode = exitCodeForOutputFailure(error);
       setExitCode(exitCode);
     }, stdout);
 
-    writeOutput(createCliOutput({ optionName: '--help', options: OPTIONS }));
+    writeOutput(output);
     return exitCode;
   },
   /** 作業開始を確認し、指定回数のポモドーロサイクルを実行します。 */
   runCli = async ({
     arguments_ = process.argv.slice(CLI_ARGUMENTS_START_INDEX),
+    configPath,
     confirmStart = confirmWorkStart,
     createSoundPlayer,
     now,
@@ -153,17 +164,18 @@ const CLI_ARGUMENTS_START_INDEX = 2,
     interactive,
     processEvents,
     color,
+    readConfigFile,
     writeError = createDiagnosticWriter(),
   }: RunCliParameters): Promise<number> => {
-    const parsedArguments = parseCliArguments(arguments_);
+    const request = await resolveCliRequest({ arguments_, configPath, readConfigFile });
 
-    if (parsedArguments.kind === 'error') {
-      emitDiagnostic(writeError, parsedArguments.message);
-      return USAGE_ERROR_EXIT_CODE;
+    if (request.kind === 'error') {
+      emitDiagnostic(writeError, request.message);
+      return request.exitCode;
     }
 
-    if (parsedArguments.kind === 'help') {
-      return runHelp(stdout, setExitCode);
+    if (request.kind === 'print') {
+      return runPrint(stdout, setExitCode, request.output);
     }
 
     const controller = new AbortController();
@@ -227,9 +239,9 @@ const CLI_ARGUMENTS_START_INDEX = 2,
 
       const player = soundPlayer,
         settings = {
-          breakDurationMs: parsedArguments.breakDurationMinutes * MILLISECONDS_PER_MINUTE,
-          loopCount: parsedArguments.loopCount,
-          workDurationMs: parsedArguments.workDurationMinutes * MILLISECONDS_PER_MINUTE,
+          breakDurationMs: request.values.break * MILLISECONDS_PER_MINUTE,
+          loopCount: request.values.loop,
+          workDurationMs: request.values.work * MILLISECONDS_PER_MINUTE,
         };
 
       view = createProgressView({

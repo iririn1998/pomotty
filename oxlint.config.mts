@@ -87,6 +87,7 @@ export default defineConfig({
       rules: {
         'max-lines-per-function': 'off',
         'max-statements': 'off',
+        'no-duplicate-imports': 'off',
         'one-var': 'off',
         'sort-vars': 'off',
       },
@@ -144,6 +145,38 @@ export default defineConfig({
         'oxc/no-optional-chaining': 'off',
         'oxc/no-rest-spread-properties': 'off',
         'sort-vars': 'off',
+      },
+    },
+    {
+      // 設定ファイルの読み込み、検証、プリセットの合成です。
+      // 項目が省略されたことを`undefined`で表し、ファイルの読み込みはasync/awaitで待ちます。
+      // 定数は依存する順に宣言し、型と値のimportを分けます。
+      files: [
+        'src/cli/list-presets.ts',
+        'src/cli/request.ts',
+        'src/config/load.ts',
+        'src/config/parse.ts',
+        'src/config/path.ts',
+        'src/config/presets.ts',
+        'src/config/resolve.ts',
+        'src/config/values.ts',
+      ],
+      rules: {
+        'init-declarations': 'off',
+        'max-statements': 'off',
+        'no-duplicate-imports': 'off',
+        'no-undefined': 'off',
+        'one-var': 'off',
+        'oxc/no-async-await': 'off',
+        'oxc/no-optional-chaining': 'off',
+        'sort-vars': 'off',
+      },
+    },
+    {
+      // 組み込みのプリセットの値は、名前と並べて書いたほうが読みやすいため定数にしません。
+      files: ['src/config/presets.ts'],
+      rules: {
+        'no-magic-numbers': 'off',
       },
     },
     {

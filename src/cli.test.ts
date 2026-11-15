@@ -1,5 +1,8 @@
-import { expect, test } from 'vitest';
+import { afterAll, beforeAll, expect, test } from 'vitest';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import os from 'node:os';
+import path from 'node:path';
 import process from 'node:process';
 import { spawn } from 'node:child_process';
 
@@ -16,7 +19,12 @@ type CliProcessOptions = {
 
   /** 子プロセスの起動直後に、stdoutの読み取り側を閉じる場合は`true`です。 */
   readonly closeStdout?: boolean;
+
+  /** 標準の設定ファイルを探すディレクトリです。省略時は空の一時ディレクトリです。 */
+  readonly configHome?: string;
 };
+
+let temporaryDirectory = '';
 
 const CLI_PATH = fileURLToPath(new URL('cli.ts', import.meta.url)),
   PROCESS_TIMEOUT_MS = 10_000,
@@ -28,12 +36,17 @@ const CLI_PATH = fileURLToPath(new URL('cli.ts', import.meta.url)),
    */
   runCliProcess = (
     arguments_: readonly string[],
-    { closeStdout = false, input }: CliProcessOptions = {},
+    {
+      closeStdout = false,
+      configHome = path.join(temporaryDirectory, 'empty'),
+      input,
+    }: CliProcessOptions = {},
   ): Promise<CliProcessResult> =>
     new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [CLI_PATH, ...arguments_], {
           // 実機の再生コマンドを起動しないよう、探索対象のPATHを空にします。
-          env: { ...process.env, PATH: '' },
+          // 利用者本人の設定ファイルを読まないよう、標準の設定ファイルの場所も差し替えます。
+          env: { ...process.env, APPDATA: configHome, PATH: '', XDG_CONFIG_HOME: configHome },
           stdio: 'pipe',
         }),
         timer = setTimeout(() => {
@@ -67,6 +80,14 @@ const CLI_PATH = fileURLToPath(new URL('cli.ts', import.meta.url)),
         resolve({ exitCode, signal, stderr, stdout });
       });
     });
+
+beforeAll(async () => {
+  temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'pomotty-cli-'));
+});
+
+afterAll(async () => {
+  await rm(temporaryDirectory, { force: true, recursive: true });
+});
 
 test('開始確認中にstdinが閉じると、作業を開始せず終了コード0で終える', async () => {
   const result = await runCliProcess([]);
@@ -109,4 +130,32 @@ test('不正な引数は開始確認を表示せず終了コード2で終える'
     stderr: 'Error: --work requires an integer from 1 to 1440.\n',
     stdout: '',
   });
+});
+
+test('標準の場所の設定ファイルを読み、プリセット一覧に反映する', async () => {
+  const configHome = path.join(temporaryDirectory, 'home');
+
+  await mkdir(path.join(configHome, 'pomotty'), { recursive: true });
+  await writeFile(
+    path.join(configHome, 'pomotty', 'config.json'),
+    '{"defaultPreset": "focus", "presets": {"focus": {"work": 40}}}',
+  );
+
+  const result = await runCliProcess(['--list-presets'], { configHome });
+
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toContain('* focus    work 40  break 5   loop 3  config\n');
+  expect(result.stderr).toBe('');
+});
+
+test('--configで指定したファイルが不正なら終了コード1で終える', async () => {
+  const configPath = path.join(temporaryDirectory, 'broken.json');
+
+  await writeFile(configPath, '{"wrok": 25}');
+
+  const result = await runCliProcess(['--config', configPath]);
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toMatch(/^Error: Invalid config file ".+": Unknown key "wrok"\.\n$/u);
+  expect(result.stdout).toBe('');
 });

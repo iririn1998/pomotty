@@ -35,8 +35,30 @@ type CliResult = {
 
 const MINUTE_MS = 60_000,
   START_TIME = 1_700_000_000_000,
-  help =
-    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (positive integer, default: 3)\n  -h, --help\n          Print help\n',
+  help = [
+    'Pomotty CLI',
+    '',
+    'Usage: pomotty [OPTIONS]',
+    '',
+    'Options:',
+    '  --work <minutes>',
+    '          Work duration in minutes (1-1440, default: 15)',
+    '  --break <minutes>',
+    '          Break duration in minutes (1-1440, default: 5)',
+    '  --loop <count>',
+    '          Work-break repetitions (positive integer, default: 3)',
+    '  -p, --preset <name>',
+    '          Use a preset (built-in: classic, deep, quick)',
+    '  --config <path>',
+    '          Read settings from this file instead of the default config file',
+    '  --no-config',
+    '          Do not read any config file',
+    '  --list-presets',
+    '          List available presets and exit',
+    '  -h, --help',
+    '          Print help',
+    '',
+  ].join('\n'),
   brokenPipe = (): Error => Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }),
   /** 書き込みを記録し、`error`イベントを発生させられる偽の標準出力を作成します。 */
   createStdout = (failWrite?: (output: string) => void): FakeStdout => {
@@ -233,6 +255,134 @@ test('診断の書き込みが同期的に失敗しても終了コード2を保�
   });
 
   expect(result).toMatchObject({ elapsedMs: 0, events: [], exitCode: 2, output: '' });
+});
+
+describe('設定ファイルとプリセット', () => {
+  const CONFIG_PATH = '/config/pomotty/config.json',
+    /** 決められた内容の設定ファイルを読む処理を差し替えたCLIを実行します。 */
+    runWithConfig = (
+      arguments_: readonly string[],
+      files: Readonly<Record<string, string>>,
+    ): Promise<CliResult> =>
+      runCliFor(arguments_, {
+        configPath: CONFIG_PATH,
+        readConfigFile: (path) => Promise.resolve(files[path]),
+      });
+
+  test('標準の設定ファイルの値でタイマーを実行する', async () => {
+    const result = await runWithConfig([], {
+      [CONFIG_PATH]: '{"work": 1, "break": 2, "loop": 2}',
+    });
+
+    expect(result.elapsedMs).toBe(6 * MINUTE_MS);
+    expect(result.exitCode).toBe(0);
+  });
+
+  test('defaultPresetとCLIの値を組み合わせてタイマーを実行する', async () => {
+    const result = await runWithConfig(['--loop', '1'], {
+      [CONFIG_PATH]: '{"defaultPreset": "short", "presets": {"short": {"work": 3, "break": 1}}}',
+    });
+
+    expect(result.elapsedMs).toBe(4 * MINUTE_MS);
+    expect(result.output).toContain('🍅 Work started (3 min)\n');
+  });
+
+  test('--presetで組み込みのプリセットを使う', async () => {
+    const result = await runCliFor(['-p', 'deep']);
+
+    expect(result.elapsedMs).toBe(2 * 60 * MINUTE_MS);
+    expect(result.output).toContain('🍅 Work started (50 min)\n');
+  });
+
+  test('configPathを渡さなければ標準の設定ファイルを読まない', async () => {
+    const reads: string[] = [],
+      result = await runCliFor(['--loop', '1'], {
+        readConfigFile: (path) => {
+          reads.push(path);
+          return Promise.resolve('{"work": 1}');
+        },
+      });
+
+    expect(reads).toEqual([]);
+    expect(result.elapsedMs).toBe(DEFAULT_WORK_DURATION_MS + DEFAULT_BREAK_DURATION_MS);
+  });
+
+  test('--no-configでは標準の設定ファイルを読まない', async () => {
+    const result = await runWithConfig(['--no-config', '--loop', '1'], {
+      [CONFIG_PATH]: '{"work": 1}',
+    });
+
+    expect(result.elapsedMs).toBe(DEFAULT_WORK_DURATION_MS + DEFAULT_BREAK_DURATION_MS);
+  });
+
+  test('--list-presetsで一覧を表示し、タイマーを開始しない', async () => {
+    const result = await runWithConfig(['--list-presets'], {
+      [CONFIG_PATH]: '{"presets": {"focus": {"work": 40}}}',
+    });
+
+    expect(result).toEqual({
+      elapsedMs: 0,
+      errorOutput: '',
+      events: [],
+      exitCode: 0,
+      output: [
+        '  classic  work 25  break 5   loop 4  built-in',
+        '  deep     work 50  break 10  loop 2  built-in',
+        '  quick    work 15  break 3   loop 3  built-in',
+        '  focus    work 40  break 5   loop 3  config',
+        '',
+      ].join('\n'),
+    });
+  });
+
+  test('--list-presetsの出力先がEPIPEでも正常終了する', async () => {
+    const result = await runCliFor(['--list-presets'], {
+      stdout: createStdout(() => {
+        throw brokenPipe();
+      }),
+    });
+
+    expect(result.exitCode).toBe(0);
+  });
+
+  test('設定ファイルが不正なら終了コード1で終了し、再生処理を作らない', async () => {
+    const result = await runWithConfig([], { [CONFIG_PATH]: '{"work": 0}' });
+
+    expect(result).toEqual({
+      elapsedMs: 0,
+      errorOutput: `Error: Invalid config file "${CONFIG_PATH}": work must be an integer from 1 to 1440.\n`,
+      events: [],
+      exitCode: 1,
+      output: '',
+    });
+  });
+
+  test('--configで指定したファイルがなければ終了コード1で終了する', async () => {
+    const result = await runWithConfig(['--config', 'missing.json'], {});
+
+    expect(result).toMatchObject({
+      errorOutput: 'Error: Config file not found: "missing.json"\n',
+      events: [],
+      exitCode: 1,
+    });
+  });
+
+  test('存在しないプリセットでは終了コード2で終了する', async () => {
+    const result = await runWithConfig(['--preset', 'nope'], {});
+
+    expect(result).toMatchObject({
+      errorOutput:
+        'Error: Unknown preset: "nope". Run "pomotty --list-presets" to see available presets.\n',
+      events: [],
+      exitCode: 2,
+    });
+  });
+
+  test('設定ファイルが不正でもヘルプは表示できる', async () => {
+    const result = await runWithConfig(['--help'], { [CONFIG_PATH]: '{' });
+
+    expect(result).toMatchObject({ errorOutput: '', exitCode: 0, output: help });
+  });
 });
 
 test('NGを選択するとタイマーを開始せず、再生処理を終了する', async () => {
