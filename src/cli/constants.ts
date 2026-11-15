@@ -1,5 +1,6 @@
 import { DEFAULT_BREAK_DURATION_MINUTES, DEFAULT_WORK_DURATION_MINUTES } from '#src/timer/timer.ts';
 import type { OptionDefinition } from './types.ts';
+import packageJson from '#package.json' with { type: 'json' };
 
 /** `--loop`を指定しない場合に作業と休憩を繰り返す回数です。 */
 const DEFAULT_LOOP_COUNT = 3,
@@ -27,6 +28,17 @@ const DEFAULT_LOOP_COUNT = 3,
       description: 'Print help',
       name: '--help',
     },
-  ] as const satisfies readonly OptionDefinition[];
+    {
+      alias: '-v',
+      description: 'Print version',
+      name: '--version',
+    },
+  ] as const satisfies readonly OptionDefinition[],
+  /**
+   * `package.json`に記載されたpomottyのバージョンです。
+   *
+   * バンドル時は値が`dist/cli.js`へ埋め込まれ、開発時はNode.jsがJSONとして読み込みます。
+   */
+  VERSION: string = packageJson.version;
 
-export { DEFAULT_LOOP_COUNT, OPTIONS };
+export { DEFAULT_LOOP_COUNT, OPTIONS, VERSION };

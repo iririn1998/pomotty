@@ -91,6 +91,12 @@ To see the available options, run:
 pomotty --help
 ```
 
+To print the installed version, run:
+
+```shell
+pomotty --version
+```
+
 Different notification sounds play when work and break sessions end. Sound
 playback uses `afplay` on macOS, `paplay` or `aplay` on Linux, and PowerShell on
 Windows. If audio playback is unavailable, the timer falls back to different
