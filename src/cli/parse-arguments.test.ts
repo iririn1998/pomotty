@@ -14,7 +14,7 @@ const DEFAULT_TIMER_OPTIONS = {
   MINIMUM_DURATION_MINUTES = 1,
   TRUNCATED_OPTION_LENGTH = 158;
 
-test('オプションなしでは作業15分・休憩5分・3回を返す', () => {
+test('オプションなしでは作業25分・休憩5分・3回を返す', () => {
   expect(parseCliArguments([])).toEqual(DEFAULT_TIMER_OPTIONS);
 });
 
@@ -70,7 +70,7 @@ test.each([
 test.each([
   { arguments_: ['--loop', '1'], loopCount: 1 },
   { arguments_: ['--loop=5'], loopCount: 5 },
-  { arguments_: ['--loop', String(Number.MAX_SAFE_INTEGER)], loopCount: Number.MAX_SAFE_INTEGER },
+  { arguments_: ['--loop', '100'], loopCount: 100 },
 ])('繰り返し回数を受理する: $arguments_', ({ arguments_, loopCount }) => {
   expect(parseCliArguments(arguments_)).toEqual({
     breakDurationMinutes: DEFAULT_BREAK_DURATION_MINUTES,
@@ -92,12 +92,14 @@ test.each([
   ['1e2'],
   [' 2'],
   ['Infinity'],
+  ['101'],
+  ['1000'],
   ['9007199254740992'],
   ['--work'],
 ])('不正な繰り返し回数を拒否する: %j', (...values) => {
   expect(parseCliArguments(['--loop', ...values])).toEqual({
     kind: 'error',
-    message: `Error: --loop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
+    message: `Error: --loop requires an integer from 1 to 100.\n`,
   });
 });
 
@@ -204,4 +206,19 @@ test.each(['--help', '-h'])('%sでヘルプ表示を選ぶ', (option) => {
 
 test('ヘルプは他の不正な引数より優先する', () => {
   expect(parseCliArguments(['--unknown', '--help'])).toEqual({ kind: 'help' });
+});
+
+test.each(['--version', '-v'])('%sでバージョン表示を選ぶ', (option) => {
+  expect(parseCliArguments([option])).toEqual({ kind: 'version' });
+});
+
+test('バージョン表示は他の不正な引数より優先する', () => {
+  expect(parseCliArguments(['--work', '0', '--unknown', '-v'])).toEqual({ kind: 'version' });
+});
+
+test.each([
+  ['--help', '--version'],
+  ['-v', '-h'],
+])('ヘルプとバージョン表示が両方あればヘルプを優先する: %s %s', (...arguments_) => {
+  expect(parseCliArguments(arguments_)).toEqual({ kind: 'help' });
 });

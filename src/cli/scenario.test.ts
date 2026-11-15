@@ -16,7 +16,7 @@ const SHORT = ['--work', '1', '--break', '1', '--loop', '2'],
   SHORT_WITH_FINAL_BREAK = [...SHORT, '--final-break'],
   SHUTDOWN = '2000ms',
   COMPLETION_SHUTDOWN = '5000ms',
-  /** 開始確認でOKを選び、タイマーを開始した状態のシナリオを返します。 */
+  /** 開始確認でYesを選び、タイマーを開始した状態のシナリオを返します。 */
   startTimer = async (options: ScenarioOptions = {}): Promise<Scenario> => {
     const app = await startScenario({ arguments_: SHORT, ...options });
 
@@ -37,13 +37,13 @@ const SHORT = ['--work', '1', '--break', '1', '--loop', '2'],
     app.log().filter((entry) => entry.includes(' play:'));
 
 describe('開始確認', () => {
-  test('起動直後はロゴとOKを選択した確認を表示し、時間が経ってもタイマーを開始しない', async () => {
+  test('起動直後はロゴとYesを選択した確認を表示し、時間が経ってもタイマーを開始しない', async () => {
     const app = await startScenario({ arguments_: SHORT });
 
     expect(app.terminal.lastLines(3)).toEqual([
-      'Start working? (Use ↑/↓ to select, Enter to confirm)',
-      '❯ OK',
-      '  NG',
+      'Start working? (y/n, or ↑/↓ and Enter)',
+      '❯ Yes',
+      '  No',
     ]);
     expect(app.terminal.lines()[1]).toContain('██████╗');
 
@@ -60,34 +60,34 @@ describe('開始確認', () => {
     await app.press('down');
 
     expect(app.terminal.lastLines(3)).toEqual([
-      'Start working? (Use ↑/↓ to select, Enter to confirm)',
-      '  OK',
-      '❯ NG',
+      'Start working? (y/n, or ↑/↓ and Enter)',
+      '  Yes',
+      '❯ No',
     ]);
 
     await app.press('up');
 
-    expect(app.terminal.lastLines(2)).toEqual(['❯ OK', '  NG']);
+    expect(app.terminal.lastLines(2)).toEqual(['❯ Yes', '  No']);
 
     // 端では反対側へ移る
     await app.press('up');
 
-    expect(app.terminal.lastLines(2)).toEqual(['  OK', '❯ NG']);
+    expect(app.terminal.lastLines(2)).toEqual(['  Yes', '❯ No']);
     expect(app.terminal.lines().filter((line) => line.startsWith('Start working?'))).toHaveLength(
       1,
     );
   });
 
-  test('確認中のspace、s、qなどのキーは無視する', async () => {
+  test('確認中のspace、s、q、Ctrl+Nなどのキーは無視する', async () => {
     const app = await startScenario({ arguments_: SHORT });
 
-    await app.press('space', 's', 'q', 'x');
+    await app.press('space', 's', 'q', 'x', '\u000E');
 
     expect(app.finished()).toBe(false);
-    expect(app.terminal.lastLines(2)).toEqual(['❯ OK', '  NG']);
+    expect(app.terminal.lastLines(2)).toEqual(['❯ Yes', '  No']);
   });
 
-  test('OKで確定すると作業を開始し、raw modeを確認とタイマーで1回ずつ切り替える', async () => {
+  test('Yesで確定すると作業を開始し、raw modeを確認とタイマーで1回ずつ切り替える', async () => {
     const app = await startTimer();
 
     expect(frameOf(app)[0]).toBe('  🍅 WORK                      Cycle 1 / 2');
@@ -95,27 +95,45 @@ describe('開始確認', () => {
     expect(app.rawModes()).toEqual([true, false, true]);
   });
 
-  test('OKで確定すると確認の質問と選択肢を画面に残さない', async () => {
+  test('Yesで確定すると確認の質問と選択肢を画面に残さない', async () => {
     const app = await startTimer();
 
     expect(app.terminal.text()).not.toContain('Start working?');
-    expect(app.terminal.lines()).not.toContain('❯ OK');
-    expect(app.terminal.lines()).not.toContain('  NG');
+    expect(app.terminal.lines()).not.toContain('❯ Yes');
+    expect(app.terminal.lines()).not.toContain('  No');
   });
 
-  test('NGで確定するとタイマーを開始せず、終了コード0で終える', async () => {
+  test('Noで確定するとタイマーを開始せず、終了コード0で終える', async () => {
     const app = await startScenario({ arguments_: SHORT });
 
     await app.press('down', 'enter');
 
     expect(app.exitCode()).toBe(0);
-    expect(app.terminal.lastLines(3)).toEqual(['  OK', '❯ NG', '⏹️ Work was not started.']);
+    expect(app.terminal.lastLines(3)).toEqual(['  Yes', '❯ No', '⏹️ Work was not started.']);
     expect(app.log()).toEqual([
       '0:00.000 exit-code:0',
       '0:00.000 shutdown:abort',
       `0:00.000 schedule-exit:0:${SHUTDOWN}`,
     ]);
     expect(app.rawModes()).toEqual([true, false]);
+  });
+
+  test('yを押すと即座に作業を開始する', async () => {
+    const app = await startScenario({ arguments_: SHORT });
+
+    await app.press('y');
+
+    expect(frameOf(app)[0]).toBe('  🍅 WORK                      Cycle 1 / 2');
+    expect(app.terminal.text()).not.toContain('Start working?');
+  });
+
+  test('nを押すとNoを選んだ表示を残し、タイマーを開始せず終える', async () => {
+    const app = await startScenario({ arguments_: SHORT });
+
+    await app.press('n');
+
+    expect(app.exitCode()).toBe(0);
+    expect(app.terminal.lastLines(3)).toEqual(['  Yes', '❯ No', '⏹️ Work was not started.']);
   });
 
   test('確認中のCtrl+Cではタイマーを開始せず、終了コード0で終える', async () => {
@@ -138,7 +156,7 @@ describe('開始確認', () => {
 });
 
 describe('残り時間の画面', () => {
-  test('既定の設定では15分の作業を3サイクルで表示する', async () => {
+  test('既定の設定では25分の作業を3サイクルで表示する', async () => {
     const app = await startScenario();
 
     await app.press('enter');
@@ -146,23 +164,23 @@ describe('残り時間の画面', () => {
     expect(frameOf(app)).toEqual([
       '  🍅 WORK                      Cycle 1 / 3',
       '',
-      '       ████   ██████    ██████ ██████',
-      '         ██   ██     ██ ██  ██ ██  ██',
-      '         ██   ██████    ██  ██ ██  ██',
-      '         ██       ██ ██ ██  ██ ██  ██',
+      '       ██████ ██████    ██████ ██████',
+      '           ██ ██     ██ ██  ██ ██  ██',
+      '       ██████ ██████    ██  ██ ██  ██',
+      '       ██         ██ ██ ██  ██ ██  ██',
       '       ██████ ██████    ██████ ██████',
       '',
       '  ────────────────────────────────────────',
-      '  0:00 elapsed       0%        15:00 total',
+      '  0:00 elapsed       0%        25:00 total',
       '',
-      '  #1  ··············· ·····  ◀ now',
-      '  #2  ··············· ·····',
-      '  #3  ···············',
-      '      work 15:00      break 5:00',
+      '  #1  ················· ···  ◀ now',
+      '  #2  ················· ···',
+      '  #3  ·················',
+      '      work 25:00        break 5:00',
       '',
       '  [space] pause   [s] skip   [q] quit',
     ]);
-    expect(clockOf(app)).toBe('15:00');
+    expect(clockOf(app)).toBe('25:00');
   });
 
   test('残り時間は秒の切り上げで表示し、tickごとに描き直す', async () => {
@@ -664,18 +682,18 @@ describe('完了', () => {
     const app = await startScenario({ interactive: false });
 
     await app.press('enter');
-    await app.advance('55:00');
+    await app.advance('1:25:00');
 
     expect(app.exitCode()).toBe(0);
     expect(app.log()).toEqual([
-      '15:00.000 play:work',
-      '20:00.000 play:break',
-      '35:00.000 play:work',
-      '40:00.000 play:break',
-      '55:00.000 play:work:completion-notice',
-      '55:00.000 exit-code:0',
-      '55:00.000 shutdown:complete',
-      `55:00.000 schedule-exit:0:${COMPLETION_SHUTDOWN}`,
+      '25:00.000 play:work',
+      '30:00.000 play:break',
+      '55:00.000 play:work',
+      '1:00:00.000 play:break',
+      '1:25:00.000 play:work:completion-notice',
+      '1:25:00.000 exit-code:0',
+      '1:25:00.000 shutdown:complete',
+      `1:25:00.000 schedule-exit:0:${COMPLETION_SHUTDOWN}`,
     ]);
   });
 
@@ -686,12 +704,12 @@ describe('完了', () => {
     });
 
     await app.press('enter');
-    await app.advance('1:00:00');
+    await app.advance('1:30:00');
 
     expect(app.exitCode()).toBe(0);
     expect(playsOf(app).slice(-2)).toEqual([
-      '55:00.000 play:work',
-      '1:00:00.000 play:break:completion-notice',
+      '1:25:00.000 play:work',
+      '1:30:00.000 play:break:completion-notice',
     ]);
   });
 

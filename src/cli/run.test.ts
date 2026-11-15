@@ -13,6 +13,7 @@ import { LOGO } from '#src/terminal/constants.ts';
 import type { OutputStream } from '#src/terminal/output.ts';
 import type { ProcessEvents } from '#src/terminal/terminal-guard.ts';
 import type { SoundPlayer } from '#src/notification/sound.ts';
+import { VERSION } from './constants.ts';
 
 type FakeStdout = OutputStream & {
   readonly emitError: (error: unknown) => void;
@@ -36,7 +37,7 @@ type CliResult = {
 const MINUTE_MS = 60_000,
   START_TIME = 1_700_000_000_000,
   help =
-    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (positive integer, default: 3)\n  --final-break\n          Take a break after the last work session (default: finish after work)\n  -h, --help\n          Print help\n',
+    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 25)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (1-100, default: 3)\n  --final-break\n          Take a break after the last work session (default: finish after work)\n  -h, --help\n          Print help\n  -v, --version\n          Print version\n',
   brokenPipe = (): Error => Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }),
   /** 書き込みを記録し、`error`イベントを発生させられる偽の標準出力を作成します。 */
   createStdout = (failWrite?: (output: string) => void): FakeStdout => {
@@ -130,7 +131,7 @@ const MINUTE_MS = 60_000,
     };
   };
 
-test('オプションなしで15分の作業を3回実行し、最後の作業の完了で終了する', async () => {
+test('オプションなしで25分の作業を3回実行し、最後の作業の完了で終了する', async () => {
   const result = await runCliFor();
 
   expect(result).toEqual({
@@ -151,15 +152,15 @@ test('オプションなしで15分の作業を3回実行し、最後の作業�
     exitCode: 0,
     output: [
       `${LOGO}\n`,
-      '🍅 Work started (15 min)\n',
+      '🍅 Work started (25 min)\n',
       '✅ Work complete.\n',
       '☕ Break started (5 min)\n',
       '✅ Break complete.\n',
-      '🍅 Work started (15 min)\n',
+      '🍅 Work started (25 min)\n',
       '✅ Work complete.\n',
       '☕ Break started (5 min)\n',
       '✅ Break complete.\n',
-      '🍅 Work started (15 min)\n',
+      '🍅 Work started (25 min)\n',
       '✅ Work complete.\n',
       '🎉 Pomodoro complete.\n',
     ].join(''),
@@ -196,7 +197,7 @@ test('不正な繰り返し回数では再生コマンドの解決も開始確�
 
   expect(result).toEqual({
     elapsedMs: 0,
-    errorOutput: `Error: --loop requires an integer from 1 to ${Number.MAX_SAFE_INTEGER}.\n`,
+    errorOutput: `Error: --loop requires an integer from 1 to 100.\n`,
     events: [],
     exitCode: 2,
     output: '',
@@ -212,6 +213,18 @@ test.each(['--help', '-h'])('%sでヘルプを表示してタイマーを開始�
     events: [],
     exitCode: 0,
     output: help,
+  });
+});
+
+test.each(['--version', '-v'])('%sでバージョンを表示してタイマーを開始しない', async (option) => {
+  const result = await runCliFor([option]);
+
+  expect(result).toEqual({
+    elapsedMs: 0,
+    errorOutput: '',
+    events: [],
+    exitCode: 0,
+    output: `${VERSION}\n`,
   });
 });
 
@@ -237,7 +250,7 @@ test('診断の書き込みが同期的に失敗しても終了コード2を保�
   expect(result).toMatchObject({ elapsedMs: 0, events: [], exitCode: 2, output: '' });
 });
 
-test('NGを選択するとタイマーを開始せず、再生処理を終了する', async () => {
+test('Noを選択するとタイマーを開始せず、再生処理を終了する', async () => {
   const result = await runCliFor([], { confirmStart: () => Promise.resolve(false) });
 
   expect(result).toEqual({
@@ -300,6 +313,21 @@ test.each([
 
 test.each([
   { error: brokenPipe(), exitCode: 0, name: 'EPIPE' },
+  { error: new Error('stream destroyed'), exitCode: 1, name: 'その他のエラー' },
+])(
+  'バージョンの同期的な書き込み失敗が$nameなら終了コード$exitCodeを返す',
+  async ({ error, exitCode }) => {
+    const stdout = createStdout(() => {
+        throw error;
+      }),
+      harness = createHarness(['--version'], {}, stdout);
+
+    expect(await runCli(harness.parameters)).toBe(exitCode);
+  },
+);
+
+test.each([
+  { error: brokenPipe(), exitCode: 0, name: 'EPIPE' },
   { error: new Error('write EIO'), exitCode: 1, name: 'その他のエラー' },
 ])(
   'タイマー実行中の標準出力の$nameでタイマーを中断し、終了コード$exitCodeで終える',
@@ -324,7 +352,7 @@ test.each([
       'shutdown:abort',
       `schedule-exit:${exitCode}:${SHUTDOWN_DEADLINE_MS}`,
     ]);
-    expect(stdout.output()).toBe(`${LOGO}\n🍅 Work started (15 min)\n`);
+    expect(stdout.output()).toBe(`${LOGO}\n🍅 Work started (25 min)\n`);
   },
 );
 
@@ -722,7 +750,7 @@ describe('残り時間の画面', () => {
 
     await expect(runCli(harness.parameters)).rejects.toThrow('stop');
     expect(stdout.output()).toContain(
-      '[q] quit\n\u001B[2K🍅 WORK  1/3\n\u001B[2K15:00 left · 0%\n',
+      '[q] quit\n\u001B[2K🍅 WORK  1/3\n\u001B[2K25:00 left · 0%\n',
     );
   });
 

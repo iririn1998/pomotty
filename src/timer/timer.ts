@@ -93,7 +93,7 @@ type RunPomodoroTimerParameters = Partial<Omit<TimerSettings, 'loopCount'>> & {
 const DEFAULT_BREAK_DURATION_MINUTES = 5,
   /** 1分あたりのミリ秒数です。 */
   MILLISECONDS_PER_MINUTE = 60_000,
-  DEFAULT_WORK_DURATION_MINUTES = 15,
+  DEFAULT_WORK_DURATION_MINUTES = 25,
   /** オプション未指定時の休憩時間です。 */
   DEFAULT_BREAK_DURATION_MS = DEFAULT_BREAK_DURATION_MINUTES * MILLISECONDS_PER_MINUTE,
   /** オプション未指定時の作業時間です。 */

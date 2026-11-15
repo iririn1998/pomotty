@@ -38,7 +38,7 @@ script:
 ```ts
 const app = await startScenario({ arguments_: ['--work', '1', '--break', '1'] });
 
-await app.press('enter'); // Select OK in the start confirmation
+await app.press('enter'); // Select Yes in the start confirmation
 await app.advance('0:20'); // Run the timer ticks for 20 seconds
 await app.press('space'); // Pause
 

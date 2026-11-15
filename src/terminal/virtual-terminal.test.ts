@@ -30,7 +30,7 @@ describe('偽の端末', () => {
   test('画面末尾の消去ではカーソル位置から後ろをすべて消す', () => {
     const terminal = createVirtualTerminal();
 
-    terminal.write('question\n> OK\n  NG\r\u001B[1A\u001B[J');
+    terminal.write('question\n> Yes\n  No\r\u001B[1A\u001B[J');
 
     expect(terminal.lines()).toEqual(['question']);
   });

@@ -56,10 +56,16 @@ type ConfirmWorkStartParameters = SelectionTerminalParameters & {
   readonly createTerminal?: (parameters: SelectionTerminalParameters) => SelectionTerminal;
 };
 
-const CHOICES = ['OK', 'NG'] as const,
+const CHOICES = ['Yes', 'No'] as const,
   CONTROL_C_KEY_NAME = 'c',
   ENTER_KEY_NAMES = new Set(['enter', 'return']),
   FIRST_CHOICE_INDEX = 0,
+  /** 押すと対応する選択肢で即座に確定するキーです。Shift付きの大文字も同じキー名になります。 */
+  SHORTCUT_CHOICE_INDEXES: ReadonlyMap<string, number> = new Map([
+    ['escape', CHOICES.indexOf('No')],
+    ['n', CHOICES.indexOf('No')],
+    ['y', CHOICES.indexOf('Yes')],
+  ]),
   KEYPRESS_EVENT_KEY_INDEX = 1,
   MOVE_KEY_NAMES = new Set(['down', 'up']),
   NEXT_INDEX_OFFSET = 1,
@@ -67,7 +73,7 @@ const CHOICES = ['OK', 'NG'] as const,
   CLEAR_SELECTION_SEQUENCE = `\r\u001B[${CHOICES.length}A\u001B[J`,
   /** 確定前の終端として扱うstdinのイベントです。 */
   STDIN_CLOSE_EVENTS = ['end', 'close'],
-  SELECTION_QUESTION = 'Start working? (Use ↑/↓ to select, Enter to confirm)',
+  SELECTION_QUESTION = 'Start working? (y/n, or ↑/↓ and Enter)',
   /** キーイベントの値を選択操作用の形式へ変換します。 */
   keyFrom = (value: unknown): SelectionKey => {
     let key = {},
@@ -176,15 +182,31 @@ const CHOICES = ['OK', 'NG'] as const,
 
     return FIRST_CHOICE_INDEX;
   },
+  /** 選択位置の項目で確定し、確認の表示を後片付けして結果を返します。 */
+  confirmChoice = (selectedIndex: number, terminal: SelectionTerminal): boolean => {
+    if (CHOICES[selectedIndex] === 'Yes') {
+      // Yesではタイマー画面へ移るため、確認の表示を残しません。
+      terminal.write(CLEAR_SELECTION_SEQUENCE);
+      return true;
+    }
+
+    terminal.write('\n');
+    return false;
+  },
   /** キー入力を処理し、確定結果または次の選択位置を返します。 */
   handleKey = (
     key: SelectionKey,
     selectedIndex: number,
     terminal: SelectionTerminal,
   ): boolean | number => {
-    if (key.ctrl && key.name === CONTROL_C_KEY_NAME) {
-      terminal.write('\n');
-      return false;
+    if (key.ctrl) {
+      if (key.name === CONTROL_C_KEY_NAME) {
+        terminal.write('\n');
+        return false;
+      }
+
+      // Ctrl+YやCtrl+Nなどの誤操作で確定しないよう、Ctrl付きのキーは無視します。
+      return selectedIndex;
     }
 
     if (MOVE_KEY_NAMES.has(key.name)) {
@@ -195,23 +217,27 @@ const CHOICES = ['OK', 'NG'] as const,
     }
 
     if (ENTER_KEY_NAMES.has(key.name)) {
-      if (CHOICES[selectedIndex] === 'OK') {
-        // OKではタイマー画面へ移るため、確認の表示を残しません。
-        terminal.write(CLEAR_SELECTION_SEQUENCE);
-        return true;
+      return confirmChoice(selectedIndex, terminal);
+    }
+
+    const shortcutIndex = SHORTCUT_CHOICE_INDEXES.get(key.name);
+
+    if (shortcutIndex !== undefined) {
+      if (shortcutIndex !== selectedIndex && CHOICES[shortcutIndex] === 'No') {
+        // 中止した選択を画面に残すため、Noを選んだ状態へ描き直してから確定します。
+        terminal.write(`${CLEAR_SELECTION_SEQUENCE}${renderSelection(shortcutIndex)}`);
       }
 
-      terminal.write('\n');
-      return false;
+      return confirmChoice(shortcutIndex, terminal);
     }
 
     return selectedIndex;
   },
   /**
-   * 上下キーでOKまたはNGを選び、作業を開始するか確認します。
+   * 上下キーとEnter、または`y`/`n`/`Esc`でYesかNoを選び、作業を開始するか確認します。
    *
-   * OKでは確認の表示を消して`true`を返します。
-   * NG、Ctrl+C、確定前のstdin終端、`signal`の中断では`false`を返します。
+   * Yesでは確認の表示を消して`true`を返します。
+   * No、Ctrl+C、確定前のstdin終端、`signal`の中断では`false`を返します。
    * 初回描画を含むすべての出力を`try`内で行い、失敗しても端末状態を復元します。
    */
   confirmWorkStart = async ({
