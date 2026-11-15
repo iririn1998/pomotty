@@ -37,7 +37,7 @@ type CliResult = {
 const MINUTE_MS = 60_000,
   START_TIME = 1_700_000_000_000,
   help =
-    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 15)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (1-100, default: 3)\n  -h, --help\n          Print help\n  -v, --version\n          Print version\n',
+    'Pomotty CLI\n\nUsage: pomotty [OPTIONS]\n\nOptions:\n  --work <minutes>\n          Work duration in minutes (1-1440, default: 25)\n  --break <minutes>\n          Break duration in minutes (1-1440, default: 5)\n  --loop <count>\n          Work-break repetitions (1-100, default: 3)\n  -h, --help\n          Print help\n  -v, --version\n          Print version\n',
   brokenPipe = (): Error => Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }),
   /** 書き込みを記録し、`error`イベントを発生させられる偽の標準出力を作成します。 */
   createStdout = (failWrite?: (output: string) => void): FakeStdout => {
@@ -131,7 +131,7 @@ const MINUTE_MS = 60_000,
     };
   };
 
-test('オプションなしで15分の作業と5分の休憩を3回実行する', async () => {
+test('オプションなしで25分の作業と5分の休憩を3回実行する', async () => {
   const result = await runCliFor();
 
   expect(result).toEqual({
@@ -153,15 +153,15 @@ test('オプションなしで15分の作業と5分の休憩を3回実行する'
     exitCode: 0,
     output: [
       `${LOGO}\n`,
-      '🍅 Work started (15 min)\n',
+      '🍅 Work started (25 min)\n',
       '✅ Work complete.\n',
       '☕ Break started (5 min)\n',
       '✅ Break complete.\n',
-      '🍅 Work started (15 min)\n',
+      '🍅 Work started (25 min)\n',
       '✅ Work complete.\n',
       '☕ Break started (5 min)\n',
       '✅ Break complete.\n',
-      '🍅 Work started (15 min)\n',
+      '🍅 Work started (25 min)\n',
       '✅ Work complete.\n',
       '☕ Break started (5 min)\n',
       '✅ Break complete.\n',
@@ -350,7 +350,7 @@ test.each([
       'shutdown:abort',
       `schedule-exit:${exitCode}:${SHUTDOWN_DEADLINE_MS}`,
     ]);
-    expect(stdout.output()).toBe(`${LOGO}\n🍅 Work started (15 min)\n`);
+    expect(stdout.output()).toBe(`${LOGO}\n🍅 Work started (25 min)\n`);
   },
 );
 
@@ -747,7 +747,7 @@ describe('残り時間の画面', () => {
 
     await expect(runCli(harness.parameters)).rejects.toThrow('stop');
     expect(stdout.output()).toContain(
-      '[q] quit\n\u001B[2K🍅 WORK  1/3\n\u001B[2K15:00 left · 0%\n',
+      '[q] quit\n\u001B[2K🍅 WORK  1/3\n\u001B[2K25:00 left · 0%\n',
     );
   });
 
