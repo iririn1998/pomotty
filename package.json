@@ -1,6 +1,6 @@
 {
   "name": "pomotty",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "An interactive terminal Pomodoro timer with configurable work and break sessions and sound notifications.",
   "keywords": [
     "cli",
